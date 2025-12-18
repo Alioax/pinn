@@ -1,0 +1,264 @@
+\documentclass[9pt, twocolumn]{extarticle}
+
+%%% Using extarticle instead of the standard article class to allow 8pt font size
+%%% Title and author fields are manually resized (e.g., \Huge, \large) for better fitting
+%%% \vspace*{-\topskip} is applied in \maketitle to remove the extra top margin above the title
+
+\usepackage{graphicx}
+\graphicspath{{figs/}}
+\usepackage[a4paper, margin=1.5cm, bottom=2.5cm]{geometry}
+\usepackage{float}
+\usepackage{subfig}
+\usepackage{caption}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+% \usepackage{stfloats}  % Commented out - package not available
+\usepackage{titlesec}
+\usepackage{setspace}
+\usepackage{xcolor}
+\definecolor{UofT_blue}{HTML}{0baedd}
+\usepackage[colorlinks=true,
+            linkcolor=UofT_blue,
+            urlcolor=UofT_blue,
+            citecolor=UofT_blue]{hyperref}
+\usepackage[
+  backend=biber,
+  style=numeric,          % numbered refs
+  citestyle=numeric-comp, % [1-3] compression
+  sorting=none            % order of citation
+  ]{biblatex}
+  \addbibresource{references.bib}
+
+\newcommand{\mystretch}{1.2}
+\newcommand{\myfigmargin}{4pt}
+
+
+\setlength{\textfloatsep}{\myfigmargin}    % text ↔ top/bottom floats
+\setlength{\intextsep}{\myfigmargin}       % text ↔ here-placed floats ([h])
+\setlength{\floatsep}{\myfigmargin}        % between floats
+\setlength{\dbltextfloatsep}{\myfigmargin} % two-column floats (figure*)
+\setlength{\dblfloatsep}{\myfigmargin}
+
+
+\captionsetup[figure]{belowskip=0pt, skip=4pt, labelfont=bf, justification=justified, singlelinecheck=false, font={stretch=\mystretch}}
+\captionsetup[subfloat]{labelfont=normalfont, justification=centering, singlelinecheck=false, farskip=4pt,captionskip=0pt, font={stretch=\mystretch}}
+% \captionsetup[figure]{belowskip=-14pt, font={stretch=\mystretch}}
+\captionsetup[subfloat]{belowskip=-14pt, font={stretch=\mystretch}}
+\captionsetup[table]{labelfont=bf, justification=justified, singlelinecheck=false, skip=2pt, farskip=0pt, captionskip=0pt, belowskip=0pt, font={stretch=\mystretch}}
+  
+\renewcommand{\baselinestretch}{\mystretch} % 1.2x line spacing
+  
+\setlength{\columnsep}{0.5cm}
+  
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{0pt}%
+  {0.8ex plus 0.5ex minus 0.2ex}%
+  {0.5ex}%
+  {\normalfont\Large\bfseries}}
+\makeatother
+
+
+\makeatletter
+\renewcommand{\maketitle}{\bgroup\setlength{\parindent}{0pt}
+\vspace*{-\topskip}% remove the top margin above title
+\begin{flushleft}
+  \huge\textbf{\@title}
+
+  \vspace{0.20cm}
+
+  \normalsize\@author \hfill \normalsize\@date
+
+  \vspace{0.25cm}\hrule\vspace{0.25cm}
+\end{flushleft}
+\egroup}
+\makeatother
+
+
+% Title, author, and date are now on the cover page
+
+
+
+\begin{document}
+
+% Cover Page
+\begin{titlepage}
+\centering
+\vspace*{1.5cm}
+
+% Title
+{\fontsize{36}{42}\selectfont\bfseries\color{UofT_blue} Physics-Informed Neural Networks for Contaminant Transport in Aquifers\par}
+\vspace{3.5cm}
+
+% Author
+{\fontsize{18}{18}\selectfont Ali Haghighi\par}
+\vspace{2cm}
+
+% Advisors
+{\fontsize{18}{18}\selectfont Supervised by:\par}
+% \vspace{0.8cm}
+{\fontsize{18}{24}\selectfont Afshin Ashrafzadeh, François Lehmann, Marwan Fahs\par}
+\vspace{4.5cm}
+
+% Date
+{\fontsize{14}{14}\selectfont\today\par}
+\vspace{2cm}
+
+% Logos
+\begin{figure}[h]
+\centering
+\includegraphics[height=2cm]{figs/U of T Logo.pdf}
+\hspace{1cm}
+\includegraphics[height=2cm]{figs/Universite de Strasbourg Logo.pdf}
+\end{figure}
+
+\vfill
+
+\end{titlepage}
+
+% Start content on new page
+\newpage
+\twocolumn
+
+\section*{Abstract}
+
+This work presents a Physics-Informed Neural Network (PINN) implementation for solving the one-dimensional advection--dispersion equation governing contaminant transport in groundwater aquifers. The complete implementation is available as a Python script: \url{https://github.com/Alioax/pinn/blob/main/pinn_baseline/pinn_baseline.py}. The network trains to satisfy the governing partial differential equation and boundary conditions without requiring labeled solution data. The network operates in dimensionless form to improve numerical stability, uses automatic differentiation to compute derivatives, and enforces physics through a weighted loss function combining PDE residual, initial condition, and boundary condition terms. Results demonstrate concentration profiles that capture the advective front propagation and dispersive spreading, compared with the analytical Ogata--Banks solution \cite{OgataBanks1961} as a visual reference for post-training comparison. The baseline script and additional implementations are available in the repository: \url{https://github.com/Alioax/pinn}.
+
+\section{Problem Statement}
+
+The governing equation for one-dimensional contaminant transport in a porous medium is the advection--dispersion equation:
+
+\begin{equation*}
+\frac{\partial C}{\partial t} + U \frac{\partial C}{\partial x} = D \frac{\partial^2 C}{\partial x^2}
+\end{equation*}
+
+where $C(x,t)$ is the concentration (kg/m$^3$). The physical parameters are:
+\begin{align*}
+U &= 0.1 \text{ m/day} && \text{(advection velocity)} \\
+D &= 1.0 \times 10^{-7} \times 86400 \text{ m}^2\text{/day} && \text{(dispersion coefficient)} \\
+C_0 &= 5.0 \text{ kg/m}^3 && \text{(inlet concentration)}
+\end{align*}
+
+The spatial and temporal domains are:
+\begin{align*}
+x &\in [0, 100] \text{ m} \\
+t &\in [0, 1000] \text{ days}
+\end{align*}
+
+The initial condition is:
+\begin{align*}
+C(x, 0) &= 0 && \text{for } x > 0
+\end{align*}
+
+Boundary conditions are:
+\begin{align*}
+C(0, t) &= C_0 && \text{(inlet, Dirichlet)} \\
+\frac{\partial C}{\partial x}(L, t) &= 0 && \text{(outlet, Neumann)}
+\end{align*}
+where $L = 100$ m.
+
+\section{PINN Implementation}
+
+\subsection{Parameter Definitions and Dimensionless Formulation}
+
+The implementation converts all variables to dimensionless form to improve training stability. The characteristic scales are:
+\begin{align*}
+L &= 100 \text{ m} && \text{(length scale)} \\
+T &= L/U = 1000 \text{ days} && \text{(time scale, advective)} \\
+C_0 &= 5.0 \text{ kg/m}^3 && \text{(concentration scale)}
+\end{align*}
+
+Dimensionless variables are defined as:
+\begin{align*}
+x^* &= x/L \\
+t^* &= t/T \\
+C^* &= C/C_0
+\end{align*}
+
+The Péclet number characterizes the relative importance of advection to dispersion:
+\begin{align*}
+\text{Pe} &= \frac{U \times L}{D} \approx 1157.41
+\end{align*}
+
+Substituting the dimensionless variables into the governing equation yields the dimensionless advection--dispersion equation:
+\begin{equation*}
+\frac{\partial C^*}{\partial t^*} + \frac{\partial C^*}{\partial x^*} = \frac{1}{\text{Pe}} \frac{\partial^2 C^*}{\partial x^{*2}}
+\end{equation*}
+
+\subsection{Neural Network Architecture}
+
+The PINN is a fully connected feedforward network with inputs $(x^*, t^*)$ and output $C^*$. The default architecture consists of 3 hidden layers with 10 neurons per layer, using Tanh activation functions. The network structure is: Input(2) $\to$ Hidden(10) $\to$ Hidden(10) $\to$ Hidden(10) $\to$ Output(1).
+
+\subsection{Collocation Point Sampling}
+
+The implementation uses 2000 randomly sampled collocation points throughout the domain at each training epoch. For initial conditions, 100 random points are sampled at $t^* = 0$. Boundary conditions are enforced at 100 random points each: inlet at $x^* = 0$ and outlet at $x^* = 1$.
+
+\subsection{Automatic Differentiation}
+
+Spatial and temporal derivatives are computed using PyTorch's automatic differentiation. The PDE residual is assembled as:
+
+\begin{equation*}
+R_{\text{PDE}} = \frac{\partial C^*}{\partial t^*} + \frac{\partial C^*}{\partial x^*} - \frac{1}{\text{Pe}} \frac{\partial^2 C^*}{\partial x^{*2}}
+\end{equation*}
+
+First derivatives $\partial C^*/ \partial t^*$ and $\partial C^*/ \partial x^*$ are computed via \texttt{grad()} with \texttt{create\_graph=True} and \texttt{retain\_graph=True}. The second derivative $\partial^2 C^*/ \partial x^{*2}$ is obtained by differentiating $\partial C^*/ \partial x^*$ with respect to $x^*$. The PDE residual $R_{\text{PDE}}$ is evaluated at each collocation point and will be used in the loss function formulation described in the next subsection.
+
+\subsection{Loss Function Formulation}
+
+The total loss combines four components with weights:
+
+\begin{equation*}
+\mathcal{L}_{\text{total}} = w_{\text{PDE}} \mathcal{L}_{\text{PDE}} + w_{\text{IC}} \mathcal{L}_{\text{IC}} + w_{\text{inlet}} \mathcal{L}_{\text{inlet}} + w_{\text{outlet}} \mathcal{L}_{\text{outlet}}
+\end{equation*}
+
+For this baseline implementation, all weights are set to 1, giving equal importance to each loss component. The individual loss components are computed as mean squared errors over their respective sampling points:
+\begin{align*}
+\mathcal{L}_{\text{PDE}} &= \frac{1}{N_{\text{coll}}} \sum_{i=1}^{N_{\text{coll}}} R_{\text{PDE}}^2(x_i^*, t_i^*) \\
+\mathcal{L}_{\text{IC}} &= \frac{1}{N_{\text{IC}}} \sum_{j=1}^{N_{\text{IC}}} \left[C^*(x_j^*, 0)\right]^2 \\
+\mathcal{L}_{\text{inlet}} &= \frac{1}{N_{\text{BC}}} \sum_{k=1}^{N_{\text{BC}}} \left[C^*(0, t_k^*) - 1\right]^2 \\
+\mathcal{L}_{\text{outlet}} &= \frac{1}{N_{\text{BC}}} \sum_{k=1}^{N_{\text{BC}}} \left[\frac{\partial C^*}{\partial x^*}(1, t_k^*)\right]^2
+\end{align*}
+where $N_{\text{coll}} = 2000$, $N_{\text{IC}} = 100$, and $N_{\text{BC}} = 100$ are the number of sampling points for PDE, initial condition, and boundary conditions, respectively.
+
+\subsection{Training Loop}
+
+Training uses the Adam optimizer with learning rate 0.001 for 2000 epochs. Each epoch performs: (1) forward pass to evaluate the network at collocation points, (2) PDE residual evaluation via automatic differentiation, (3) loss computation for all components, (4) backpropagation via \texttt{total\_loss.backward()}, and (5) parameter update via \texttt{optimizer.step()}. Outputs include concentration profiles at $t = 200, 400, 600, 800, 1000$ days for comparison with the analytical solution.
+
+\section{Analytical Solution}
+
+The Ogata--Banks analytical solution \cite{OgataBanks1961} provides a theoretical reference for visual comparison:
+
+\begin{equation}
+C(x,t) = \frac{C_0}{2} \left[ \text{erfc}\left(\frac{x - Ut}{2\sqrt{Dt}}\right) + \exp\left(\frac{Ux}{D}\right) \text{erfc}\left(\frac{x + Ut}{2\sqrt{Dt}}\right) \right]
+\end{equation}
+
+The analytical solution is not used anywhere in the training process. It is imported from \href{https://github.com/Alioax/pinn/blob/main/analytical_solution/analytical_solution.py}{\texttt{analytical\_solution.py}} solely for post-training comparison and as a visual reference.
+
+\section{Results}
+
+Figure~\ref{fig:concentration_profiles} presents concentration profiles along the domain at different times, comparing PINN predictions (solid lines) with the analytical Ogata--Banks solution (dashed lines). As time increases from 200 to 1000 days, the contaminant plume advects downstream while spreading due to dispersion, with the analytical solution exhibiting relatively sharp fronts followed by near-zero concentrations. While the PINN captures the overall trend of plume migration and spreading, clear differences are observed. Beyond smoother transitions in regions of steep gradients, the PINN systematically predicts an earlier reduction in concentration than the analytical solution, resulting in a left-shifted plume front and premature attenuation of contamination. In addition, the PINN slightly overestimates the inlet concentration at early distances, producing values exceeding the imposed maximum of ($C_0 = 5$), which is physically inaccurate. These behaviors indicate a systematic bias beyond simple gradient smoothing effects and suggest that the current baseline model requires further improvement; one plausible idea is to penalize nonphysical spatial increases by enforcing a constraint such as ($\partial C / \partial x \leq 0$).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\columnwidth]{figs/pinn_baseline_concentration_profiles.pdf}
+\caption{Concentration profiles comparing PINN predictions (solid lines) with analytical solutions (dashed lines) at $t = 200, 400, 600, 800, 1000$ days.}
+\label{fig:concentration_profiles}
+\end{figure}
+
+Figure~\ref{fig:pinn_analytical_comparison} shows PINN concentration profiles at 300 and 700 days alongside the spatial distribution of the PDE residual computed directly from the learned solution, without reference to the analytical model. Although the predicted concentration profiles do not perfectly match the analytical solution, the residual plot provides valuable diagnostic information: the largest PDE violations are spatially localized, primarily around the advancing plume fronts where gradients are strongest. In contrast, upstream regions with near-constant concentration and downstream zones with near-zero concentration exhibit much smaller residuals, indicating better local satisfaction of the governing equation. This separation between solution mismatch and residual magnitude demonstrates that, even with an imperfect fit, the PINN reveals where the physics is least well enforced, which could potentially guide actionable adjustments to improve training and model performance.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\columnwidth]{figs/pinn_analytical_comparison.pdf}
+\caption{Concentration profiles comparing PINN predictions (solid lines) with analytical solutions (dashed lines) at $t = 300, 700$ days (top), and corresponding PDE residual distribution (bottom).}
+\label{fig:pinn_analytical_comparison}
+
+\end{figure}
+
+\section{Next Steps and Ongoing Work}
+
+Current limitations include convergence behavior and fit quality in regions with sharp gradients. Ongoing work focuses on: (1) exploring different loss weight configurations to improve convergence, (2) exploring different physical parameters (varying $U$, $D$, and $L$), (3) conducting parameter sensitivity studies to understand the network's response to physical parameter variations, and (4) implementing residual-based adaptive refinement \cite{wu_comprehensive_2023} to improve sampling efficiency and accuracy.
+
+\printbibliography
+
+\end{document}

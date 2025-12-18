@@ -1,0 +1,43 @@
+# GIF animation frames (too many files)
+pinn adaptive learning/results/gif_frames/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# LaTeX auxiliary files
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+*.nav
+*.snm
+*.vrb
+*.bbl-SAVE-ERROR
+texput.log
+
+# Windows specific
+nul
+*.nul
+
+# IDE
+.cursor/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
