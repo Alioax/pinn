@@ -24,7 +24,7 @@ python pinn_baseline.py
 
 ## Output
 
-Results are saved to `results/plots/pinn_baseline_concentration_profiles.png` showing concentration profiles at multiple time steps.
+Results are saved to `results/pinn_baseline_concentration_profiles.png` showing concentration profiles at multiple time steps.
 
 ## Configuration
 
@@ -36,7 +36,7 @@ All parameters are configurable at the top of `pinn_baseline.py`:
 
 ## Key Features
 
-- **Minimal**: ~215 lines of clean, readable code
+- **Minimal**: ~330 lines of clean, readable code
 - **Self-contained**: All code in one file
 - **Dimensionless**: Trains in dimensionless form for stability
 - **Reproducible**: Seeds set for consistent results
