@@ -1,5 +1,7 @@
-# GIF animation frames (too many files)
+# GIF animation frames and epoch exports (too many files)
 pinn adaptive learning/results/gif_frames/
+Experimental/pinn adaptive learning playground/results/epoch_exports/
+Experimental/loss distribution based learning/results/epoch_exports/
 
 # Python
 __pycache__/

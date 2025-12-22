@@ -43,16 +43,16 @@ L = 100.0                  # m (domain length)
 T_phys = 1000.0            # days (physical time horizon)
 
 # Model architecture
-num_layers = 3             # number of hidden layers
-num_neurons = 10           # number of neurons per hidden layer
+num_layers = 0             # number of hidden layers
+num_neurons = 64           # number of neurons per hidden layer
 activation = torch.nn.Tanh # activation function
 
 # Training parameters
-num_epochs = 2000          # number of training epochs
+num_epochs = 20000          # number of training epochs
 lr = 0.001                 # learning rate
-num_collocation = 2000     # number of collocation points for PDE
-num_ic = 100               # number of points for initial condition
-num_bc = 100               # number of points for boundary conditions
+num_collocation = 20000     # number of collocation points for PDE
+num_ic = 1000               # number of points for initial condition
+num_bc = 1000               # number of points for boundary conditions
 weight_pde = 1           # weight for PDE residual loss
 weight_ic = 1            # weight for initial condition loss
 weight_inlet_bc = 1      # weight for inlet boundary condition loss
@@ -109,7 +109,7 @@ def compute_pde_residual(model, x_star, t_star, Pe):
     t_star = t_star.clone().detach().requires_grad_(True)
     C_star = model(x_star, t_star)
     dC_dt_star = grad(C_star, t_star, grad_outputs=torch.ones_like(C_star),
-                      create_graph=True, retain_graph=True)[0]
+                      create_graph=True, retain_graph=True)[0] ### Create_graph not needed really but 
     dC_dx_star = grad(C_star, x_star, grad_outputs=torch.ones_like(C_star),
                       create_graph=True, retain_graph=True)[0]
     d2C_dx2_star = grad(dC_dx_star, x_star, grad_outputs=torch.ones_like(dC_dx_star),
