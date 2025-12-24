@@ -49,17 +49,17 @@ activation = torch.nn.Tanh # activation function
 
 # Training parameters
 num_epochs = 20000          # number of training epochs
-lr = 0.001                 # learning rate
-num_collocation = 20000     # number of collocation points for PDE
-num_ic = 1000               # number of points for initial condition
-num_bc = 1000               # number of points for boundary conditions
+lr = 0.0001                 # learning rate
+num_collocation = 200000     # number of collocation points for PDE
+num_ic = 20000               # number of points for initial condition
+num_bc = 20000               # number of points for boundary conditions
 weight_pde = 1           # weight for PDE residual loss
 weight_ic = 1            # weight for initial condition loss
 weight_inlet_bc = 1      # weight for inlet boundary condition loss
 weight_outlet_bc = 1     # weight for outlet boundary condition loss
 
 # Plotting parameters
-times_days = [200, 400, 600, 800, 1000]  # times to plot (days)
+times_days = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]  # times to plot (days)
 num_points = 500            # spatial resolution for plots
 
 # Derived parameters
