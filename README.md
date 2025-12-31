@@ -34,7 +34,9 @@ cd pinn_baseline
 python pinn_baseline.py
 ```
 
-This will train the PINN and generate concentration profiles saved to `results/plots/pinn_baseline_concentration_profiles.png`.
+This will train the PINN and generate:
+- Collocation points distribution plot saved to `results/collocation_points.png`
+- Concentration profiles saved to `results/pinn_baseline_concentration_profiles.png`
 
 ### Code Structure and Implementation Details
 
@@ -103,19 +105,21 @@ The `train_pinn` function implements the training process:
 
 ### Key Features of Baseline Implementation
 
-- **Minimal and Clean**: ~330 lines of well-organized, readable code
+- **Minimal and Clean**: ~384 lines of well-organized, readable code
 - **Self-contained**: All functionality in a single file
 - **Dimensionless Formulation**: Improves numerical stability and training convergence
 - **Reproducible**: Fixed random seeds ensure consistent results
 - **Configurable**: All parameters easily adjustable at the top of the file
 - **Validated**: Direct comparison with analytical solution (Ogata-Banks)
+- **Visualization**: Includes collocation points distribution plot for training analysis
 
 ### Output
 
 Running the baseline implementation generates:
-- Concentration profiles at multiple time steps (200, 400, 600, 800, 1000 days)
+- Collocation points distribution visualization
+- Concentration profiles at multiple time steps (0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000 days)
 - Comparison plots showing PINN predictions vs. analytical solution
-- Results saved to `pinn_baseline/results/plots/pinn_baseline_concentration_profiles.png`
+- Results saved to `pinn_baseline/results/pinn_baseline_concentration_profiles.png`
 - PDF copy saved to `report/figs/pinn_baseline_concentration_profiles.pdf`
 
 See `pinn_baseline/README.md` for additional details.
@@ -150,9 +154,12 @@ A parameter study implementation is available in `Experimental/pinn_parameter_st
 ## Project Structure
 
 - **`pinn_baseline/`** - Main baseline PINN implementation (primary focus)
-  - `pinn_baseline.py` - Complete, self-contained implementation
+  - `pinn_baseline.py` - Complete, self-contained implementation with collocation point visualization
   - `README.md` - Detailed usage instructions
   - `results/` - Generated plots and results
+
+- **`misc baseline/`** - Original baseline implementation (archived)
+  - Previous version of the baseline for reference
 
 - **`Experimental/pinn adaptive learning/`** - Advanced experimental implementation
   - Adaptive learning with RAR
