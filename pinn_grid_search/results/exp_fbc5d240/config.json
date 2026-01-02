@@ -1,0 +1,13 @@
+{
+  "num_layers": 1,
+  "num_neurons": 64,
+  "num_epochs": 4000,
+  "lr": 0.01,
+  "activation": "Tanh",
+  "num_collocation": 200000,
+  "weight_pde": 1,
+  "weight_ic": 1,
+  "weight_inlet_bc": 1,
+  "weight_outlet_bc": 1,
+  "optimizer": "Adam"
+}
