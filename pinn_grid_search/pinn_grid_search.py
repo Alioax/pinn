@@ -85,7 +85,7 @@ def generate_config_hash(config):
     # Exclude non-config keys like 'seed' if present
     config_keys = ['num_layers', 'num_neurons', 'num_epochs', 'lr', 'activation',
                    'num_collocation', 'weight_pde', 'weight_ic', 'weight_inlet_bc',
-                   'weight_outlet_bc', 'optimizer']
+                   'weight_outlet_bc', 'optimizer', 'num_ic', 'num_bc']
     
     config_str = json.dumps({k: config.get(k) for k in config_keys if k in config}, sort_keys=True)
     hash_obj = hashlib.md5(config_str.encode())
@@ -171,8 +171,9 @@ def train_pinn_model(config, physics_params, training_params, seed=None):
     weight_outlet_bc = config['weight_outlet_bc']
     optimizer_name = config['optimizer']
     
-    num_ic = training_params['num_ic']
-    num_bc = training_params['num_bc']
+    # num_ic and num_bc can be in config (per-experiment) or fall back to training_params (default)
+    num_ic = config.get('num_ic', training_params['num_ic'])
+    num_bc = config.get('num_bc', training_params['num_bc'])
     
     # Derived parameters
     T = L / U
@@ -429,7 +430,7 @@ def save_losses_csv(losses, output_path):
                 losses['outlet_bc'][epoch],
             ])
 
-def append_summary_csv(config, config_hash, losses, training_time, summary_path):
+def append_summary_csv(config, config_hash, losses, training_time, summary_path, training_params=None):
     """
     Append experiment summary to master CSV file.
     
@@ -439,6 +440,7 @@ def append_summary_csv(config, config_hash, losses, training_time, summary_path)
         losses: Dictionary with loss lists (final losses will be extracted)
         training_time: Training time in seconds
         summary_path: Path to summary CSV file
+        training_params: Training parameters dictionary (for fallback values)
     """
     # Extract final losses
     final_total_loss = losses['total'][-1] if losses['total'] else None
@@ -461,6 +463,8 @@ def append_summary_csv(config, config_hash, losses, training_time, summary_path)
         'weight_inlet_bc': config['weight_inlet_bc'],
         'weight_outlet_bc': config['weight_outlet_bc'],
         'optimizer': config['optimizer'],
+        'num_ic': config.get('num_ic', training_params.get('num_ic', None) if training_params else None),
+        'num_bc': config.get('num_bc', training_params.get('num_bc', None) if training_params else None),
         'final_total_loss': final_total_loss,
         'final_pde_loss': final_pde_loss,
         'final_ic_loss': final_ic_loss,
@@ -549,7 +553,7 @@ def main():
             print(f"  ✓ Plot saved to {plot_path}")
             
             # Append to summary CSV
-            append_summary_csv(config, config_hash, losses, training_time, summary_csv_path)
+            append_summary_csv(config, config_hash, losses, training_time, summary_csv_path, DEFAULT_TRAINING_PARAMS)
             print(f"  ✓ Summary appended to {summary_csv_path}")
             
             print(f"  ✓ Experiment completed in {training_time:.2f} seconds")

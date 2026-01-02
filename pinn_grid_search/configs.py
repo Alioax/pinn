@@ -93,29 +93,16 @@ DEFAULT_TRAINING_PARAMS = {
 # ============================================================================
 
 EXPERIMENT_CONFIGS = [
-    # Baseline (time-efficient reference)
-    {
-        'num_layers': 1,
-        'num_neurons': 64,
-        'num_epochs': 20000,
-        'lr': 0.01,
-        'activation': 'Tanh',
-        'num_collocation': 200000,
-        'weight_pde': 1,
-        'weight_ic': 1,
-        'weight_inlet_bc': 1,
-        'weight_outlet_bc': 1,
-        'optimizer': 'Adam',
-    }
-
-    # Compact depth vs width: 2×32 baseline LR
+    # A1 — 2×32 baseline control
     {
         'num_layers': 2,
         'num_neurons': 32,
-        'num_epochs': 20000,
-        'lr': 0.001,
+        'num_epochs': 40000,
+        'lr': 1e-3,
         'activation': 'Tanh',
         'num_collocation': 200000,
+        'num_ic': 20000,
+        'num_bc': 20000,
         'weight_pde': 1,
         'weight_ic': 1,
         'weight_inlet_bc': 1,
@@ -123,14 +110,16 @@ EXPERIMENT_CONFIGS = [
         'optimizer': 'Adam',
     },
 
-    # Compact depth vs width: 2×32 lower LR
+    # A2 — 2×32, low LR diagnostic
     {
         'num_layers': 2,
         'num_neurons': 32,
-        'num_epochs': 20000,
-        'lr': 0.0005,
+        'num_epochs': 40000,
+        'lr': 1e-4,
         'activation': 'Tanh',
         'num_collocation': 200000,
+        'num_ic': 20000,
+        'num_bc': 20000,
         'weight_pde': 1,
         'weight_ic': 1,
         'weight_inlet_bc': 1,
@@ -138,29 +127,67 @@ EXPERIMENT_CONFIGS = [
         'optimizer': 'Adam',
     },
 
-    # Simple architecture: 1×64 with mild PDE emphasis
+    # A3 — 1×64 width vs depth control
     {
         'num_layers': 1,
         'num_neurons': 64,
-        'num_epochs': 20000,
-        'lr': 0.001,
+        'num_epochs': 40000,
+        'lr': 1e-3,
         'activation': 'Tanh',
         'num_collocation': 200000,
-        'weight_pde': 2,
+        'num_ic': 20000,
+        'num_bc': 20000,
+        'weight_pde': 1,
         'weight_ic': 1,
         'weight_inlet_bc': 1,
         'weight_outlet_bc': 1,
         'optimizer': 'Adam',
     },
 
-    # Simple architecture: 1×64 with fewer collocation points
+    # A4 — 1×64, low LR diagnostic
     {
         'num_layers': 1,
         'num_neurons': 64,
-        'num_epochs': 20000,
-        'lr': 0.001,
+        'num_epochs': 40000,
+        'lr': 1e-4,
         'activation': 'Tanh',
-        'num_collocation': 100000,
+        'num_collocation': 200000,
+        'num_ic': 20000,
+        'num_bc': 20000,
+        'weight_pde': 1,
+        'weight_ic': 1,
+        'weight_inlet_bc': 1,
+        'weight_outlet_bc': 1,
+        'optimizer': 'Adam',
+    },
+
+    # B1 — 2×32, BC-focused (highest priority)
+    {
+        'num_layers': 2,
+        'num_neurons': 32,
+        'num_epochs': 40000,
+        'lr': 1e-3,
+        'activation': 'Tanh',
+        'num_collocation': 200000,
+        'num_ic': 20000,
+        'num_bc': 40000,
+        'weight_pde': 1,
+        'weight_ic': 1,
+        'weight_inlet_bc': 1,
+        'weight_outlet_bc': 1,
+        'optimizer': 'Adam',
+    },
+
+    # B2 — 1×64, BC-focused
+    {
+        'num_layers': 1,
+        'num_neurons': 64,
+        'num_epochs': 40000,
+        'lr': 1e-3,
+        'activation': 'Tanh',
+        'num_collocation': 200000,
+        'num_ic': 20000,
+        'num_bc': 40000,
         'weight_pde': 1,
         'weight_ic': 1,
         'weight_inlet_bc': 1,
@@ -168,5 +195,3 @@ EXPERIMENT_CONFIGS = [
         'optimizer': 'Adam',
     },
 ]
-
-

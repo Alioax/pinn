@@ -9,5 +9,7 @@
   "weight_ic": 1,
   "weight_inlet_bc": 1,
   "weight_outlet_bc": 1,
-  "optimizer": "Adam"
+  "optimizer": "Adam",
+  "num_ic": 20000,
+  "num_bc": 20000
 }
