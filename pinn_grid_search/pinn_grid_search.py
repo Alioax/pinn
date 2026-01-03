@@ -449,7 +449,7 @@ def append_summary_csv(config, config_hash, losses, training_time, summary_path,
     final_inlet_bc_loss = losses['inlet_bc'][-1] if losses['inlet_bc'] else None
     final_outlet_bc_loss = losses['outlet_bc'][-1] if losses['outlet_bc'] else None
     
-    # Prepare row data
+    # Prepare row data (order matters for CSV columns)
     row = {
         'hash': config_hash,
         'num_layers': config['num_layers'],
@@ -458,13 +458,13 @@ def append_summary_csv(config, config_hash, losses, training_time, summary_path,
         'lr': config['lr'],
         'activation': config['activation'],
         'num_collocation': config['num_collocation'],
+        'num_ic': config.get('num_ic', training_params.get('num_ic', None) if training_params else None),
+        'num_bc': config.get('num_bc', training_params.get('num_bc', None) if training_params else None),
         'weight_pde': config['weight_pde'],
         'weight_ic': config['weight_ic'],
         'weight_inlet_bc': config['weight_inlet_bc'],
         'weight_outlet_bc': config['weight_outlet_bc'],
         'optimizer': config['optimizer'],
-        'num_ic': config.get('num_ic', training_params.get('num_ic', None) if training_params else None),
-        'num_bc': config.get('num_bc', training_params.get('num_bc', None) if training_params else None),
         'final_total_loss': final_total_loss,
         'final_pde_loss': final_pde_loss,
         'final_ic_loss': final_ic_loss,

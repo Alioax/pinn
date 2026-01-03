@@ -58,8 +58,8 @@ activation = torch.nn.Tanh # activation function
 # activation = torch.sin                   # Sinusoidal - periodic, good for oscillatory solutions (note: no parentheses)
 
 # Training parameters
-num_epochs = 4000          # number of training epochs
-lr = 0.001                 # learning rate
+num_epochs = 15000          # number of training epochs
+lr = 0.0005                  # learning rate
 num_collocation = 200000     # number of collocation points for PDE
 num_ic = 20000               # number of points for initial condition
 num_bc = 20000               # number of points for boundary conditions
@@ -95,10 +95,11 @@ class PINN(nn.Module):
                 layers.append(activation())
         self.net = nn.Sequential(*layers)
         
-        # Apply Xavier initialization to all linear layers
+        # Apply Xavier normal initialization with gain to all linear layers
+        gain = nn.init.calculate_gain('tanh')
         for layer in self.net:
             if isinstance(layer, nn.Linear):
-                nn.init.xavier_uniform_(layer.weight)
+                nn.init.xavier_normal_(layer.weight, gain=gain)
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)
         
