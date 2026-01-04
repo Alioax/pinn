@@ -1,6 +1,6 @@
 """
 Physics-Informed Neural Network (PINN) for 1D Contaminant Transport in an Aquifer
-LOSS DISTRIBUTION BASED ADAPTIVE COLLOCATION POINTS
+LOSS DISTRIBUTION BASED ADAPTIVE COLLOCATION POINTS - ADAM + LBFGS OPTIMIZER SCHEDULE
 
 This implementation:
 - Trains the PINN entirely in dimensionless form
@@ -13,9 +13,12 @@ This implementation:
 - Produces plots in physical units
 - Compares PINN solution with analytical solution
 
-Key Feature: Collocation points are periodically redistributed based on current PDE loss
-distribution using inverse CDF sampling, ensuring more points are placed in high-loss regions
-while maintaining a fixed total count.
+Key Features:
+1. Optimizer Schedule: Uses Adam optimizer for first X epochs, then switches to LBFGS for Y epochs
+   (X and Y are configurable via adam_epochs and lbfgs_epochs parameters)
+2. Adaptive Collocation Points: Collocation points are periodically redistributed based on current PDE loss
+   distribution using inverse CDF sampling, ensuring more points are placed in high-loss regions
+   while maintaining a fixed total count.
 """
 
 import torch
@@ -59,8 +62,12 @@ model_params = {
 
 # Training parameters
 training_params = {
-    'num_epochs': 20000,         # number of training epochs
-    'lr': 2.5e-3,                # learning rate
+    # Optimizer schedule: Adam for first X epochs, then LBFGS for Y epochs
+    'adam_epochs': 5000,          # number of epochs with Adam optimizer
+    'lbfgs_epochs': 15000,        # number of epochs with LBFGS optimizer
+    # Total epochs = adam_epochs + lbfgs_epochs (computed automatically)
+    'num_epochs': None,           # will be set to adam_epochs + lbfgs_epochs
+    'lr': 2.5e-3,                # learning rate (used for both optimizers)
     # Collocation point configuration - ADAPTIVE
     'collocation_points_x_star': 350,  # Number of points in x* direction (fixed count)
     'collocation_points_t_star': 350,  # Number of points in t* direction (fixed count)
@@ -85,6 +92,10 @@ training_params = {
     'anchor_ratio': 0.25,        # fraction of total points that are anchors (0.0 = all adaptive, 1.0 = all anchors)
     'anchor_distribution': 'uniform',  # distribution strategy for anchors ('uniform' only currently)
 }
+
+# Compute total epochs from Adam + LBFGS epochs
+if training_params['num_epochs'] is None:
+    training_params['num_epochs'] = training_params['adam_epochs'] + training_params['lbfgs_epochs']
 
 # Plotting parameters
 script_dir = Path(__file__).parent
@@ -706,12 +717,13 @@ def train_pinn(model, training_params=None, plot_callback=None):
     weight_inlet_bc = training_params.get('weight_inlet_bc', 1.0)
     weight_outlet_bc = training_params.get('weight_outlet_bc', 1.0)
     
-    # Optimizer options - uncomment the one you want to use
-    # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    # optimizer = torch.optim.Rprop(model.parameters(), lr=lr)
-    # optimizer = torch.optim.LBFGS(model.parameters(), lr=lr, max_iter=200, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=100, line_search_fn=None)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
-    # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
+    # Optimizer schedule: Adam for first X epochs, then LBFGS for Y epochs
+    adam_epochs = training_params.get('adam_epochs', 5000)
+    lbfgs_epochs = training_params.get('lbfgs_epochs', 15000)
+    
+    # Initialize with Adam optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    current_optimizer_type = 'adam'
     
     # Loss history
     losses = {
@@ -789,11 +801,27 @@ def train_pinn(model, training_params=None, plot_callback=None):
     # Create progress bar
     pbar = tqdm(range(num_epochs), desc="Training PINN", disable=not verbose)
     
-    # Check if optimizer is LBFGS (requires closure function)
-    is_lbfgs = isinstance(optimizer, torch.optim.LBFGS)
-    
     # Training loop
     for epoch in pbar:
+        # Switch to LBFGS optimizer after Adam epochs
+        if epoch == adam_epochs and current_optimizer_type == 'adam':
+            if verbose:
+                print(f"\nEpoch {epoch + 1}: Switching from Adam to LBFGS optimizer")
+            # Create LBFGS optimizer with same parameters
+            optimizer = torch.optim.LBFGS(
+                model.parameters(), 
+                lr=lr, 
+                max_iter=200, 
+                max_eval=None, 
+                tolerance_grad=1e-07, 
+                tolerance_change=1e-09, 
+                history_size=100, 
+                line_search_fn=None
+            )
+            current_optimizer_type = 'lbfgs'
+        
+        # Check if optimizer is LBFGS (requires closure function)
+        is_lbfgs = isinstance(optimizer, torch.optim.LBFGS)
         # Generate random IC and BC points once per epoch (reused in closure if needed)
         # IC points don't need requires_grad (just evaluating C, not computing derivatives)
         x_star_ic = torch.rand(num_ic, 1) * 1.0  # [0, 1]
@@ -1615,7 +1643,7 @@ if __name__ == "__main__":
     print(f"\nTraining parameters:")
     print(f"  Final dimensionless time: t*_final = {training_params['t_final_star']}")
     print(f"  Final physical time: t_final = {training_params['t_final_star'] * T:.1f} days")
-    print(f"  Number of epochs: {training_params['num_epochs']}")
+    print(f"  Total epochs: {training_params['num_epochs']} (Adam: {training_params['adam_epochs']}, LBFGS: {training_params['lbfgs_epochs']})")
     print(f"  Learning rate: {training_params['lr']}")
     collocation_points_x_star = training_params['collocation_points_x_star']
     collocation_points_t_star = training_params['collocation_points_t_star']
