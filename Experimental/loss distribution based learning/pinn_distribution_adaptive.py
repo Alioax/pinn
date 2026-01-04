@@ -795,7 +795,9 @@ def train_pinn(model, training_params=None, plot_callback=None):
     # Training loop
     for epoch in pbar:
         # Generate random IC and BC points once per epoch (reused in closure if needed)
+        # IC points don't need requires_grad (just evaluating C, not computing derivatives)
         x_star_ic = torch.rand(num_ic, 1) * 1.0  # [0, 1]
+        # BC points don't need requires_grad (BC loss functions handle it internally if needed)
         t_star_bc = torch.rand(num_bc, 1) * t_final_star  # [0, t_final_star]
         
         # Define closure function for loss computation
@@ -821,37 +823,21 @@ def train_pinn(model, training_params=None, plot_callback=None):
             # Backward pass
             total_loss.backward()
             
+            # Store losses (like baseline does - computed with gradients)
+            losses['total'].append(total_loss.item())
+            losses['pde'].append(pde_loss.item())
+            losses['ic'].append(ic_loss.item())
+            losses['inlet_bc'].append(inlet_bc_loss.item())
+            losses['outlet_bc'].append(outlet_bc_loss.item())
+            
             return total_loss
         
         # For LBFGS, pass closure to step(); for others, call closure then step()
         if is_lbfgs:
             optimizer.step(closure)
-            # Recompute losses for logging (LBFGS may call closure multiple times)
-            with torch.no_grad():
-                pde_residual = compute_pde_residual(model, x_star_colloc, t_star_colloc)
-                pde_loss = torch.mean(pde_residual**2)
-                ic_loss = compute_initial_condition_loss(model, x_star_ic)
-                inlet_bc_loss, outlet_bc_loss = compute_boundary_condition_losses(model, t_star_bc)
-                total_loss = (weight_pde * pde_loss + 
-                             weight_ic * ic_loss + 
-                             weight_inlet_bc * inlet_bc_loss + 
-                             weight_outlet_bc * outlet_bc_loss)
         else:
-            total_loss = closure()
+            closure()
             optimizer.step()
-            # Extract individual losses for logging
-            with torch.no_grad():
-                pde_residual = compute_pde_residual(model, x_star_colloc, t_star_colloc)
-                pde_loss = torch.mean(pde_residual**2)
-                ic_loss = compute_initial_condition_loss(model, x_star_ic)
-                inlet_bc_loss, outlet_bc_loss = compute_boundary_condition_losses(model, t_star_bc)
-        
-        # Store losses
-        losses['total'].append(total_loss.item())
-        losses['pde'].append(pde_loss.item())
-        losses['ic'].append(ic_loss.item())
-        losses['inlet_bc'].append(inlet_bc_loss.item())
-        losses['outlet_bc'].append(outlet_bc_loss.item())
         
         # Update progress bar (update every 10 epochs for performance)
         if (epoch + 1) % 10 == 0 or epoch == 0:
