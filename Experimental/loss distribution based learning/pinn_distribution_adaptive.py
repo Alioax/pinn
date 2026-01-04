@@ -789,31 +789,62 @@ def train_pinn(model, training_params=None, plot_callback=None):
     # Create progress bar
     pbar = tqdm(range(num_epochs), desc="Training PINN", disable=not verbose)
     
+    # Check if optimizer is LBFGS (requires closure function)
+    is_lbfgs = isinstance(optimizer, torch.optim.LBFGS)
+    
     # Training loop
     for epoch in pbar:
-        optimizer.zero_grad()
-        
-        # PDE residual loss (using adaptive collocation points)
-        pde_residual = compute_pde_residual(model, x_star_colloc, t_star_colloc)
-        pde_loss = torch.mean(pde_residual**2)
-        
-        # Initial condition loss
+        # Generate random IC and BC points once per epoch (reused in closure if needed)
         x_star_ic = torch.rand(num_ic, 1) * 1.0  # [0, 1]
-        ic_loss = compute_initial_condition_loss(model, x_star_ic)
-        
-        # Boundary condition losses
         t_star_bc = torch.rand(num_bc, 1) * t_final_star  # [0, t_final_star]
-        inlet_bc_loss, outlet_bc_loss = compute_boundary_condition_losses(model, t_star_bc)
         
-        # Total loss with weights
-        total_loss = (weight_pde * pde_loss + 
-                     weight_ic * ic_loss + 
-                     weight_inlet_bc * inlet_bc_loss + 
-                     weight_outlet_bc * outlet_bc_loss)
+        # Define closure function for loss computation
+        def closure():
+            optimizer.zero_grad()
+            
+            # PDE residual loss (using adaptive collocation points)
+            pde_residual = compute_pde_residual(model, x_star_colloc, t_star_colloc)
+            pde_loss = torch.mean(pde_residual**2)
+            
+            # Initial condition loss
+            ic_loss = compute_initial_condition_loss(model, x_star_ic)
+            
+            # Boundary condition losses
+            inlet_bc_loss, outlet_bc_loss = compute_boundary_condition_losses(model, t_star_bc)
+            
+            # Total loss with weights
+            total_loss = (weight_pde * pde_loss + 
+                         weight_ic * ic_loss + 
+                         weight_inlet_bc * inlet_bc_loss + 
+                         weight_outlet_bc * outlet_bc_loss)
+            
+            # Backward pass
+            total_loss.backward()
+            
+            return total_loss
         
-        # Backward pass
-        total_loss.backward()
-        optimizer.step()
+        # For LBFGS, pass closure to step(); for others, call closure then step()
+        if is_lbfgs:
+            optimizer.step(closure)
+            # Recompute losses for logging (LBFGS may call closure multiple times)
+            with torch.no_grad():
+                pde_residual = compute_pde_residual(model, x_star_colloc, t_star_colloc)
+                pde_loss = torch.mean(pde_residual**2)
+                ic_loss = compute_initial_condition_loss(model, x_star_ic)
+                inlet_bc_loss, outlet_bc_loss = compute_boundary_condition_losses(model, t_star_bc)
+                total_loss = (weight_pde * pde_loss + 
+                             weight_ic * ic_loss + 
+                             weight_inlet_bc * inlet_bc_loss + 
+                             weight_outlet_bc * outlet_bc_loss)
+        else:
+            total_loss = closure()
+            optimizer.step()
+            # Extract individual losses for logging
+            with torch.no_grad():
+                pde_residual = compute_pde_residual(model, x_star_colloc, t_star_colloc)
+                pde_loss = torch.mean(pde_residual**2)
+                ic_loss = compute_initial_condition_loss(model, x_star_ic)
+                inlet_bc_loss, outlet_bc_loss = compute_boundary_condition_losses(model, t_star_bc)
         
         # Store losses
         losses['total'].append(total_loss.item())
