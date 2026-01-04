@@ -70,7 +70,7 @@ training_params = {
     't_final_star': 1.0,        # final dimensionless time
     'verbose': True,            # print training progress
     'export_interval': 10,     # export plot every N epochs (set to None to disable)
-    'overwrite_gif_frames': False,  # if True, export gif frames with same name (overwriting)
+    'overwrite_gif_frames': True,  # if True, export gif frames with same name (overwriting)
     # Adaptive learning parameters
     'adaptive_update_interval': 200,  # Number of epochs between collocation point updates
     'loss_evaluation_grid_x': 100,    # Resolution for loss evaluation grid in x* direction
@@ -82,7 +82,7 @@ training_params = {
     'weight_inlet_bc': 1,       # weight for inlet boundary condition loss
     'weight_outlet_bc': 1,      # weight for outlet boundary condition loss
     # Anchor collocation point parameters (prevents catastrophic forgetting)
-    'anchor_ratio': 0.2,        # fraction of total points that are anchors (0.0 = all adaptive, 1.0 = all anchors)
+    'anchor_ratio': 0.5,        # fraction of total points that are anchors (0.0 = all adaptive, 1.0 = all anchors)
     'anchor_distribution': 'uniform',  # distribution strategy for anchors ('uniform' only currently)
 }
 
