@@ -52,8 +52,8 @@ physics_params = {
 
 # Neural network model parameters
 model_params = {
-    'num_layers': 3,            # number of hidden layers
-    'num_neurons': 10,          # number of neurons per hidden layer
+    'num_layers': 1,            # number of hidden layers
+    'num_neurons': 64,          # number of neurons per hidden layer
     'activation': torch.nn.Tanh,  # activation function
 }
 
@@ -82,7 +82,7 @@ training_params = {
     'weight_inlet_bc': 1,       # weight for inlet boundary condition loss
     'weight_outlet_bc': 1,      # weight for outlet boundary condition loss
     # Anchor collocation point parameters (prevents catastrophic forgetting)
-    'anchor_ratio': 0.5,        # fraction of total points that are anchors (0.0 = all adaptive, 1.0 = all anchors)
+    'anchor_ratio': 0.25,        # fraction of total points that are anchors (0.0 = all adaptive, 1.0 = all anchors)
     'anchor_distribution': 'uniform',  # distribution strategy for anchors ('uniform' only currently)
 }
 
@@ -708,8 +708,8 @@ def train_pinn(model, training_params=None, plot_callback=None):
     
     # Optimizer options - uncomment the one you want to use
     # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    optimizer = torch.optim.Rprop(model.parameters(), lr=lr)
-    # optimizer = torch.optim.LBFGS(model.parameters(), lr=lr, max_iter=20, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=100, line_search_fn=None)
+    # optimizer = torch.optim.Rprop(model.parameters(), lr=lr)
+    optimizer = torch.optim.LBFGS(model.parameters(), lr=lr, max_iter=200, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=100, line_search_fn=None)
     # optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
     
