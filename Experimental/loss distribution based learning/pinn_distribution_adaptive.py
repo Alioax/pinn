@@ -52,27 +52,27 @@ physics_params = {
 
 # Neural network model parameters
 model_params = {
-    'num_layers': 1,            # number of hidden layers
-    'num_neurons': 64,          # number of neurons per hidden layer
+    'num_layers': 3,            # number of hidden layers
+    'num_neurons': 10,          # number of neurons per hidden layer
     'activation': torch.nn.Tanh,  # activation function
 }
 
 # Training parameters
 training_params = {
-    'num_epochs': 10000,         # number of training epochs
+    'num_epochs': 5000,         # number of training epochs
     'lr': 5e-3,                # learning rate
     # Collocation point configuration - ADAPTIVE
-    'collocation_points_x_star': 350,  # Number of points in x* direction (fixed count)
-    'collocation_points_t_star': 350,  # Number of points in t* direction (fixed count)
+    'collocation_points_x_star': 50,  # Number of points in x* direction (fixed count)
+    'collocation_points_t_star': 50,  # Number of points in t* direction (fixed count)
     # Total collocation points = collocation_points_x_star × collocation_points_t_star = 2500
     'num_ic': 100,              # number of points for initial condition
     'num_bc': 100,              # number of points for boundary conditions
     't_final_star': 1.0,        # final dimensionless time
     'verbose': True,            # print training progress
-    'export_interval': 125,     # export plot every N epochs (set to None to disable)
-    'overwrite_gif_frames': True,  # if True, export gif frames with same name (overwriting)
+    'export_interval': 250,     # export plot every N epochs (set to None to disable)
+    'overwrite_gif_frames': False,  # if True, export gif frames with same name (overwriting)
     # Adaptive learning parameters
-    'adaptive_update_interval': 250,  # Number of epochs between collocation point updates
+    'adaptive_update_interval': 125,  # Number of epochs between collocation point updates
     'loss_evaluation_grid_x': 100,    # Resolution for loss evaluation grid in x* direction
     'loss_evaluation_grid_t': 100,    # Resolution for loss evaluation grid in t* direction
     'loss_smoothing_epsilon': 1e-8,   # Small value added to loss values to avoid zero probabilities
@@ -82,7 +82,7 @@ training_params = {
     'weight_inlet_bc': 1,       # weight for inlet boundary condition loss
     'weight_outlet_bc': 1,      # weight for outlet boundary condition loss
     # Anchor collocation point parameters (prevents catastrophic forgetting)
-    'anchor_ratio': 0.25,        # fraction of total points that are anchors (0.0 = all adaptive, 1.0 = all anchors)
+    'anchor_ratio': 0.9,        # fraction of total points that are anchors (0.0 = all adaptive, 1.0 = all anchors)
     'anchor_distribution': 'uniform',  # distribution strategy for anchors ('uniform' only currently)
 }
 
@@ -90,10 +90,10 @@ training_params = {
 script_dir = Path(__file__).parent
 plots_dir = script_dir / 'results'
 plotting_params = {
-    'times_days': [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],  # times for concentration profiles
+    'times_days': [0, 100, 300, 500, 600, 700, 800, 900, 1000],  # times for concentration profiles
     'x_max': 100.0,             # maximum spatial coordinate (m)
     'num_points': 500,          # number of spatial points for profiles
-    'dpi': 50,                # resolution for saved figures
+    'dpi': 200,                # resolution for saved figures
     'plots_dir': str(plots_dir),  # directory to save plots
     'heatmap_resolution_x': 10,  # number of cells in x direction for collocation heatmap
     'heatmap_resolution_t': 10,  # number of cells in t direction for collocation heatmap
@@ -335,7 +335,7 @@ def compute_boundary_condition_losses(model, t_star_bc, x_star_inlet=0.0, x_star
     
     Boundary conditions:
     - Inlet (x*=0): C*(0, t*) = 1 (Dirichlet)
-    - Outlet (x*=1): ∂C*/∂x*(1, t*) = 0 (zero-gradient)
+    - Outlet (x*=1): C*(1, t*) = 0 (Dirichlet, far-field approximation)
     
     Parameters:
         model: PINN model
@@ -345,7 +345,7 @@ def compute_boundary_condition_losses(model, t_star_bc, x_star_inlet=0.0, x_star
     
     Returns:
         inlet_loss: Dirichlet BC loss at inlet
-        outlet_loss: Neumann BC loss at outlet
+        outlet_loss: Dirichlet BC loss at outlet
     """
     # Inlet boundary condition: C*(0, t*) = 1
     x_star_inlet_tensor = torch.full_like(t_star_bc, x_star_inlet)
@@ -353,16 +353,11 @@ def compute_boundary_condition_losses(model, t_star_bc, x_star_inlet=0.0, x_star
     C_star_inlet_true = torch.ones_like(C_star_inlet_pred)
     inlet_loss = nn.MSELoss()(C_star_inlet_pred, C_star_inlet_true)
     
-    # Outlet boundary condition: ∂C*/∂x*(1, t*) = 0
+    # Outlet boundary condition: C*(1, t*) = 0 (Dirichlet far-field approximation)
     x_star_outlet_tensor = torch.full_like(t_star_bc, x_star_outlet)
-    x_star_outlet_tensor = x_star_outlet_tensor.clone().detach().requires_grad_(True)
-    t_star_outlet_tensor = t_star_bc.clone().detach().requires_grad_(True)
-    
-    C_star_outlet = model(x_star_outlet_tensor, t_star_outlet_tensor)
-    dC_dx_star_outlet = grad(C_star_outlet, x_star_outlet_tensor,
-                             grad_outputs=torch.ones_like(C_star_outlet),
-                             create_graph=True, retain_graph=True)[0]
-    outlet_loss = nn.MSELoss()(dC_dx_star_outlet, torch.zeros_like(dC_dx_star_outlet))
+    C_star_outlet_pred = model(x_star_outlet_tensor, t_star_bc)
+    C_star_outlet_true = torch.zeros_like(C_star_outlet_pred)
+    outlet_loss = nn.MSELoss()(C_star_outlet_pred, C_star_outlet_true)
     
     return inlet_loss, outlet_loss
 
@@ -710,7 +705,7 @@ def train_pinn(model, training_params=None, plot_callback=None):
     # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     # optimizer = torch.optim.Rprop(model.parameters(), lr=lr)
     # optimizer = torch.optim.LBFGS(model.parameters(), lr=lr, max_iter=200, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=100, line_search_fn=None)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=5e-4)
     # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
     
     # Loss history
@@ -1083,7 +1078,7 @@ def compute_bc_inlet_residual_at_points(model, t):
 
 def compute_bc_outlet_residual_at_points(model, t):
     """
-    Compute outlet boundary condition residual: ∂C*/∂x*(1, t*) - 0 = ∂C*/∂x*(1, t*)
+    Compute outlet boundary condition residual: C*(1, t*) - 0 = C*(1, t*)
     
     Parameters:
         model: PINN model
@@ -1102,17 +1097,14 @@ def compute_bc_outlet_residual_at_points(model, t):
     if t_star.ndim == 0:
         t_star = t_star.reshape(1)
     
-    t_star = torch.tensor(t_star, dtype=torch.float32, requires_grad=True)
+    t_star = torch.tensor(t_star, dtype=torch.float32)
     x_star = torch.ones_like(t_star)  # x* = 1 at outlet
-    x_star = x_star.requires_grad_(True)
     
     model.eval()
-    with torch.enable_grad():
+    with torch.no_grad():
         C_star = model(x_star, t_star)
-        dC_dx_star = grad(C_star, x_star, grad_outputs=torch.ones_like(C_star),
-                        create_graph=True, retain_graph=True)[0]
-        # BC outlet residual: ∂C*/∂x*(1, t*) - 0 = ∂C*/∂x*(1, t*)
-        residual = dC_dx_star
+        # BC outlet residual: C*(1, t*) - 0 = C*(1, t*)
+        residual = C_star
     
     return residual.detach().cpu().numpy().flatten()
 

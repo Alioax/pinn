@@ -44,8 +44,8 @@ L = 100.0                  # m (domain length)
 T_phys = 1000.0            # days (physical time horizon)
 
 # Model architecture
-num_layers = 1             # number of hidden layers
-num_neurons = 64           # number of neurons per hidden layer
+num_layers = 3             # number of hidden layers
+num_neurons = 12           # number of neurons per hidden layer
 activation = torch.nn.Tanh # activation function
 # Alternative activation functions (uncomment to use):
 # activation = torch.nn.ReLU              # Rectified Linear Unit - simple but may have vanishing gradients
@@ -58,7 +58,7 @@ activation = torch.nn.Tanh # activation function
 # activation = torch.sin                   # Sinusoidal - periodic, good for oscillatory solutions (note: no parentheses)
 
 # Training parameters
-num_epochs = 15000          # number of training epochs
+num_epochs = 5000          # number of training epochs
 lr = 0.0005                  # learning rate
 num_collocation = 200000     # number of collocation points for PDE
 num_ic = 20000               # number of points for initial condition
