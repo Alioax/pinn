@@ -53,26 +53,26 @@ physics_params = {
 # Neural network model parameters
 model_params = {
     'num_layers': 3,            # number of hidden layers
-    'num_neurons': 3,          # number of neurons per hidden layer
+    'num_neurons': 10,          # number of neurons per hidden layer
     'activation': torch.nn.Tanh,  # activation function
 }
 
 # Training parameters
 training_params = {
     'num_epochs': 20000,         # number of training epochs
-    'lr': 0.01,                # learning rate
+    'lr': 2.5e-3,                # learning rate
     # Collocation point configuration - ADAPTIVE
-    'collocation_points_x_star': 100,  # Number of points in x* direction (fixed count)
-    'collocation_points_t_star': 100,  # Number of points in t* direction (fixed count)
+    'collocation_points_x_star': 350,  # Number of points in x* direction (fixed count)
+    'collocation_points_t_star': 350,  # Number of points in t* direction (fixed count)
     # Total collocation points = collocation_points_x_star × collocation_points_t_star = 2500
     'num_ic': 100,              # number of points for initial condition
     'num_bc': 100,              # number of points for boundary conditions
     't_final_star': 1.0,        # final dimensionless time
     'verbose': True,            # print training progress
-    'export_interval': 1,     # export plot every N epochs (set to None to disable)
+    'export_interval': 10,     # export plot every N epochs (set to None to disable)
     'overwrite_gif_frames': False,  # if True, export gif frames with same name (overwriting)
     # Adaptive learning parameters
-    'adaptive_update_interval': 1,  # Number of epochs between collocation point updates
+    'adaptive_update_interval': 200,  # Number of epochs between collocation point updates
     'loss_evaluation_grid_x': 100,    # Resolution for loss evaluation grid in x* direction
     'loss_evaluation_grid_t': 100,    # Resolution for loss evaluation grid in t* direction
     'loss_smoothing_epsilon': 1e-8,   # Small value added to loss values to avoid zero probabilities
@@ -81,13 +81,16 @@ training_params = {
     'weight_ic': 1,             # weight for initial condition loss
     'weight_inlet_bc': 1,       # weight for inlet boundary condition loss
     'weight_outlet_bc': 1,      # weight for outlet boundary condition loss
+    # Anchor collocation point parameters (prevents catastrophic forgetting)
+    'anchor_ratio': 0.2,        # fraction of total points that are anchors (0.0 = all adaptive, 1.0 = all anchors)
+    'anchor_distribution': 'uniform',  # distribution strategy for anchors ('uniform' only currently)
 }
 
 # Plotting parameters
 script_dir = Path(__file__).parent
 plots_dir = script_dir / 'results'
 plotting_params = {
-    'times_days': [300, 500, 800],  # times for concentration profiles
+    'times_days': [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],  # times for concentration profiles
     'x_max': 100.0,             # maximum spatial coordinate (m)
     'num_points': 500,          # number of spatial points for profiles
     'dpi': 50,                # resolution for saved figures
@@ -222,6 +225,14 @@ class PINN(nn.Module):
         layers.append(nn.Linear(num_neurons, 1))
         
         self.net = nn.Sequential(*layers)
+        
+        # Apply Xavier normal initialization with gain to all linear layers
+        gain = nn.init.calculate_gain('tanh')
+        for layer in self.net:
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_normal_(layer.weight, gain=gain)
+                if layer.bias is not None:
+                    nn.init.zeros_(layer.bias)
         
     def forward(self, x_star, t_star):
         """
@@ -417,8 +428,9 @@ def compute_loss_distribution_grid(model, loss_evaluation_grid_x, loss_evaluatio
 # ============================================================================
 
 def generate_adaptive_collocation_points_inverse_cdf(loss_grid, x_star_grid, t_star_grid,
-                                                     collocation_points_x_star, 
-                                                     collocation_points_t_star):
+                                                     num_adaptive_points, 
+                                                     total_points_x_star=None,
+                                                     total_points_t_star=None):
     """
     Generate adaptive collocation points using inverse CDF method based on loss distribution.
     
@@ -436,14 +448,41 @@ def generate_adaptive_collocation_points_inverse_cdf(loss_grid, x_star_grid, t_s
         loss_grid: 2D numpy array of normalized loss values (probability distribution)
         x_star_grid: 1D numpy array of x* coordinates for loss grid
         t_star_grid: 1D numpy array of t* coordinates for loss grid
-        collocation_points_x_star: Target number of points in x* direction
-        collocation_points_t_star: Target number of points in t* direction
+        num_adaptive_points: Target number of adaptive points to generate
+        total_points_x_star: Total number of points in x* direction (for aspect ratio, optional)
+        total_points_t_star: Total number of points in t* direction (for aspect ratio, optional)
     
     Returns:
         x_star_colloc: Tensor of dimensionless spatial coordinates (shape: [N, 1])
         t_star_colloc: Tensor of dimensionless time coordinates (shape: [N, 1])
-        where N = collocation_points_x_star × collocation_points_t_star
+        where N = num_adaptive_points
     """
+    # If no adaptive points requested, return empty tensors
+    if num_adaptive_points == 0:
+        x_star_colloc = torch.empty((0, 1), dtype=torch.float32)
+        t_star_colloc = torch.empty((0, 1), dtype=torch.float32)
+        return x_star_colloc, t_star_colloc
+    
+    # Compute adaptive grid dimensions
+    # Try to maintain aspect ratio if total dimensions provided, otherwise use square-ish grid
+    if total_points_x_star is not None and total_points_t_star is not None:
+        aspect_ratio = total_points_t_star / total_points_x_star
+    else:
+        # Default to square-ish grid
+        aspect_ratio = 1.0
+    
+    # Compute adaptive_x and adaptive_t such that adaptive_x × adaptive_t ≈ num_adaptive_points
+    # and adaptive_t / adaptive_x ≈ aspect_ratio
+    adaptive_x = int(np.sqrt(num_adaptive_points / aspect_ratio))
+    adaptive_t = int(num_adaptive_points / adaptive_x) if adaptive_x > 0 else 0
+    
+    # Ensure we generate at least the requested number (may overshoot slightly)
+    while adaptive_x * adaptive_t < num_adaptive_points:
+        if adaptive_x <= adaptive_t:
+            adaptive_x += 1
+        else:
+            adaptive_t += 1
+    
     # Compute marginal probability distribution P(x*)
     # Sum over t* dimension (axis=1)
     p_x_star = np.sum(loss_grid, axis=1)
@@ -458,7 +497,7 @@ def generate_adaptive_collocation_points_inverse_cdf(loss_grid, x_star_grid, t_s
     
     # Sample x* positions using inverse CDF
     # Generate uniform random samples
-    u_x = np.linspace(0, 1, collocation_points_x_star + 2)[1:-1]  # Avoid exact 0 and 1
+    u_x = np.linspace(0, 1, adaptive_x + 2)[1:-1]  # Avoid exact 0 and 1
     # Use inverse CDF to map uniform samples to x* positions
     x_star_samples = np.interp(u_x, cdf_x_star, x_star_grid)
     
@@ -481,7 +520,7 @@ def generate_adaptive_collocation_points_inverse_cdf(loss_grid, x_star_grid, t_s
         cdf_t_given_x[-1] = 1.0  # Ensure last value is exactly 1.0
         
         # Sample t* positions using inverse CDF
-        u_t = np.linspace(0, 1, collocation_points_t_star + 2)[1:-1]  # Avoid exact 0 and 1
+        u_t = np.linspace(0, 1, adaptive_t + 2)[1:-1]  # Avoid exact 0 and 1
         t_star_samples = np.interp(u_t, cdf_t_given_x, t_star_grid)
         
         # Add all combinations of (x_star_val, t_star_samples)
@@ -492,6 +531,13 @@ def generate_adaptive_collocation_points_inverse_cdf(loss_grid, x_star_grid, t_s
     # Convert to tensors
     x_star_colloc = torch.tensor(x_star_colloc_list, dtype=torch.float32).reshape(-1, 1)
     t_star_colloc = torch.tensor(t_star_colloc_list, dtype=torch.float32).reshape(-1, 1)
+    
+    # If we generated more than requested (due to grid rounding), trim to exact count
+    if x_star_colloc.shape[0] > num_adaptive_points:
+        # Randomly sample to get exact count
+        indices = torch.randperm(x_star_colloc.shape[0])[:num_adaptive_points]
+        x_star_colloc = x_star_colloc[indices]
+        t_star_colloc = t_star_colloc[indices]
     
     # Ensure points require gradients for training
     x_star_colloc = x_star_colloc.requires_grad_(True)
@@ -538,6 +584,81 @@ def generate_uniform_grid_collocation_points(collocation_points_x_star, collocat
     return x_star_colloc, t_star_colloc
 
 # ============================================================================
+# Anchor Collocation Point Generation
+# ============================================================================
+
+def generate_anchor_collocation_points(anchor_ratio, total_points_x_star, total_points_t_star, t_final_star):
+    """
+    Generate uniformly-distributed anchor collocation points.
+    
+    Anchor points are permanently present during training to prevent catastrophic
+    forgetting. They ensure minimum physics enforcement coverage across the entire
+    domain, even when adaptive resampling focuses on high-error regions.
+    
+    Parameters:
+        anchor_ratio: fraction of total points that are anchors (0.0 to 1.0)
+        total_points_x_star: total number of points in x* direction (for computing anchor count)
+        total_points_t_star: total number of points in t* direction (for computing anchor count)
+        t_final_star: final dimensionless time
+    
+    Returns:
+        x_star_anchor: uniformly-spaced dimensionless spatial coordinates (tensor, shape: [N_anchor, 1])
+        t_star_anchor: uniformly-spaced dimensionless time coordinates (tensor, shape: [N_anchor, 1])
+        num_anchor: number of anchor points generated
+    """
+    # Compute total number of points
+    total_points = total_points_x_star * total_points_t_star
+    
+    # Compute number of anchor points
+    num_anchor = int(total_points * anchor_ratio)
+    
+    # If no anchor points requested, return empty tensors
+    if num_anchor == 0:
+        x_star_anchor = torch.empty((0, 1), dtype=torch.float32)
+        t_star_anchor = torch.empty((0, 1), dtype=torch.float32)
+        return x_star_anchor, t_star_anchor, num_anchor
+    
+    # Compute anchor grid dimensions to maintain aspect ratio
+    # Try to maintain similar aspect ratio as total grid
+    aspect_ratio = total_points_t_star / total_points_x_star
+    
+    # Compute anchor_x and anchor_t such that anchor_x × anchor_t ≈ num_anchor
+    # and anchor_t / anchor_x ≈ aspect_ratio
+    anchor_x = int(np.sqrt(num_anchor / aspect_ratio))
+    anchor_t = int(num_anchor / anchor_x) if anchor_x > 0 else 0
+    
+    # Ensure we generate at least the requested number (may overshoot slightly)
+    while anchor_x * anchor_t < num_anchor:
+        if anchor_x <= anchor_t:
+            anchor_x += 1
+        else:
+            anchor_t += 1
+    
+    # Generate uniformly-spaced anchor points
+    x_star_anchor_1d = torch.linspace(0, 1, anchor_x)
+    t_star_anchor_1d = torch.linspace(0, t_final_star, anchor_t)
+    
+    # Create meshgrid to get all combinations
+    x_star_anchor_grid, t_star_anchor_grid = torch.meshgrid(x_star_anchor_1d, t_star_anchor_1d, indexing='ij')
+    
+    # Flatten to create pairs: (x_star, t_star) for each grid point
+    x_star_anchor = x_star_anchor_grid.flatten().reshape(-1, 1)
+    t_star_anchor = t_star_anchor_grid.flatten().reshape(-1, 1)
+    
+    # If we generated more than requested (due to grid rounding), trim to exact count
+    if x_star_anchor.shape[0] > num_anchor:
+        # Randomly sample to get exact count (or use first N)
+        indices = torch.randperm(x_star_anchor.shape[0])[:num_anchor]
+        x_star_anchor = x_star_anchor[indices]
+        t_star_anchor = t_star_anchor[indices]
+    
+    # Ensure points require gradients for training
+    x_star_anchor = x_star_anchor.requires_grad_(True)
+    t_star_anchor = t_star_anchor.requires_grad_(True)
+    
+    return x_star_anchor, t_star_anchor, num_anchor
+
+# ============================================================================
 # Training Function
 # ============================================================================
 
@@ -575,6 +696,10 @@ def train_pinn(model, training_params=None, plot_callback=None):
     loss_evaluation_grid_t = training_params.get('loss_evaluation_grid_t', 100)
     loss_smoothing_epsilon = training_params.get('loss_smoothing_epsilon', 1e-8)
     
+    # Anchor collocation point parameters
+    anchor_ratio = training_params.get('anchor_ratio', 0.0)
+    anchor_distribution = training_params.get('anchor_distribution', 'uniform')
+    
     # Loss weights
     weight_pde = training_params.get('weight_pde', 1.0)
     weight_ic = training_params.get('weight_ic', 1.0)
@@ -597,10 +722,69 @@ def train_pinn(model, training_params=None, plot_callback=None):
         'outlet_bc': []
     }
     
-    # Initialize with uniform grid collocation points
-    x_star_colloc, t_star_colloc = generate_uniform_grid_collocation_points(
-        collocation_points_x_star, collocation_points_t_star, t_final_star
-    )
+    # Compute total number of collocation points
+    total_points = collocation_points_x_star * collocation_points_t_star
+    
+    # Generate anchor collocation points (permanently present during training)
+    if anchor_ratio > 0.0:
+        x_star_anchor, t_star_anchor, num_anchor = generate_anchor_collocation_points(
+            anchor_ratio, collocation_points_x_star, collocation_points_t_star, t_final_star
+        )
+        
+        # Compute number of adaptive points (remaining capacity)
+        num_adaptive = total_points - num_anchor
+        
+        if verbose:
+            print(f"\nAnchor collocation points initialized:")
+            print(f"  Anchor ratio: {anchor_ratio:.2%}")
+            print(f"  Anchor points: {num_anchor} ({num_anchor/total_points:.2%} of total)")
+            print(f"  Adaptive points: {num_adaptive} ({num_adaptive/total_points:.2%} of total)")
+    else:
+        # No anchor points - all points are adaptive (backward compatibility)
+        x_star_anchor = torch.empty((0, 1), dtype=torch.float32)
+        t_star_anchor = torch.empty((0, 1), dtype=torch.float32)
+        num_anchor = 0
+        num_adaptive = total_points
+        if verbose:
+            print(f"\nNo anchor points (anchor_ratio=0.0) - all {num_adaptive} points are adaptive")
+    
+    # Initialize adaptive points as uniform grid (remaining capacity)
+    # Compute adaptive grid dimensions
+    if num_adaptive > 0:
+        aspect_ratio = collocation_points_t_star / collocation_points_x_star
+        adaptive_x = int(np.sqrt(num_adaptive / aspect_ratio))
+        adaptive_t = int(num_adaptive / adaptive_x) if adaptive_x > 0 else 0
+        
+        # Ensure we generate at least the requested number
+        while adaptive_x * adaptive_t < num_adaptive:
+            if adaptive_x <= adaptive_t:
+                adaptive_x += 1
+            else:
+                adaptive_t += 1
+        
+        # Generate uniform grid for adaptive points
+        x_star_adaptive, t_star_adaptive = generate_uniform_grid_collocation_points(
+            adaptive_x, adaptive_t, t_final_star
+        )
+        
+        # Trim to exact count if needed
+        if x_star_adaptive.shape[0] > num_adaptive:
+            indices = torch.randperm(x_star_adaptive.shape[0])[:num_adaptive]
+            x_star_adaptive = x_star_adaptive[indices]
+            t_star_adaptive = t_star_adaptive[indices]
+    else:
+        # No adaptive points (all anchors)
+        x_star_adaptive = torch.empty((0, 1), dtype=torch.float32)
+        t_star_adaptive = torch.empty((0, 1), dtype=torch.float32)
+    
+    # Combine anchor and adaptive points for training
+    if num_anchor > 0:
+        x_star_colloc = torch.cat([x_star_anchor, x_star_adaptive], dim=0)
+        t_star_colloc = torch.cat([t_star_anchor, t_star_adaptive], dim=0)
+    else:
+        # No anchors - use only adaptive points
+        x_star_colloc = x_star_adaptive
+        t_star_colloc = t_star_adaptive
     
     # Create progress bar
     pbar = tqdm(range(num_epochs), desc="Training PINN", disable=not verbose)
@@ -645,8 +829,9 @@ def train_pinn(model, training_params=None, plot_callback=None):
                 'PDE': f"{losses['pde'][-1]:.4e}"
             })
         
-        # Update collocation points based on loss distribution
-        if (epoch + 1) % adaptive_update_interval == 0 and epoch > 0:
+        # Update adaptive collocation points based on loss distribution
+        # Anchor points remain unchanged throughout training
+        if (epoch + 1) % adaptive_update_interval == 0 and epoch > 0 and num_adaptive > 0:
             # Set model to eval mode for loss evaluation
             model.eval()
             
@@ -656,14 +841,31 @@ def train_pinn(model, training_params=None, plot_callback=None):
                 t_final_star, loss_smoothing_epsilon
             )
             
-            # Generate new collocation points using inverse CDF method
-            x_star_colloc, t_star_colloc = generate_adaptive_collocation_points_inverse_cdf(
+            # Generate new adaptive collocation points using inverse CDF method
+            # Only generate adaptive points (anchor points are preserved)
+            x_star_adaptive, t_star_adaptive = generate_adaptive_collocation_points_inverse_cdf(
                 loss_grid, x_star_grid, t_star_grid,
+                num_adaptive,
                 collocation_points_x_star, collocation_points_t_star
             )
             
+            # Combine anchor and adaptive points for training
+            if num_anchor > 0:
+                x_star_colloc = torch.cat([x_star_anchor, x_star_adaptive], dim=0)
+                t_star_colloc = torch.cat([t_star_anchor, t_star_adaptive], dim=0)
+            else:
+                # No anchors - use only adaptive points
+                x_star_colloc = x_star_adaptive
+                t_star_colloc = t_star_adaptive
+            
             # Set model back to training mode
             model.train()
+            
+            if verbose and (epoch + 1) % (adaptive_update_interval * 5) == 0:
+                # Print update every 5 adaptive updates
+                print(f"\nEpoch {epoch + 1}: Adaptive collocation points updated")
+                print(f"  Anchor points: {num_anchor} (unchanged)")
+                print(f"  Adaptive points: {num_adaptive} (redistributed)")
         
         # Export plot at specified interval
         export_interval = training_params.get('export_interval', 100)
@@ -1402,6 +1604,14 @@ if __name__ == "__main__":
     collocation_points_t_star = training_params['collocation_points_t_star']
     total_collocation = collocation_points_x_star * collocation_points_t_star
     print(f"  Collocation points: {total_collocation} total ({collocation_points_x_star} x* × {collocation_points_t_star} t*)")
+    anchor_ratio = training_params.get('anchor_ratio', 0.0)
+    if anchor_ratio > 0.0:
+        num_anchor = int(total_collocation * anchor_ratio)
+        num_adaptive = total_collocation - num_anchor
+        print(f"  Anchor points: {num_anchor} ({anchor_ratio:.2%} of total) - permanently fixed")
+        print(f"  Adaptive points: {num_adaptive} ({1.0 - anchor_ratio:.2%} of total) - redistributed every {training_params.get('adaptive_update_interval', 100)} epochs")
+    else:
+        print(f"  Anchor points: 0 (all points are adaptive)")
     print(f"  Adaptive update interval: {training_params.get('adaptive_update_interval', 100)} epochs")
     print(f"  Loss evaluation grid: {training_params.get('loss_evaluation_grid_x', 100)} × {training_params.get('loss_evaluation_grid_t', 100)}")
     print(f"  IC points: {training_params['num_ic']}")
