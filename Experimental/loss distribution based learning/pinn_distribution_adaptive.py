@@ -59,8 +59,8 @@ model_params = {
 
 # Training parameters
 training_params = {
-    'num_epochs': 20000,         # number of training epochs
-    'lr': 2.5e-3,                # learning rate
+    'num_epochs': 10000,         # number of training epochs
+    'lr': 5e-3,                # learning rate
     # Collocation point configuration - ADAPTIVE
     'collocation_points_x_star': 350,  # Number of points in x* direction (fixed count)
     'collocation_points_t_star': 350,  # Number of points in t* direction (fixed count)
@@ -69,10 +69,10 @@ training_params = {
     'num_bc': 100,              # number of points for boundary conditions
     't_final_star': 1.0,        # final dimensionless time
     'verbose': True,            # print training progress
-    'export_interval': 10,     # export plot every N epochs (set to None to disable)
+    'export_interval': 125,     # export plot every N epochs (set to None to disable)
     'overwrite_gif_frames': True,  # if True, export gif frames with same name (overwriting)
     # Adaptive learning parameters
-    'adaptive_update_interval': 200,  # Number of epochs between collocation point updates
+    'adaptive_update_interval': 250,  # Number of epochs between collocation point updates
     'loss_evaluation_grid_x': 100,    # Resolution for loss evaluation grid in x* direction
     'loss_evaluation_grid_t': 100,    # Resolution for loss evaluation grid in t* direction
     'loss_smoothing_epsilon': 1e-8,   # Small value added to loss values to avoid zero probabilities

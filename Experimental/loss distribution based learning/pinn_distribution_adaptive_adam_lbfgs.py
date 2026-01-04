@@ -63,8 +63,8 @@ model_params = {
 # Training parameters
 training_params = {
     # Optimizer schedule: Adam for first X epochs, then LBFGS for Y epochs
-    'adam_epochs': 5000,          # number of epochs with Adam optimizer
-    'lbfgs_epochs': 15000,        # number of epochs with LBFGS optimizer
+    'adam_epochs': 10000,          # number of epochs with Adam optimizer
+    'lbfgs_epochs': 500,        # number of epochs with LBFGS optimizer
     # Total epochs = adam_epochs + lbfgs_epochs (computed automatically)
     'num_epochs': None,           # will be set to adam_epochs + lbfgs_epochs
     'lr': 2.5e-3,                # learning rate (used for both optimizers)
@@ -76,10 +76,10 @@ training_params = {
     'num_bc': 100,              # number of points for boundary conditions
     't_final_star': 1.0,        # final dimensionless time
     'verbose': True,            # print training progress
-    'export_interval': 10,     # export plot every N epochs (set to None to disable)
+    'export_interval': 100,     # export plot every N epochs (set to None to disable)
     'overwrite_gif_frames': True,  # if True, export gif frames with same name (overwriting)
     # Adaptive learning parameters
-    'adaptive_update_interval': 200,  # Number of epochs between collocation point updates
+    'adaptive_update_interval': 11000,  # Number of epochs between collocation point updates
     'loss_evaluation_grid_x': 100,    # Resolution for loss evaluation grid in x* direction
     'loss_evaluation_grid_t': 100,    # Resolution for loss evaluation grid in t* direction
     'loss_smoothing_epsilon': 1e-8,   # Small value added to loss values to avoid zero probabilities
