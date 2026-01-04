@@ -99,7 +99,7 @@ if training_params['num_epochs'] is None:
 
 # Plotting parameters
 script_dir = Path(__file__).parent
-plots_dir = script_dir / 'results'
+plots_dir = script_dir / 'results_adam_lbfgs'
 plotting_params = {
     'times_days': [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],  # times for concentration profiles
     'x_max': 100.0,             # maximum spatial coordinate (m)
