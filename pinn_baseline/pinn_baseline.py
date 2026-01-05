@@ -30,7 +30,7 @@ from analytical_solution import analytical_solution
 # Visualization settings
 mpl.rcParams['figure.dpi']= 800
 plt.rcParams["font.family"] = "Times New Roman"
-mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=["#FF5F05", "#13294B", "#009FD4", "#FCB316", "#006230", "#007E8E", "#5C0E41", "#7D3E13"])
+# mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=["#FF5F05", "#13294B", "#009FD4", "#FCB316", "#006230", "#007E8E", "#5C0E41", "#7D3E13"])
 
 # ============================================================================
 # Configuration - Edit parameters here
@@ -60,9 +60,9 @@ activation = torch.nn.Tanh # activation function
 # Training parameters
 num_epochs = 20000          # number of training epochs
 lr = 0.001                  # learning rate
-num_collocation = 150*150     # number of collocation points for PDE
-num_ic = 150               # number of points for initial condition
-num_bc = 150               # number of points for boundary conditions
+num_collocation = 75*75     # number of collocation points for PDE
+num_ic = 100               # number of points for initial condition
+num_bc = 100               # number of points for boundary conditions
 weight_pde = 1           # weight for PDE residual loss
 weight_ic = 1            # weight for initial condition loss
 weight_inlet_bc = 1      # weight for inlet boundary condition loss
@@ -179,7 +179,7 @@ plt.close()
 # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 # optimizer = torch.optim.Rprop(model.parameters(), lr=lr)
 # optimizer = torch.optim.LBFGS(model.parameters(), lr=lr, max_iter=20, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=100, line_search_fn=None)
-optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=lr/10)
 # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
 
 # Initialize loss tracking lists
@@ -295,7 +295,7 @@ plt.xlabel('Distance x (m)', fontsize=12)
 plt.ylabel('Concentration C (kg/m³)', fontsize=12)
 
 # Create legend at top
-legend = plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.25), 
+legend = plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.35), 
                    ncol=4, frameon=False, fontsize=10,
                    labelspacing=0.5, columnspacing=1.2)
 # Style legend text items - make all text black
