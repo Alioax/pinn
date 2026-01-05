@@ -56,10 +56,11 @@ class PINN(nn.Module):
                 layers.append(activation())
         self.net = nn.Sequential(*layers)
         
-        # Apply Xavier initialization to all linear layers
+        # Apply Xavier normal initialization with gain to all linear layers
+        gain = nn.init.calculate_gain('tanh')
         for layer in self.net:
             if isinstance(layer, nn.Linear):
-                nn.init.xavier_uniform_(layer.weight)
+                nn.init.xavier_normal_(layer.weight, gain=gain)
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)
         
@@ -426,7 +427,7 @@ def save_losses_csv(losses, output_path):
                 losses['outlet_bc'][epoch],
             ])
 
-def append_summary_csv(config, config_hash, losses, training_time, summary_path, training_params=None):
+def append_summary_csv(config, config_hash, losses, training_time, total_experiment_time, summary_path, training_params=None):
     """
     Append experiment summary to master CSV file.
     
@@ -435,6 +436,7 @@ def append_summary_csv(config, config_hash, losses, training_time, summary_path,
         config_hash: Hash string for this configuration
         losses: Dictionary with loss lists (final losses will be extracted)
         training_time: Training time in seconds
+        total_experiment_time: Total experiment time in seconds (from start to finish)
         summary_path: Path to summary CSV file
         training_params: Training parameters dictionary (for fallback values)
     """
@@ -467,6 +469,7 @@ def append_summary_csv(config, config_hash, losses, training_time, summary_path,
         'final_inlet_bc_loss': final_inlet_bc_loss,
         'final_outlet_bc_loss': final_outlet_bc_loss,
         'training_time_seconds': training_time,
+        'total_experiment_time_seconds': total_experiment_time,
     }
     
     # Check if file exists to determine if we need to write header
@@ -526,6 +529,9 @@ def main():
             # Create experiment directory
             exp_dir.mkdir(exist_ok=True)
             
+            # Start timing the entire experiment
+            experiment_start_time = time.time()
+            
             # Save configuration
             config_path = exp_dir / 'config.json'
             with open(config_path, 'w') as f:
@@ -548,11 +554,15 @@ def main():
                                        DEFAULT_TRAINING_PARAMS, plot_path)
             print(f"  ✓ Plot saved to {plot_path}")
             
+            # End timing the entire experiment
+            experiment_end_time = time.time()
+            total_experiment_time = experiment_end_time - experiment_start_time
+            
             # Append to summary CSV
-            append_summary_csv(config, config_hash, losses, training_time, summary_csv_path, DEFAULT_TRAINING_PARAMS)
+            append_summary_csv(config, config_hash, losses, training_time, total_experiment_time, summary_csv_path, DEFAULT_TRAINING_PARAMS)
             print(f"  ✓ Summary appended to {summary_csv_path}")
             
-            print(f"  ✓ Experiment completed in {training_time:.2f} seconds")
+            print(f"  ✓ Experiment completed in {total_experiment_time:.2f} seconds (training: {training_time:.2f} seconds)")
             completed += 1
             
         except Exception as e:

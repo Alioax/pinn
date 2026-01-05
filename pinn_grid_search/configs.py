@@ -93,105 +93,51 @@ DEFAULT_TRAINING_PARAMS = {
 # ============================================================================
 
 EXPERIMENT_CONFIGS = [
-    # A1 — 2×32 baseline control
-    {
-        'num_layers': 2,
-        'num_neurons': 32,
-        'num_epochs': 40000,
-        'lr': 1e-3,
-        'activation': 'Tanh',
-        'num_collocation': 200000,
-        'num_ic': 20000,
-        'num_bc': 20000,
-        'weight_pde': 1,
-        'weight_ic': 1,
-        'weight_inlet_bc': 1,
-        'weight_outlet_bc': 1,
-        'optimizer': 'Adam',
-    },
+    # Phase 1: Tanh + Adam only
+    # arch ∈ {(1,64),(2,16),(3,12)}
+    # lr ∈ {1e-4, 1e-3}
+    # num_collocation ∈ {2000, 10000}
+    # num_ic = num_bc = 500, weights = 1
 
-    # A2 — 2×32, low LR diagnostic
-    {
-        'num_layers': 2,
-        'num_neurons': 32,
-        'num_epochs': 40000,
-        'lr': 1e-4,
-        'activation': 'Tanh',
-        'num_collocation': 200000,
-        'num_ic': 20000,
-        'num_bc': 20000,
-        'weight_pde': 1,
-        'weight_ic': 1,
-        'weight_inlet_bc': 1,
-        'weight_outlet_bc': 1,
-        'optimizer': 'Adam',
-    },
+    # --- 1×64 ---
+    {'num_layers': 1, 'num_neurons': 64, 'num_epochs': 5000, 'lr': 1e-4, 'activation': 'Tanh',
+     'num_collocation': 2000,  'num_ic': 500, 'num_bc': 500,
+     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
+    {'num_layers': 1, 'num_neurons': 64, 'num_epochs': 5000, 'lr': 1e-4, 'activation': 'Tanh',
+     'num_collocation': 10000, 'num_ic': 500, 'num_bc': 500,
+     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
+    {'num_layers': 1, 'num_neurons': 64, 'num_epochs': 5000, 'lr': 1e-3, 'activation': 'Tanh',
+     'num_collocation': 2000,  'num_ic': 500, 'num_bc': 500,
+     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
+    {'num_layers': 1, 'num_neurons': 64, 'num_epochs': 5000, 'lr': 1e-3, 'activation': 'Tanh',
+     'num_collocation': 10000, 'num_ic': 500, 'num_bc': 500,
+     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
 
-    # A3 — 1×64 width vs depth control
-    {
-        'num_layers': 1,
-        'num_neurons': 64,
-        'num_epochs': 40000,
-        'lr': 1e-3,
-        'activation': 'Tanh',
-        'num_collocation': 200000,
-        'num_ic': 20000,
-        'num_bc': 20000,
-        'weight_pde': 1,
-        'weight_ic': 1,
-        'weight_inlet_bc': 1,
-        'weight_outlet_bc': 1,
-        'optimizer': 'Adam',
-    },
+    # --- 2×16 ---
+    {'num_layers': 2, 'num_neurons': 16, 'num_epochs': 5000, 'lr': 1e-4, 'activation': 'Tanh',
+     'num_collocation': 2000,  'num_ic': 500, 'num_bc': 500,
+     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
+    {'num_layers': 2, 'num_neurons': 16, 'num_epochs': 5000, 'lr': 1e-4, 'activation': 'Tanh',
+     'num_collocation': 10000, 'num_ic': 500, 'num_bc': 500,
+     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
+    {'num_layers': 2, 'num_neurons': 16, 'num_epochs': 5000, 'lr': 1e-3, 'activation': 'Tanh',
+     'num_collocation': 2000,  'num_ic': 500, 'num_bc': 500,
+     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
+    {'num_layers': 2, 'num_neurons': 16, 'num_epochs': 5000, 'lr': 1e-3, 'activation': 'Tanh',
+     'num_collocation': 10000, 'num_ic': 500, 'num_bc': 500,
+     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
 
-    # A4 — 1×64, low LR diagnostic
-    {
-        'num_layers': 1,
-        'num_neurons': 64,
-        'num_epochs': 40000,
-        'lr': 1e-4,
-        'activation': 'Tanh',
-        'num_collocation': 200000,
-        'num_ic': 20000,
-        'num_bc': 20000,
-        'weight_pde': 1,
-        'weight_ic': 1,
-        'weight_inlet_bc': 1,
-        'weight_outlet_bc': 1,
-        'optimizer': 'Adam',
-    },
-
-    # B1 — 2×32, BC-focused (highest priority)
-    {
-        'num_layers': 2,
-        'num_neurons': 32,
-        'num_epochs': 40000,
-        'lr': 1e-3,
-        'activation': 'Tanh',
-        'num_collocation': 200000,
-        'num_ic': 20000,
-        'num_bc': 40000,
-        'weight_pde': 1,
-        'weight_ic': 1,
-        'weight_inlet_bc': 1,
-        'weight_outlet_bc': 1,
-        'optimizer': 'Adam',
-    },
-
-    # B2 — 1×64, BC-focused
-    {
-        'num_layers': 1,
-        'num_neurons': 64,
-        'num_epochs': 40000,
-        'lr': 1e-3,
-        'activation': 'Tanh',
-        'num_collocation': 200000,
-        'num_ic': 20000,
-        'num_bc': 40000,
-        'weight_pde': 1,
-        'weight_ic': 1,
-        'weight_inlet_bc': 1,
-        'weight_outlet_bc': 1,
-        'optimizer': 'Adam',
-    },
+    # --- 3×12 ---
+    {'num_layers': 3, 'num_neurons': 12, 'num_epochs': 5000, 'lr': 1e-4, 'activation': 'Tanh',
+     'num_collocation': 2000,  'num_ic': 500, 'num_bc': 500,
+     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
+    {'num_layers': 3, 'num_neurons': 12, 'num_epochs': 5000, 'lr': 1e-4, 'activation': 'Tanh',
+     'num_collocation': 10000, 'num_ic': 500, 'num_bc': 500,
+     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
+    {'num_layers': 3, 'num_neurons': 12, 'num_epochs': 5000, 'lr': 1e-3, 'activation': 'Tanh',
+     'num_collocation': 2000,  'num_ic': 500, 'num_bc': 500,
+     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
+    {'num_layers': 3, 'num_neurons': 12, 'num_epochs': 5000, 'lr': 1e-3, 'activation': 'Tanh',
+     'num_collocation': 10000, 'num_ic': 500, 'num_bc': 500,
+     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
 ]
