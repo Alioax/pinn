@@ -93,51 +93,29 @@ DEFAULT_TRAINING_PARAMS = {
 # ============================================================================
 
 EXPERIMENT_CONFIGS = [
-    # Phase 1: Tanh + Adam only
-    # arch ∈ {(1,64),(2,16),(3,12)}
-    # lr ∈ {1e-4, 1e-3}
-    # num_collocation ∈ {2000, 10000}
-    # num_ic = num_bc = 500, weights = 1
+    # Phase 2: fix epochs=15000, lr=1e-3, Tanh + Adam
+    # Sweep PDE collocation: 2000, 5000, 10000
+    # Compare two best architectures: 3×12 and 2×16
 
-    # --- 1×64 ---
-    {'num_layers': 1, 'num_neurons': 64, 'num_epochs': 5000, 'lr': 1e-4, 'activation': 'Tanh',
+    # --- 3×12 (Phase-1 winner) ---
+    {'num_layers': 3, 'num_neurons': 12, 'num_epochs': 15000, 'lr': 1e-3, 'activation': 'Tanh',
      'num_collocation': 2000,  'num_ic': 500, 'num_bc': 500,
      'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
-    {'num_layers': 1, 'num_neurons': 64, 'num_epochs': 5000, 'lr': 1e-4, 'activation': 'Tanh',
-     'num_collocation': 10000, 'num_ic': 500, 'num_bc': 500,
+    {'num_layers': 3, 'num_neurons': 12, 'num_epochs': 15000, 'lr': 1e-3, 'activation': 'Tanh',
+     'num_collocation': 5000,  'num_ic': 500, 'num_bc': 500,
      'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
-    {'num_layers': 1, 'num_neurons': 64, 'num_epochs': 5000, 'lr': 1e-3, 'activation': 'Tanh',
-     'num_collocation': 2000,  'num_ic': 500, 'num_bc': 500,
-     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
-    {'num_layers': 1, 'num_neurons': 64, 'num_epochs': 5000, 'lr': 1e-3, 'activation': 'Tanh',
+    {'num_layers': 3, 'num_neurons': 12, 'num_epochs': 15000, 'lr': 1e-3, 'activation': 'Tanh',
      'num_collocation': 10000, 'num_ic': 500, 'num_bc': 500,
      'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
 
-    # --- 2×16 ---
-    {'num_layers': 2, 'num_neurons': 16, 'num_epochs': 5000, 'lr': 1e-4, 'activation': 'Tanh',
+    # --- 2×16 (best “budget” from Phase-1) ---
+    {'num_layers': 2, 'num_neurons': 16, 'num_epochs': 15000, 'lr': 1e-3, 'activation': 'Tanh',
      'num_collocation': 2000,  'num_ic': 500, 'num_bc': 500,
      'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
-    {'num_layers': 2, 'num_neurons': 16, 'num_epochs': 5000, 'lr': 1e-4, 'activation': 'Tanh',
-     'num_collocation': 10000, 'num_ic': 500, 'num_bc': 500,
+    {'num_layers': 2, 'num_neurons': 16, 'num_epochs': 15000, 'lr': 1e-3, 'activation': 'Tanh',
+     'num_collocation': 5000,  'num_ic': 500, 'num_bc': 500,
      'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
-    {'num_layers': 2, 'num_neurons': 16, 'num_epochs': 5000, 'lr': 1e-3, 'activation': 'Tanh',
-     'num_collocation': 2000,  'num_ic': 500, 'num_bc': 500,
-     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
-    {'num_layers': 2, 'num_neurons': 16, 'num_epochs': 5000, 'lr': 1e-3, 'activation': 'Tanh',
-     'num_collocation': 10000, 'num_ic': 500, 'num_bc': 500,
-     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
-
-    # --- 3×12 ---
-    {'num_layers': 3, 'num_neurons': 12, 'num_epochs': 5000, 'lr': 1e-4, 'activation': 'Tanh',
-     'num_collocation': 2000,  'num_ic': 500, 'num_bc': 500,
-     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
-    {'num_layers': 3, 'num_neurons': 12, 'num_epochs': 5000, 'lr': 1e-4, 'activation': 'Tanh',
-     'num_collocation': 10000, 'num_ic': 500, 'num_bc': 500,
-     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
-    {'num_layers': 3, 'num_neurons': 12, 'num_epochs': 5000, 'lr': 1e-3, 'activation': 'Tanh',
-     'num_collocation': 2000,  'num_ic': 500, 'num_bc': 500,
-     'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
-    {'num_layers': 3, 'num_neurons': 12, 'num_epochs': 5000, 'lr': 1e-3, 'activation': 'Tanh',
+    {'num_layers': 2, 'num_neurons': 16, 'num_epochs': 15000, 'lr': 1e-3, 'activation': 'Tanh',
      'num_collocation': 10000, 'num_ic': 500, 'num_bc': 500,
      'weight_pde': 1, 'weight_ic': 1, 'weight_inlet_bc': 1, 'weight_outlet_bc': 1, 'optimizer': 'Adam'},
 ]
