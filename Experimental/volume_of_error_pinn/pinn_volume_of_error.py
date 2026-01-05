@@ -328,7 +328,7 @@ def compute_boundary_condition_losses(model, t_star_bc, x_star_inlet=0.0, x_star
     
     Boundary conditions:
     - Inlet (x*=0): C*(0, t*) = 1 (Dirichlet)
-    - Outlet (x*=1): ∂C*/∂x*(1, t*) = 0 (zero-gradient)
+    - Outlet (x*=1): C*(1, t*) = 0 (Dirichlet, far-field approximation)
     
     Parameters:
         model: PINN model
@@ -338,7 +338,7 @@ def compute_boundary_condition_losses(model, t_star_bc, x_star_inlet=0.0, x_star
     
     Returns:
         inlet_loss: Dirichlet BC loss at inlet
-        outlet_loss: Neumann BC loss at outlet
+        outlet_loss: Dirichlet BC loss at outlet
     """
     # Inlet boundary condition: C*(0, t*) = 1
     x_star_inlet_tensor = torch.full_like(t_star_bc, x_star_inlet)
@@ -346,16 +346,11 @@ def compute_boundary_condition_losses(model, t_star_bc, x_star_inlet=0.0, x_star
     C_star_inlet_true = torch.ones_like(C_star_inlet_pred)
     inlet_loss = nn.MSELoss()(C_star_inlet_pred, C_star_inlet_true)
     
-    # Outlet boundary condition: ∂C*/∂x*(1, t*) = 0
+    # Outlet boundary condition: C*(1, t*) = 0 (Dirichlet far-field approximation)
     x_star_outlet_tensor = torch.full_like(t_star_bc, x_star_outlet)
-    x_star_outlet_tensor = x_star_outlet_tensor.clone().detach().requires_grad_(True)
-    t_star_outlet_tensor = t_star_bc.clone().detach().requires_grad_(True)
-    
-    C_star_outlet = model(x_star_outlet_tensor, t_star_outlet_tensor)
-    dC_dx_star_outlet = grad(C_star_outlet, x_star_outlet_tensor,
-                             grad_outputs=torch.ones_like(C_star_outlet),
-                             create_graph=True, retain_graph=True)[0]
-    outlet_loss = nn.MSELoss()(dC_dx_star_outlet, torch.zeros_like(dC_dx_star_outlet))
+    C_star_outlet_pred = model(x_star_outlet_tensor, t_star_bc)
+    C_star_outlet_true = torch.zeros_like(C_star_outlet_pred)
+    outlet_loss = nn.MSELoss()(C_star_outlet_pred, C_star_outlet_true)
     
     return inlet_loss, outlet_loss
 
@@ -778,7 +773,7 @@ def compute_bc_inlet_residual_at_points(model, t):
 
 def compute_bc_outlet_residual_at_points(model, t):
     """
-    Compute outlet boundary condition residual: ∂C*/∂x*(1, t*) - 0 = ∂C*/∂x*(1, t*)
+    Compute outlet boundary condition residual: C*(1, t*) - 0 = C*(1, t*)
     
     Parameters:
         model: PINN model
@@ -797,17 +792,14 @@ def compute_bc_outlet_residual_at_points(model, t):
     if t_star.ndim == 0:
         t_star = t_star.reshape(1)
     
-    t_star = torch.tensor(t_star, dtype=torch.float32, requires_grad=True)
+    t_star = torch.tensor(t_star, dtype=torch.float32)
     x_star = torch.ones_like(t_star)  # x* = 1 at outlet
-    x_star = x_star.requires_grad_(True)
     
     model.eval()
-    with torch.enable_grad():
+    with torch.no_grad():
         C_star = model(x_star, t_star)
-        dC_dx_star = grad(C_star, x_star, grad_outputs=torch.ones_like(C_star),
-                        create_graph=True, retain_graph=True)[0]
-        # BC outlet residual: ∂C*/∂x*(1, t*) - 0 = ∂C*/∂x*(1, t*)
-        residual = dC_dx_star
+        # BC outlet residual: C*(1, t*) - 0 = C*(1, t*)
+        residual = C_star
     
     return residual.detach().cpu().numpy().flatten()
 

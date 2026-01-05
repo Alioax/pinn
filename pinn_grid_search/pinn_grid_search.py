@@ -231,13 +231,9 @@ def train_pinn_model(config, physics_params, training_params, seed=None):
         C_star_inlet = model(colloc_points['x_star_inlet'], colloc_points['t_star_inlet'])
         inlet_loss = nn.MSELoss()(C_star_inlet, torch.ones_like(C_star_inlet))
         
-        # Outlet boundary condition loss: ∂C*/∂x*(1, t*) = 0
-        x_star_outlet_grad = colloc_points['x_star_outlet'].clone().detach().requires_grad_(True)
-        t_star_outlet_grad = colloc_points['t_star_outlet'].clone().detach().requires_grad_(True)
-        C_star_outlet = model(x_star_outlet_grad, t_star_outlet_grad)
-        dC_dx_outlet = grad(C_star_outlet, x_star_outlet_grad, grad_outputs=torch.ones_like(C_star_outlet),
-                            create_graph=True, retain_graph=True)[0]
-        outlet_loss = nn.MSELoss()(dC_dx_outlet, torch.zeros_like(dC_dx_outlet))
+        # Outlet boundary condition loss: C*(1, t*) = 0 (Dirichlet far-field approximation)
+        C_star_outlet = model(colloc_points['x_star_outlet'], colloc_points['t_star_outlet'])
+        outlet_loss = nn.MSELoss()(C_star_outlet, torch.zeros_like(C_star_outlet))
         
         # Total loss
         total_loss = (weight_pde * pde_loss + 

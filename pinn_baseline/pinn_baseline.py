@@ -6,7 +6,7 @@ Minimal script that trains a Physics-Informed Neural Network to solve:
 
 with boundary conditions:
     C(0, t) = C0  (inlet)
-    ∂C/∂x(L, t) = 0  (outlet)
+    C(L, t) = 0  (outlet, far-field approximation)
     C(x, 0) = 0  (initial condition)
 
 All parameters are configurable at the top of the file.
@@ -58,7 +58,7 @@ activation = torch.nn.Tanh # activation function
 # activation = torch.sin                   # Sinusoidal - periodic, good for oscillatory solutions (note: no parentheses)
 
 # Training parameters
-num_epochs = 5000          # number of training epochs
+num_epochs = 10000          # number of training epochs
 lr = 0.0005                  # learning rate
 num_collocation = 200000     # number of collocation points for PDE
 num_ic = 20000               # number of points for initial condition
@@ -215,13 +215,9 @@ def closure():
     C_star_inlet = model(x_star_inlet_tensor, t_star_inlet_tensor)
     inlet_loss = nn.MSELoss()(C_star_inlet, torch.ones_like(C_star_inlet))
     
-    # Outlet boundary condition loss: ∂C*/∂x*(1, t*) = 0
-    x_star_outlet_grad = x_star_outlet_tensor.clone().detach().requires_grad_(True)
-    t_star_outlet_grad = t_star_outlet_tensor.clone().detach().requires_grad_(True)
-    C_star_outlet = model(x_star_outlet_grad, t_star_outlet_grad)
-    dC_dx_outlet = grad(C_star_outlet, x_star_outlet_grad, grad_outputs=torch.ones_like(C_star_outlet),
-                        create_graph=True, retain_graph=True)[0]
-    outlet_loss = nn.MSELoss()(dC_dx_outlet, torch.zeros_like(dC_dx_outlet))
+    # Outlet boundary condition loss: C*(1, t*) = 0 (Dirichlet far-field approximation)
+    C_star_outlet = model(x_star_outlet_tensor, t_star_outlet_tensor)
+    outlet_loss = nn.MSELoss()(C_star_outlet, torch.zeros_like(C_star_outlet))
     
     # Total loss
     total_loss = (weight_pde * pde_loss + 

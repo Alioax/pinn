@@ -79,7 +79,7 @@ The physics is enforced through multiple loss components:
 
 - **Boundary Condition Losses** (`compute_bc_losses`):
   - Inlet: `C*(0, t*) = 1` (Dirichlet)
-  - Outlet: `∂C*/∂x*(1, t*) = 0` (Neumann, using automatic differentiation)
+  - Outlet: `C*(1, t*) = 0` (Dirichlet, far-field approximation)
 
 All losses are computed in dimensionless form and can be weighted independently.
 

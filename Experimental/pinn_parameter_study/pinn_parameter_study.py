@@ -10,7 +10,7 @@ Solves:
 
 with boundary conditions:
     C(0, t) = C0  (inlet)
-    ∂C/∂x(L, t) = 0  (outlet)
+    C(L, t) = 0  (outlet, far-field approximation)
     C(x, 0) = 0  (initial condition)
 
 All parameters are configurable at the top of the file.
@@ -127,19 +127,16 @@ def compute_ic_loss(model, x_star_init):
     return nn.MSELoss()(C_star_pred, torch.zeros_like(C_star_pred))
 
 def compute_bc_losses(model, t_star_bc):
-    """Compute boundary condition losses: C*(0, t*) = 1 and ∂C*/∂x*(1, t*) = 0."""
+    """Compute boundary condition losses: C*(0, t*) = 1 and C*(1, t*) = 0 (Dirichlet far-field approximation)."""
     # Inlet: C*(0, t*) = 1
     x_inlet = torch.zeros_like(t_star_bc)
     C_inlet = model(x_inlet, t_star_bc)
     inlet_loss = nn.MSELoss()(C_inlet, torch.ones_like(C_inlet))
     
-    # Outlet: ∂C*/∂x*(1, t*) = 0
-    x_outlet = torch.ones_like(t_star_bc).requires_grad_(True)
-    t_outlet = t_star_bc.clone().detach().requires_grad_(True)
-    C_outlet = model(x_outlet, t_outlet)
-    dC_dx = grad(C_outlet, x_outlet, grad_outputs=torch.ones_like(C_outlet),
-                 create_graph=True, retain_graph=True)[0]
-    outlet_loss = nn.MSELoss()(dC_dx, torch.zeros_like(dC_dx))
+    # Outlet: C*(1, t*) = 0 (Dirichlet far-field approximation)
+    x_outlet = torch.ones_like(t_star_bc)
+    C_outlet = model(x_outlet, t_star_bc)
+    outlet_loss = nn.MSELoss()(C_outlet, torch.zeros_like(C_outlet))
     
     return inlet_loss, outlet_loss
 
