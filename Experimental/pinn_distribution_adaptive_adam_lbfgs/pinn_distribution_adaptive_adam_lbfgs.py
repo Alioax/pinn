@@ -55,31 +55,31 @@ physics_params = {
 
 # Neural network model parameters
 model_params = {
-    'num_layers': 1,            # number of hidden layers
-    'num_neurons': 64,          # number of neurons per hidden layer
+    'num_layers': 3,            # number of hidden layers
+    'num_neurons': 16,          # number of neurons per hidden layer
     'activation': torch.nn.Tanh,  # activation function
 }
 
 # Training parameters
 training_params = {
     # Optimizer schedule: Adam for first X epochs, then LBFGS for Y epochs
-    'adam_epochs': 10000,          # number of epochs with Adam optimizer
-    'lbfgs_epochs': 500,        # number of epochs with LBFGS optimizer
+    'adam_epochs': 38000,          # number of epochs with Adam optimizer
+    'lbfgs_epochs': 2000,        # number of epochs with LBFGS optimizer
     # Total epochs = adam_epochs + lbfgs_epochs (computed automatically)
     'num_epochs': None,           # will be set to adam_epochs + lbfgs_epochs
     'lr': 2.5e-3,                # learning rate (used for both optimizers)
     # Collocation point configuration - ADAPTIVE
-    'collocation_points_x_star': 350,  # Number of points in x* direction (fixed count)
-    'collocation_points_t_star': 350,  # Number of points in t* direction (fixed count)
+    'collocation_points_x_star': 200,  # Number of points in x* direction (fixed count)
+    'collocation_points_t_star': 200,  # Number of points in t* direction (fixed count)
     # Total collocation points = collocation_points_x_star × collocation_points_t_star = 2500
-    'num_ic': 100,              # number of points for initial condition
-    'num_bc': 100,              # number of points for boundary conditions
+    'num_ic': 200,              # number of points for initial condition
+    'num_bc': 200,              # number of points for boundary conditions
     't_final_star': 1.0,        # final dimensionless time
     'verbose': True,            # print training progress
     'export_interval': 100,     # export plot every N epochs (set to None to disable)
-    'overwrite_gif_frames': True,  # if True, export gif frames with same name (overwriting)
+    'overwrite_gif_frames': False,  # if True, export gif frames with same name (overwriting)
     # Adaptive learning parameters
-    'adaptive_update_interval': 11000,  # Number of epochs between collocation point updates
+    'adaptive_update_interval': 40000,  # Number of epochs between collocation point updates
     'loss_evaluation_grid_x': 100,    # Resolution for loss evaluation grid in x* direction
     'loss_evaluation_grid_t': 100,    # Resolution for loss evaluation grid in t* direction
     'loss_smoothing_epsilon': 1e-8,   # Small value added to loss values to avoid zero probabilities
@@ -89,7 +89,7 @@ training_params = {
     'weight_inlet_bc': 1,       # weight for inlet boundary condition loss
     'weight_outlet_bc': 1,      # weight for outlet boundary condition loss
     # Anchor collocation point parameters (prevents catastrophic forgetting)
-    'anchor_ratio': 0.25,        # fraction of total points that are anchors (0.0 = all adaptive, 1.0 = all anchors)
+    'anchor_ratio': 1,        # fraction of total points that are anchors (0.0 = all adaptive, 1.0 = all anchors)
     'anchor_distribution': 'uniform',  # distribution strategy for anchors ('uniform' only currently)
 }
 
@@ -104,7 +104,7 @@ plotting_params = {
     'times_days': [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],  # times for concentration profiles
     'x_max': 100.0,             # maximum spatial coordinate (m)
     'num_points': 500,          # number of spatial points for profiles
-    'dpi': 50,                # resolution for saved figures
+    'dpi': 200,                # resolution for saved figures
     'plots_dir': str(plots_dir),  # directory to save plots
     'heatmap_resolution_x': 10,  # number of cells in x direction for collocation heatmap
     'heatmap_resolution_t': 10,  # number of cells in t direction for collocation heatmap
