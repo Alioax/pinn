@@ -45,7 +45,8 @@ mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=["#FF5F05", "#13294B", "#009F
 # Physics parameters (dimensional)
 physics_params = {
     'U': 0.1,                    # m/day (advection velocity)
-    'D': 1e-7 * 86400,          # m²/day (dispersion coefficient, converted from m²/s)
+    # 'D': 1e-7 * 86400,          # m²/day (dispersion coefficient, converted from m²/s)
+    'D': 1e-8 * 86400,          # m²/day (dispersion coefficient, converted from m²/s)
     'C_0': 5.0,                 # kg/m³ (concentration scale)
     'L': 100.0,                 # m (length scale)
 }
@@ -53,26 +54,26 @@ physics_params = {
 # Neural network model parameters
 model_params = {
     'num_layers': 3,            # number of hidden layers
-    'num_neurons': 10,          # number of neurons per hidden layer
+    'num_neurons': 16,          # number of neurons per hidden layer
     'activation': torch.nn.Tanh,  # activation function
 }
 
 # Training parameters
 training_params = {
-    'num_epochs': 5000,         # number of training epochs
-    'lr': 5e-3,                # learning rate
+    'num_epochs': 10000,         # number of training epochs
+    'lr': 0.001,                # learning rate
     # Collocation point configuration - ADAPTIVE
-    'collocation_points_x_star': 50,  # Number of points in x* direction (fixed count)
-    'collocation_points_t_star': 50,  # Number of points in t* direction (fixed count)
+    'collocation_points_x_star': 200,  # Number of points in x* direction (fixed count)
+    'collocation_points_t_star': 200,  # Number of points in t* direction (fixed count)
     # Total collocation points = collocation_points_x_star × collocation_points_t_star = 2500
-    'num_ic': 100,              # number of points for initial condition
-    'num_bc': 100,              # number of points for boundary conditions
+    'num_ic': 200,              # number of points for initial condition
+    'num_bc': 200,              # number of points for boundary conditions
     't_final_star': 1.0,        # final dimensionless time
     'verbose': True,            # print training progress
-    'export_interval': 250,     # export plot every N epochs (set to None to disable)
-    'overwrite_gif_frames': False,  # if True, export gif frames with same name (overwriting)
+    'export_interval': 100,     # export plot every N epochs (set to None to disable)
+    'overwrite_gif_frames': True,  # if True, export gif frames with same name (overwriting)
     # Adaptive learning parameters
-    'adaptive_update_interval': 125,  # Number of epochs between collocation point updates
+    'adaptive_update_interval': 10000,  # Number of epochs between collocation point updates
     'loss_evaluation_grid_x': 100,    # Resolution for loss evaluation grid in x* direction
     'loss_evaluation_grid_t': 100,    # Resolution for loss evaluation grid in t* direction
     'loss_smoothing_epsilon': 1e-8,   # Small value added to loss values to avoid zero probabilities
@@ -82,7 +83,7 @@ training_params = {
     'weight_inlet_bc': 1,       # weight for inlet boundary condition loss
     'weight_outlet_bc': 1,      # weight for outlet boundary condition loss
     # Anchor collocation point parameters (prevents catastrophic forgetting)
-    'anchor_ratio': 0.9,        # fraction of total points that are anchors (0.0 = all adaptive, 1.0 = all anchors)
+    'anchor_ratio': 1,        # fraction of total points that are anchors (0.0 = all adaptive, 1.0 = all anchors)
     'anchor_distribution': 'uniform',  # distribution strategy for anchors ('uniform' only currently)
 }
 
@@ -90,10 +91,10 @@ training_params = {
 script_dir = Path(__file__).parent
 plots_dir = script_dir / 'results'
 plotting_params = {
-    'times_days': [0, 100, 300, 500, 600, 700, 800, 900, 1000],  # times for concentration profiles
+    'times_days': [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000],  # times for concentration profiles
     'x_max': 100.0,             # maximum spatial coordinate (m)
     'num_points': 500,          # number of spatial points for profiles
-    'dpi': 200,                # resolution for saved figures
+    'dpi': 75,                # resolution for saved figures
     'plots_dir': str(plots_dir),  # directory to save plots
     'heatmap_resolution_x': 10,  # number of cells in x direction for collocation heatmap
     'heatmap_resolution_t': 10,  # number of cells in t direction for collocation heatmap
@@ -1545,7 +1546,7 @@ def plot_concentration_profiles(model, times_days=None, x_max=None, num_points=N
     # Get handles and labels from main plot
     handles, labels = ax_main.get_legend_handles_labels()
     # Create legend at figure level, centered, with more columns
-    legend = fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1), 
+    legend = fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.05), 
                        ncol=6, frameon=False, fontsize=10,
                        labelspacing=0.5, columnspacing=1.2)
     # Style legend text items - make all text black
@@ -1555,7 +1556,7 @@ def plot_concentration_profiles(model, times_days=None, x_max=None, num_points=N
     
     # Add epoch number in top right corner if provided
     if epoch is not None:
-        fig.text(0.98, 0.98, f'Epoch: {epoch:,}', 
+        fig.text(0.98, 1.025, f'Epoch: {epoch:,}', 
                 transform=fig.transFigure,
                 fontsize=14, 
                 verticalalignment='top', 

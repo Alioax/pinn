@@ -55,6 +55,7 @@ def create_training_gif():
     
     # Sort files by epoch number
     image_files.sort(key=lambda x: extract_epoch_number(x.name))
+    # image_files = image_files[::2]
     
     # Detect which script was used based on filename pattern
     first_filename = image_files[0].name

@@ -18,6 +18,7 @@ Analytical Solution (Ogata-Banks):
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.special import erfc
+from pathlib import Path
 
 # ============================================================================
 # Problem Parameters
@@ -25,7 +26,8 @@ from scipy.special import erfc
 
 # Physical parameters
 U = 0.1  # m/day (advection velocity)
-D = 1e-7 * 86400  # m²/day (dispersion coefficient, converted from m²/s)
+D = 1e-8 * 86400  # m²/day (dispersion coefficient, converted from m²/s)
+# D = 1e-7 * 86400  # m²/day (dispersion coefficient, converted from m²/s)
 C_0 = 5.0  # kg/m³ (inlet concentration)
 
 # Spatial domain (semi-infinite, but we plot up to 100 m)
@@ -116,7 +118,11 @@ def analytical_solution(x, t, U_param=None, D_param=None, C_0_param=None):
 # Visualization
 # ============================================================================
 
-def plot_concentration_profiles(times=[0, 100, 200, 300, 400, 500, 600, 800, 1000]):
+script_dir = Path(__file__).parent
+results_dir = script_dir / 'results'
+results_dir.mkdir(exist_ok=True)
+
+def plot_concentration_profiles(times=[0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]):
     """
     Plot concentration profiles C(x,t) vs x for selected times.
     """
@@ -135,14 +141,13 @@ def plot_concentration_profiles(times=[0, 100, 200, 300, 400, 500, 600, 800, 100
     plt.ylim(0, C_0 * 1.1)
     
     # Add vertical line at x=60m to show where concentration becomes negligible for early times
-    plt.axvline(x=60, color='gray', linestyle='--', alpha=0.5, linewidth=1)
-    plt.text(62, C_0 * 0.9, 'x ≈ 60m\n(typical front\nfor early times)', 
-             fontsize=9, alpha=0.7, verticalalignment='top')
+    # plt.axvline(x=60, color='gray', linestyle='--', alpha=0.5, linewidth=1)
+    # plt.text(62, C_0 * 0.9, 'x ≈ 60m\n(typical front\nfor early times)', 
+    #          fontsize=9, alpha=0.7, verticalalignment='top')
     
     plt.tight_layout()
-    plt.savefig('results/plots/analytical_solution.png', dpi=300, bbox_inches='tight')
+    plt.savefig(results_dir / 'analytical_solution.png', dpi=300, bbox_inches='tight')
     print("Plot saved to 'results/plots/analytical_solution.png'")
-    plt.show()
     
     # Print diagnostic information
     print("\n" + "="*60)
@@ -177,9 +182,9 @@ def plot_space_time_contour():
     plt.title('Analytical Solution: Concentration Contour Plot', fontsize=14)
     
     plt.tight_layout()
-    plt.savefig('results/plots/analytical_contour.png', dpi=300, bbox_inches='tight')
+    plt.savefig(results_dir / 'analytical_contour.png', dpi=300, bbox_inches='tight')
     print("Contour plot saved to 'results/plots/analytical_contour.png'")
-    plt.show()
+    # plt.show()
 
 def analyze_outlet_arrival():
     """
@@ -228,9 +233,9 @@ def analyze_outlet_arrival():
     plt.title('Analytical Solution: Concentration at Outlet (x=100m) vs Time', fontsize=14)
     plt.legend()
     plt.grid(True, alpha=0.3)
-    plt.savefig('results/plots/analytical_outlet.png', dpi=300, bbox_inches='tight')
+    plt.savefig(results_dir / 'analytical_outlet.png', dpi=300, bbox_inches='tight')
     print("\nOutlet analysis plot saved to 'results/plots/analytical_outlet.png'")
-    plt.show()
+    # plt.show()
     
     return t_arrival if len(idx) > 0 else None
 
