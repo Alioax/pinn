@@ -87,21 +87,21 @@ class PINN(nn.Module):
     
     def __init__(self, num_layers, num_neurons, activation):
         super(PINN, self).__init__()
-        layer_sizes = [2] + [num_neurons] * num_layers + [1]
         layers = []
-        for i in range(len(layer_sizes) - 1):
-            layers.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
-            if i < len(layer_sizes) - 2:
-                layers.append(activation())
+        in_features = 2
+        for i in range(num_layers):
+            layers.append(nn.Linear(in_features, num_neurons))
+            layers.append(activation())
+            in_features = num_neurons
+        layers.append(nn.Linear(num_neurons, 1))
         self.net = nn.Sequential(*layers)
         
         # Apply Xavier normal initialization with gain to all linear layers
         gain = nn.init.calculate_gain('tanh')
-        for layer in self.net:
-            if isinstance(layer, nn.Linear):
-                nn.init.xavier_normal_(layer.weight, gain=gain)
-                if layer.bias is not None:
-                    nn.init.zeros_(layer.bias)
+        for layer in self.net[::2]:
+            nn.init.xavier_normal_(layer.weight, gain=gain)
+            if layer.bias is not None:
+                nn.init.zeros_(layer.bias)
         
     def forward(self, x_star, t_star):
         inputs = torch.cat([x_star, t_star], dim=1)
@@ -369,8 +369,8 @@ plot_path = results_dir / 'pinn_baseline_concentration_profiles.png'
 plt.savefig(str(plot_path), dpi=plot_dpi, bbox_inches='tight')
 print(f"Plot saved to: {plot_path}")
 
-# Save PDF copy to report/figs directory
-report_figs_dir = script_dir.parent / 'report' / 'figs'
+# Save PDF copy to reports/report 1 - PINN Baseline/figs directory
+report_figs_dir = script_dir.parent / 'reports' / 'report 1 - PINN Baseline' / 'figs'
 report_figs_dir.mkdir(parents=True, exist_ok=True)
 pdf_path = report_figs_dir / 'pinn_baseline_concentration_profiles.pdf'
 plt.savefig(str(pdf_path), format='pdf', bbox_inches='tight')

@@ -28,8 +28,8 @@ mpl.rcParams["axes.prop_cycle"] = mpl.cycler(
 # Configuration - Edit parameters here
 # ============================================================================
 
-model_load_name = "pinn_parametric_30000.pt"
 model_load_name = "pinn_parametric_20000_800_1e-0_3x16.pt"
+model_load_name = "pinn_parametric_20000_800_1e-1_4x16.pt"
 model_load_name = "pinn_parametric_30000_200_1e-0_3x16.pt"
 times_tstar = [0.05, 0.1, 0.2, 0.5, 0.8, 1.0]  # Dimensionless times to plot
 num_spatial_points = 500

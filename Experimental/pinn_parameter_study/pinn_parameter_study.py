@@ -311,8 +311,8 @@ def plot_concentration_profiles(model):
     plt.savefig(str(plot_path), dpi=300, bbox_inches='tight')
     print(f"Plot saved to: {plot_path}")
     
-    # Save PDF copy to report/figs directory
-    report_figs_dir = script_dir.parent.parent / 'report' / 'figs'
+    # Save PDF copy to reports/report 1 - PINN Baseline/figs directory
+    report_figs_dir = script_dir.parent.parent / 'reports' / 'report 1 - PINN Baseline' / 'figs'
     report_figs_dir.mkdir(parents=True, exist_ok=True)
     pdf_path = report_figs_dir / 'pinn_parameter_study_concentration_profiles.pdf'
     plt.savefig(str(pdf_path), format='pdf', bbox_inches='tight')

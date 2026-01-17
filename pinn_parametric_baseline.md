@@ -49,7 +49,7 @@ Training:
 Plots saved relative to the script directory:
 - Collocation point distribution: `parametric pinn_baseline/results/collocation_points.png`
 - Concentration profiles (PINN vs analytical): `parametric pinn_baseline/results/pinn_baseline_concentration_profiles.png`
-- PDF copy for report: `report/figs/pinn_baseline_concentration_profiles.pdf`
+- PDF copy for report: `reports/report 1 - PINN Baseline/figs/pinn_baseline_concentration_profiles.pdf`
 
 ## Notes
 - Uses `analytical_solution` from `analytical_solution/analytical_solution.py` for comparison.

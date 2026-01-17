@@ -19,7 +19,7 @@ with boundary conditions:
 ## Report
 
 A comprehensive research report documenting the methodology, results, and analysis is available:
-- **Report**: [`report/PINN Baseline - Ali Haghighi.pdf`](report/PINN%20Baseline%20-%20Ali%20Haghighi.pdf)
+- **Report**: [`reports/report 1 - PINN Baseline/PINN Baseline - Ali Haghighi.pdf`](reports/report%201%20-%20PINN%20Baseline/PINN%20Baseline%20-%20Ali%20Haghighi.pdf)
 
 The report provides detailed theoretical background, implementation details, results analysis, and comparisons with analytical solutions.
 
@@ -101,7 +101,7 @@ The `train_pinn` function implements the training process:
   - Generates concentration profiles at multiple time steps
   - Compares PINN predictions with analytical solution (Ogata-Banks)
   - Creates publication-quality plots with proper styling
-  - Saves both PNG (to `results/`) and PDF (to `report/figs/`) formats
+  - Saves both PNG (to `results/`) and PDF (to `reports/report 1 - PINN Baseline/figs/`) formats
 
 ### Key Features of Baseline Implementation
 
@@ -120,7 +120,7 @@ Running the baseline implementation generates:
 - Concentration profiles at multiple time steps (0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000 days)
 - Comparison plots showing PINN predictions vs. analytical solution
 - Results saved to `pinn_baseline/results/pinn_baseline_concentration_profiles.png`
-- PDF copy saved to `report/figs/pinn_baseline_concentration_profiles.pdf`
+- PDF copy saved to `reports/report 1 - PINN Baseline/figs/pinn_baseline_concentration_profiles.pdf`
 
 See `pinn_baseline/README.md` for additional details.
 
@@ -168,13 +168,15 @@ A parameter study implementation is available in `Experimental/pinn_parameter_st
 - **`Experimental/pinn_parameter_study/`** - Parameter study implementation
   - Hyperparameter and physical parameter investigations
 
+- **`Experimental/pinn_grid_search/`** - Hyperparameter grid search runner
+
 - **`analytical_solution/`** - Analytical solution implementation
   - Ogata-Banks analytical solution for 1D contaminant transport
   - Used for validation and comparison
 
-- **`report/`** - Research report and figures
-  - LaTeX report with full documentation
-  - Generated figures in PDF format
+- **`reports/`** - Research reports and figures
+  - `report 1 - PINN Baseline/` - LaTeX report with full documentation and figures
+  - `report 2 - PINN Update/` - Update report and figures
 
 Each folder is self-contained with its code and results in `results/` subdirectories.
 
