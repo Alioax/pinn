@@ -144,6 +144,9 @@ plt.tight_layout()
 collocation_plot_path = results_dir / "collocation_points.png"
 plt.savefig(str(collocation_plot_path), dpi=plot_dpi, bbox_inches="tight")
 print(f"Collocation points plot saved to: {collocation_plot_path}")
+collocation_pdf_path = results_dir / "collocation_points.pdf"
+plt.savefig(str(collocation_pdf_path), format="pdf", bbox_inches="tight")
+print(f"Collocation points PDF saved to: {collocation_pdf_path}")
 plt.close()
 
 plt.figure(figsize=(6.5, 4))
@@ -157,6 +160,9 @@ plt.tight_layout()
 pe_plot_path = results_dir / "collocation_points_logpe.png"
 plt.savefig(str(pe_plot_path), dpi=plot_dpi, bbox_inches="tight")
 print(f"Parametric coverage plot saved to: {pe_plot_path}")
+pe_plot_pdf_path = results_dir / "collocation_points_logpe.pdf"
+plt.savefig(str(pe_plot_pdf_path), format="pdf", bbox_inches="tight")
+print(f"Parametric coverage PDF saved to: {pe_plot_pdf_path}")
 plt.close()
 
 # ============================================================================
@@ -254,6 +260,11 @@ for epoch in pbar:
 
 pbar.close()
 
+# Save trained model state
+model_path = results_dir / "pinn_parametric_baseline_model.pt"
+torch.save(model.state_dict(), model_path)
+print(f"Model saved to: {model_path}")
+
 # ============================================================================
 # Loss plots
 # ============================================================================
@@ -281,6 +292,8 @@ for key, ax in axes.items():
 
 plot_path = results_dir / "loss.png"
 plt.savefig(str(plot_path), dpi=plot_dpi, bbox_inches="tight")
+plot_pdf_path = results_dir / "loss.pdf"
+plt.savefig(str(plot_pdf_path), format="pdf", bbox_inches="tight")
 plt.close(fig)
 
 # ============================================================================
@@ -371,5 +384,8 @@ for pe_plot in pe_values_to_plot:
     plot_path = results_dir / f"{pe_plot} Cstar_profiles.png"
     plt.savefig(str(plot_path), dpi=plot_dpi, bbox_inches="tight")
     print(f"Plot saved to: {plot_path}")
+    plot_pdf_path = results_dir / f"{pe_plot} Cstar_profiles.pdf"
+    plt.savefig(str(plot_pdf_path), format="pdf", bbox_inches="tight")
+    print(f"PDF saved to: {plot_pdf_path}")
 
     plt.close()

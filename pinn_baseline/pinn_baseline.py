@@ -58,11 +58,11 @@ activation = torch.nn.Tanh # activation function
 # activation = torch.sin                   # Sinusoidal - periodic, good for oscillatory solutions (note: no parentheses)
 
 # Training parameters
-num_epochs = 40000          # number of training epochs
+num_epochs = 25000          # number of training epochs
 lr = 0.001                  # learning rate
-num_collocation = 200*200     # number of collocation points for PDE
-num_ic = 200               # number of points for initial condition
-num_bc = 200               # number of points for boundary conditions
+num_collocation = 250*250     # number of collocation points for PDE
+num_ic = 250               # number of points for initial condition
+num_bc = 250               # number of points for boundary conditions
 weight_pde = 1           # weight for PDE residual loss
 weight_ic = 1            # weight for initial condition loss
 weight_inlet_bc = 1      # weight for inlet boundary condition loss
@@ -252,6 +252,11 @@ for epoch in pbar:
         })
 pbar.close()
 
+# Save trained model state
+model_path = results_dir / 'pinn_baseline_model.pt'
+torch.save(model.state_dict(), model_path)
+print(f"Model saved to: {model_path}")
+
 # ============================================================================
 # Plot Concentration Profiles
 # ============================================================================
@@ -369,10 +374,8 @@ plot_path = results_dir / 'pinn_baseline_concentration_profiles.png'
 plt.savefig(str(plot_path), dpi=plot_dpi, bbox_inches='tight')
 print(f"Plot saved to: {plot_path}")
 
-# Save PDF copy to reports/report 1 - PINN Baseline/figs directory
-report_figs_dir = script_dir.parent / 'reports' / 'report 1 - PINN Baseline' / 'figs'
-report_figs_dir.mkdir(parents=True, exist_ok=True)
-pdf_path = report_figs_dir / 'pinn_baseline_concentration_profiles.pdf'
+# Save PDF copy alongside PNG
+pdf_path = results_dir / 'pinn_baseline_concentration_profiles.pdf'
 plt.savefig(str(pdf_path), format='pdf', bbox_inches='tight')
 print(f"PDF copy saved to: {pdf_path}")
 
