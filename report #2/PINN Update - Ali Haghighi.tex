@@ -1,0 +1,205 @@
+\documentclass[9pt, twocolumn]{extarticle}
+
+%%% Using extarticle instead of the standard article class to allow 8pt font size
+%%% Title and author fields are manually resized (e.g., \Huge, \large) for better fitting
+%%% \vspace*{-\topskip} is applied in \maketitle to remove the extra top margin above the title
+
+\usepackage{graphicx}
+\graphicspath{{figs/}}
+\usepackage[a4paper, margin=1.5cm, bottom=2.5cm]{geometry}
+\usepackage{float}
+\usepackage{subfig}
+\usepackage{caption}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+% \usepackage{stfloats}  % Commented out - package not available
+\usepackage{titlesec}
+\usepackage{setspace}
+\usepackage{xcolor}
+\definecolor{UofT_blue}{HTML}{0baedd}
+\usepackage[colorlinks=true,
+            linkcolor=UofT_blue,
+            urlcolor=UofT_blue,
+            citecolor=UofT_blue]{hyperref}
+\usepackage[
+  backend=biber,
+  style=numeric,          % numbered refs
+  citestyle=numeric-comp, % [1-3] compression
+  sorting=none            % order of citation
+  ]{biblatex}
+  \addbibresource{references.bib}
+
+\newcommand{\mystretch}{1.2}
+\newcommand{\myfigmargin}{4pt}
+
+
+\setlength{\textfloatsep}{\myfigmargin}    % text ↔ top/bottom floats
+\setlength{\intextsep}{\myfigmargin}       % text ↔ here-placed floats ([h])
+\setlength{\floatsep}{\myfigmargin}        % between floats
+\setlength{\dbltextfloatsep}{\myfigmargin} % two-column floats (figure*)
+\setlength{\dblfloatsep}{\myfigmargin}
+
+
+\captionsetup[figure]{belowskip=0pt, skip=4pt, labelfont=bf, justification=justified, singlelinecheck=false, font={stretch=\mystretch}}
+\captionsetup[subfloat]{labelfont=normalfont, justification=centering, singlelinecheck=false, farskip=4pt,captionskip=0pt, font={stretch=\mystretch}}
+% \captionsetup[figure]{belowskip=-14pt, font={stretch=\mystretch}}
+\captionsetup[subfloat]{belowskip=-14pt, font={stretch=\mystretch}}
+\captionsetup[table]{labelfont=bf, justification=justified, singlelinecheck=false, skip=2pt, farskip=0pt, captionskip=0pt, belowskip=0pt, font={stretch=\mystretch}}
+  
+\renewcommand{\baselinestretch}{\mystretch} % 1.2x line spacing
+  
+\setlength{\columnsep}{0.5cm}
+  
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{0pt}%
+  {0.8ex plus 0.5ex minus 0.2ex}%
+  {0.5ex}%
+  {\normalfont\Large\bfseries}}
+\makeatother
+
+
+\makeatletter
+\renewcommand{\maketitle}{\bgroup\setlength{\parindent}{0pt}
+\vspace*{-\topskip}% remove the top margin above title
+\begin{flushleft}
+  \huge\textbf{\@title}
+
+  \vspace{0.20cm}
+
+  \normalsize\@author \hfill \normalsize\@date
+
+  \vspace{0.25cm}\hrule\vspace{0.25cm}
+\end{flushleft}
+\egroup}
+\makeatother
+
+
+% Title, author, and date are now on the cover page
+
+
+
+\begin{document}
+
+% Cover Page
+\begin{titlepage}
+\centering
+\vspace*{1.5cm}
+
+% Title
+{\fontsize{36}{42}\selectfont\bfseries\color{UofT_blue} Physics-Informed Neural Networks for Contaminant Transport in Aquifers\par}
+\vspace{3.5cm}
+
+% Author
+{\fontsize{18}{18}\selectfont Ali Haghighi\par}
+\vspace{2cm}
+
+% Advisors
+{\fontsize{18}{18}\selectfont Supervised by:\par}
+% \vspace{0.8cm}
+{\fontsize{18}{24}\selectfont Afshin Ashrafzadeh, François Lehmann, Marwan Fahs\par}
+\vspace{4.5cm}
+
+% Date
+{\fontsize{14}{14}\selectfont\today\par}
+\vspace{2cm}
+
+% Logos
+\begin{figure}[h]
+\centering
+\includegraphics[height=2cm]{figs/U of T Logo.pdf}
+\hspace{1cm}
+\includegraphics[height=2cm]{figs/Universite de Strasbourg Logo.pdf}
+\end{figure}
+
+\vfill
+
+\end{titlepage}
+
+% Start content on new page
+\newpage
+\twocolumn
+\section*{Abstract}
+
+This report summarizes recent progress on simplified baseline and parametric Physics-Informed Neural Networks (PINNs) for the 1D advection-dispersion equation in a fully dimensionless form. The baseline model solves for C* as a function of (x*, t*), while the parametric model extends the input space to (x*, t*, log Pe) to cover a wide Peclet range. Results are presented as dimensionless concentration profiles and loss curves, with an analytical overlay used strictly as a qualitative shape reference.
+
+\section{Executive Summary}
+
+The baseline PINN has been simplified into a linear, step-by-step implementation, and the parametric PINN now generalizes across multiple Peclet numbers within a single model. Both scripts operate entirely in dimensionless variables. Key outcomes include stable training behavior and consistent qualitative trends across Pe. The two scripts referenced in this report are the simplified baseline PINN and the parametric PINN.
+
+\section{Scope}
+
+This report focuses on a dimensionless formulation of the 1D advection-dispersion equation with inputs x*, t*, and log Pe. Emphasis is placed on clarity, reproducibility, and parametric generalization rather than architectural complexity.
+
+\section{Methods}
+
+\subsection{Dimensionless problem}
+
+The governing equation is:
+\[
+C^*_{t^*} + C^*_{x^*} - \frac{1}{Pe} C^*_{x^*x^*} = 0
+\]
+with domain x* in [0, 1], t* in [0, t*_final], and Pe in [Pe_min, Pe_max]. Initial and boundary conditions are C*(x*, 0) = 0, C*(0, t*) = 1, and C*(1, t*) = 0.
+
+\subsection{Baseline PINN}
+
+The baseline model maps (x*, t*) to C* and is trained using a weighted loss that combines PDE residual, initial condition, inlet, and outlet boundary losses. Collocation points are sampled uniformly within the dimensionless domain.
+
+\subsection{Parametric PINN}
+
+The parametric model augments the input with log Pe, allowing a single network to represent solution behavior across a wide Peclet range. Sampling is uniform in log Pe to balance coverage across orders of magnitude.
+
+\subsection{Analytical overlay}
+
+Analytical curves are overlaid as a qualitative shape reference using a dimensionless proxy mapping (U = 1, C0 = 1, D = 1/Pe). This overlay is not treated as a strict benchmark.
+
+\section{Results}
+
+\subsection{Baseline PINN}
+
+Figure~\ref{fig:baseline_loss} shows the baseline loss curves. Figure~\ref{fig:baseline_profiles} shows C* profiles over x* at selected t* values.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\columnwidth]{baseline_loss.pdf}
+\caption{Baseline PINN loss curves (dimensionless).}
+\label{fig:baseline_loss}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\columnwidth]{baseline_profiles.pdf}
+\caption{Baseline PINN C* profiles over x* at selected t* values with analytical overlay (shape reference).}
+\label{fig:baseline_profiles}
+\end{figure}
+
+\subsection{Parametric PINN}
+
+Figure~\ref{fig:parametric_loss} shows the parametric training losses. Figures~\ref{fig:parametric_pe10} and~\ref{fig:parametric_pe1e5} illustrate C* profiles for two representative Peclet numbers. As expected, low Pe yields smoother diffusion-dominated profiles, while high Pe produces sharper fronts.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\columnwidth]{parametric_loss.pdf}
+\caption{Parametric PINN loss curves (dimensionless).}
+\label{fig:parametric_loss}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\columnwidth]{parametric_profiles_pe10.pdf}
+\caption{Parametric PINN C* profiles for Pe = 10.}
+\label{fig:parametric_pe10}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\columnwidth]{parametric_profiles_pe1e5.pdf}
+\caption{Parametric PINN C* profiles for Pe = 1e5.}
+\label{fig:parametric_pe1e5}
+\end{figure}
+
+\section{Summary and Next Steps}
+
+The baseline PINN is simplified and stable, and the parametric PINN demonstrates consistent qualitative behavior across Peclet numbers in a fully dimensionless setting. Next steps include sensitivity checks on t*_final, optional loss reweighting, and expanding the set of reported Pe values for visual coverage.
+
+\end{document}
