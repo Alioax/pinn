@@ -241,13 +241,24 @@ The baseline model is trained in dimensionless form on $C^*(x^*, t^*)$. Figure~\
 \label{fig:baseline_profiles}
 \end{figure}
 
+\subsection{Parametric PINN application (physical units)}
+
+Figure~\ref{fig:parametric_application_physical} applies the trained parametric PINN to the baseline physical parameter set and reports the concentration $C(x,t)$ in physical units. The model is evaluated at the baseline Peclet number $Pe \approx 1157.41$, demonstrating that the parametric formulation can accurately recover the original single-$Pe$ problem without retraining.
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=\columnwidth]{pinn_parametric_application_baseline_physical.pdf}
+  \caption{Parametric PINN applied to the baseline physical problem. The model is evaluated at the baseline $Pe \approx 1157.41$ and rescaled to $C$ (kg/m$^3$) over $x$ for selected times $t$.}
+  \label{fig:parametric_application_physical}
+\end{figure}
+
 \subsection{Parametric PINN}
 
 Figure~\ref{fig:parametric_profiles} presents dimensionless concentration profiles $C^*$ predicted by the parametric PINN for representative Peclet numbers $Pe=10$, $50$, $500$, and $10^5$, selected from the full training range $Pe\in[1,10^5]$. Across all cases, the model reproduces the expected transition from smooth, diffusion-dominated fronts at low $Pe$ to increasingly sharp, advection-dominated fronts at higher $Pe$, with good agreement with the analytical reference solutions.
 
 For $Pe=10$, the analytical solution has not yet fully relaxed to zero at the outlet for the larger plotted times (e.g., $t^*=0.6$, $0.8$, and $1.0$), whereas the PINN predictions enforce the outlet boundary condition $C^*(1,t^*)=0$ as imposed during training. As a result, the predicted profiles deviate from the analytical curves near $x^*=1$, decaying to zero earlier than the analytical solution, which naturally reaches zero only after $t^*>1$. A similar, though weaker, effect is observed for $Pe=50$ at later times, reflecting the same interaction between finite-time analytical behavior and the enforced boundary condition.
 
-As in the baseline model, the most visible discrepancy appears immediately behind the sharp advective front, particularly at higher Peclet numbers where the concentration gradient is steepest. In these regions, the PINN solution exhibits a small localized undershoot below zero before relaxing back to zero as the profile flattens. This artifact becomes more noticeable as $Pe$ increases but remains spatially confined. Overall, the parametric PINN demonstrates stable training behavior and maintains high accuracy across the full Peclet range considered.
+As in the baseline model, the most visible discrepancy occurs just behind the sharp advective front, especially at higher Peclet numbers, where the PINN briefly undershoots below zero before relaxing back to zero. This artifact remains localized. Overall the parametric PINN maintains stable training and high accuracy across the full Peclet range considered.
 
 \begin{figure}[!htbp]
 \centering
@@ -259,20 +270,9 @@ As in the baseline model, the most visible discrepancy appears immediately behin
 \label{fig:parametric_profiles}
 \end{figure}
 
-\subsection{Parametric PINN application (physical units)}
-
-Figure~\ref{fig:parametric_application_physical} applies the trained parametric PINN to the baseline physical parameter set and reports the concentration $C(x,t)$ in physical units. The model is evaluated at the baseline Peclet number $Pe \approx 1157.41$, demonstrating that the parametric formulation can accurately recover the original single-$Pe$ problem without retraining.
-
-\begin{figure}[!htbp]
-\centering
-\includegraphics[width=\columnwidth]{pinn_parametric_application_baseline_physical.pdf}
-\caption{Parametric PINN applied to the baseline physical problem. The model is evaluated at the baseline $Pe \approx 1157.41$ and rescaled to $C$ (kg/m$^3$) over $x$ for selected times $t$.}
-\label{fig:parametric_application_physical}
-\end{figure}
-
 \section{Summary and Next Steps}
 
-The baseline PINN yields stable and consistent dimensionless concentration profiles, while the parametric extension successfully captures the expected transition from diffusion-dominated to advection-dominated behavior across a wide range of Peclet numbers. Together, these results establish a clear and reproducible foundation for parametric modeling of transport problems using PINNs. Future work will move beyond parametric PINNs of this form toward neural-operator approaches.
+The baseline PINN produces stable dimensionless concentration profiles, and the parametric extension captures the transition from diffusion-dominated to advection-dominated behavior across a wide Peclet range. These results establish a reproducible foundation for parametric transport modeling with PINNs. Future work will shift toward neural-operator approaches.
 
 \printbibliography
 
@@ -282,80 +282,68 @@ The baseline PINN yields stable and consistent dimensionless concentration profi
 \section{Grid Search for Training Efficiency}
 \label{app:grid_search}
 
-We explored a grid search system (not used in the main scripts) to quantify how architecture and sampling choices affect accuracy and runtime. Each experiment trains a baseline PINN variant, logs loss histories, and writes per-run outputs to a unique hash-based folder. Runs are resumable by skipping configurations that already have a saved loss file. A master CSV aggregates final losses and timing to support side-by-side comparisons of quality versus cost. The full experimental script is available at \href{https://github.com/Alioax/pinn/tree/main/Experimental/pinn_grid_search}{Experimental/pinn\_grid\_search}.
+To assess the impact of architectural and sampling choices on accuracy and computational cost, a structured grid search over baseline PINN configurations was conducted. This exploratory study was not used directly in the main training scripts but served to inform architecture selection and training design. Each configuration trains a baseline PINN variant, records loss histories, and writes outputs to a unique hash-based directory. Runs are resumable, as configurations with existing saved loss files are automatically skipped. Final losses and wall-clock training times are aggregated into a master CSV file to enable direct comparison of solution quality versus runtime. The full experimental script is available at \href{https://github.com/Alioax/pinn/tree/main/Experimental/pinn_grid_search}{Experimental/pinn\_grid\_search}.
 
-Table~\ref{tab:grid_search_configs} reports all grid search configurations ranked by final total loss, along with training time.
+Table~\ref{tab:grid_search_configs} summarizes all evaluated configurations, ranked by final total loss. The results indicate that moderately deep architectures (e.g., three hidden layers with twelve neurons per layer) provide a favorable balance between accuracy and efficiency, consistently outperforming wider single-layer alternatives under the tested settings.
 
 \begin{center}
 \captionof{table}{Grid search configurations ranked by final total loss.}
 \label{tab:grid_search_configs}
-\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} r r r r r r r r r}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} r r r r r r r r}
 \toprule
 Rank & Layers & Neurons & Epochs & LR & PDE Collocation & Final Total Loss & Training Time (s) \\
 \midrule
-1 & 3 & 12 & 15000 & 0.001 & 2000 & 0.00286496 & 84.6 \\
-2 & 3 & 12 & 15000 & 0.001 & 5000 & 0.00433964 & 108.0 \\
-3 & 2 & 16 & 15000 & 0.001 & 5000 & 0.00514802 & 78.8 \\
-4 & 2 & 16 & 15000 & 0.001 & 2000 & 0.00539711 & 63.5 \\
-5 & 3 & 12 & 15000 & 0.001 & 10000 & 0.00590407 & 146.0 \\
-6 & 2 & 16 & 15000 & 0.001 & 10000 & 0.00650195 & 114.6 \\
-7 & 2 & 16 & 5000 & 0.0001 & 2000 & 0.00870967 & 25.2 \\
-8 & 3 & 12 & 5000 & 0.0001 & 2000 & 0.01193960 & 26.3 \\
-9 & 2 & 16 & 5000 & 0.0001 & 5000 & 0.01331970 & 31.9 \\
-10 & 3 & 12 & 5000 & 0.0001 & 5000 & 0.01467140 & 31.9 \\
-11 & 1 & 64 & 5000 & 0.0001 & 2000 & 0.15456900 & 27.0 \\
-12 & 1 & 64 & 5000 & 0.0001 & 10000 & 0.16024500 & 63.0 \\
-13 & 1 & 64 & 5000 & 0.001 & 2000 & 0.16057000 & 27.0 \\
-14 & 1 & 64 & 5000 & 0.001 & 10000 & 0.16221000 & 63.0 \\
-15 & 2 & 16 & 5000 & 0.001 & 2000 & 0.16547400 & 25.2 \\
-16 & 3 & 12 & 5000 & 0.001 & 2000 & 0.16603900 & 26.3 \\
-17 & 2 & 16 & 5000 & 0.001 & 10000 & 0.16735700 & 63.0 \\
-18 & 3 & 12 & 5000 & 0.001 & 10000 & 0.16743300 & 63.0 \\
+1  & 3 & 12 & 15000 & 0.001  & 2000  & 0.00286496 & 84.6 \\
+2  & 3 & 12 & 15000 & 0.001  & 5000  & 0.00433964 & 108.0 \\
+3  & 2 & 16 & 15000 & 0.001  & 5000  & 0.00514802 & 78.8 \\
+4  & 2 & 16 & 15000 & 0.001  & 2000  & 0.00539711 & 63.5 \\
+5  & 3 & 12 & 15000 & 0.001  & 10000 & 0.00590407 & 146.0 \\
+6  & 2 & 16 & 15000 & 0.001  & 10000 & 0.00650195 & 114.6 \\
+7  & 2 & 16 & 5000  & 0.0001 & 2000  & 0.00870967 & 25.2 \\
+8  & 3 & 12 & 5000  & 0.0001 & 2000  & 0.01193960 & 26.3 \\
+9  & 2 & 16 & 5000  & 0.0001 & 5000  & 0.01331970 & 31.9 \\
+10 & 3 & 12 & 5000  & 0.0001 & 5000  & 0.01467140 & 31.9 \\
+11 & 1 & 64 & 5000  & 0.0001 & 2000  & 0.15456900 & 27.0 \\
+12 & 1 & 64 & 5000  & 0.0001 & 10000 & 0.16024500 & 63.0 \\
+13 & 1 & 64 & 5000  & 0.001  & 2000  & 0.16057000 & 27.0 \\
+14 & 1 & 64 & 5000  & 0.001  & 10000 & 0.16221000 & 63.0 \\
+15 & 2 & 16 & 5000  & 0.001  & 2000  & 0.16547400 & 25.2 \\
+16 & 3 & 12 & 5000  & 0.001  & 2000  & 0.16603900 & 26.3 \\
+17 & 2 & 16 & 5000  & 0.001  & 10000 & 0.16735700 & 63.0 \\
+18 & 3 & 12 & 5000  & 0.001  & 10000 & 0.16743300 & 63.0 \\
 \bottomrule
 \end{tabular*}
 \end{center}
+
+
 
 \clearpage
 \section{Adaptive Collocation with Adam--LBFGS Schedule}
 \label{app:adaptive_collocation}
 
-This appendix documents an experimental PINN variant that combines adaptive collocation with a two-stage optimizer schedule. The model remains fully dimensionless in training, using $(x^*, t^*) \mapsto C^*$ internally and converting to physical units only for plotting and comparison. The full experimental script is available at \href{https://github.com/Alioax/pinn/tree/main/Experimental/pinn_distribution_adaptive_adam_lbfgs}{Experimental/pinn\_distribution\_adaptive\_adam\_lbfgs}.
+This appendix documents an exploratory PINN formulation that combines adaptive collocation with a staged optimization strategy. The model is trained entirely in dimensionless form, mapping $(x^*, t^*) \mapsto C^*$, with conversion to physical units performed only for visualization and comparison. The purpose of this study is to investigate whether targeted collocation refinement and optimizer scheduling can improve training efficiency and solution quality for transport problems. The full experimental script is available at \href{https://github.com/Alioax/pinn/tree/main/Experimental/pinn_distribution_adaptive_adam_lbfgs}{Experimental/pinn\_distribution\_adaptive\_adam\_lbfgs}.
 
-\textbf{Adaptive collocation (loss-distribution driven).} The PDE residual is evaluated on a uniform $(x^*, t^*)$ grid to build a loss distribution. New collocation points are then sampled using an inverse-CDF procedure so that regions with higher residuals receive denser sampling, while still preserving a fixed total collocation budget.
+\textbf{Adaptive collocation (loss-distribution driven).}
+Rather than using a fixed collocation set, the PDE residual is first evaluated on a uniform $(x^*, t^*)$ grid to estimate a spatial--temporal loss distribution. New collocation points are then sampled using an inverse cumulative distribution function (CDF) constructed from this loss field, so that regions with larger residuals receive proportionally higher sampling density. This approach concentrates training effort in dynamically identified regions of difficulty while preserving a fixed overall collocation budget.
 
-\textbf{Anchors vs adaptive points.} The total collocation set is split into anchors (fixed points) and adaptive points (redistributed). The anchor ratio is a single configurable parameter in $[0,1]$: at 0, all points are adaptive; at 1, all points are fixed. This provides a controlled trade-off between global coverage (anchors) and local refinement (adaptive points).
+\textbf{Anchors and adaptive points.}
+To balance global coverage with local refinement, the collocation set is partitioned into two subsets: anchors, which remain fixed throughout training, and adaptive points, which are periodically redistributed according to the loss distribution. The relative fraction of anchors provides a continuous control between purely adaptive sampling and fully uniform sampling, enabling systematic exploration of refinement strategies without sacrificing domain coverage.
 
-\textbf{Optimizer schedule.} Training uses an Adam phase followed by an LBFGS phase, with the length of each phase controlled in the configuration. This schedule is intended to combine fast initial progress with a stronger final refinement.
+\textbf{Optimizer schedule.}
+Training follows a two-stage optimization procedure consisting of an initial stochastic phase followed by a deterministic refinement phase. The first stage promotes rapid reduction of the loss landscape and robust exploration, while the second stage emphasizes fine-scale convergence once the solution has approached a physically consistent regime. This staged approach is commonly used in PINN training to combine stability with final accuracy.
 
 \textbf{Algorithm (high level).}
 \begin{enumerate}
-  \item Initialize collocation points (anchors and adaptive points).
-  \item Train with Adam while logging PDE residuals.
-  \item Periodically compute a loss grid and resample adaptive points via inverse-CDF.
-  \item Switch to LBFGS for final refinement.
+  \item Initialize a mixed collocation set consisting of anchor and adaptive points.
+  \item Train the network using a stochastic optimizer while monitoring the PDE residual.
+  \item Periodically estimate the residual distribution and resample adaptive points via inverse-CDF sampling.
+  \item Transition to a second-order optimizer for final solution refinement.
 \end{enumerate}
 
-\textbf{Configurable parameters (no fixed values).}
-\begin{table}[h]
-\centering
-\caption{Adaptive collocation and optimizer schedule parameters.}
-\label{tab:adaptive_params}
-\begin{tabularx}{\columnwidth}{l X}
-\toprule
-Parameter & Purpose \\
-\midrule
-Adam epochs, LBFGS epochs & Length of each optimizer phase \\
-Learning rate & Shared learning rate for both optimizers \\
-Collocation grid sizes & Base collocation resolution in $x^*$ and $t^*$ \\
-Adaptive update interval & How often adaptive points are redistributed \\
-Loss evaluation grid & Resolution for PDE loss distribution estimation \\
-Anchor ratio & Fraction of fixed anchors vs adaptive points \\
-Loss weights & Balancing PDE, IC, and BC losses \\
-\bottomrule
-\end{tabularx}
-\end{table}
+\textbf{Configurable components.}
+Several elements of the procedure are configurable to support exploratory studies, including the frequency of adaptive updates, the balance between fixed and adaptive collocation points, and the relative weighting of loss terms.
 
-Outputs include concentration profiles with analytical overlay, collocation distribution heatmaps, PDE-loss heatmaps, and loss curves for diagnostics.
+Outputs from this framework include dimensionless concentration profiles with analytical overlays, collocation-density visualizations, PDE-residual heatmaps, and loss histories, providing multiple diagnostic views of training behavior and solution quality.
 
 
 \end{document}
