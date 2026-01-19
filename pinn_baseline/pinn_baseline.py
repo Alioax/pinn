@@ -45,7 +45,7 @@ T_phys = 1000.0            # days (physical time horizon)
 
 # Model architecture
 num_layers = 3             # number of hidden layers
-num_neurons = 16           # number of neurons per hidden layer
+num_neurons = 12           # number of neurons per hidden layer
 activation = torch.nn.Tanh # activation function
 # Alternative activation functions (uncomment to use):
 # activation = torch.nn.ReLU              # Rectified Linear Unit - simple but may have vanishing gradients
@@ -58,18 +58,18 @@ activation = torch.nn.Tanh # activation function
 # activation = torch.sin                   # Sinusoidal - periodic, good for oscillatory solutions (note: no parentheses)
 
 # Training parameters
-num_epochs = 25000          # number of training epochs
+num_epochs = 15000          # number of training epochs
 lr = 0.001                  # learning rate
-num_collocation = 250*250     # number of collocation points for PDE
-num_ic = 250               # number of points for initial condition
-num_bc = 250               # number of points for boundary conditions
+num_collocation = 300*300     # number of collocation points for PDE
+num_ic = 300               # number of points for initial condition
+num_bc = 300               # number of points for boundary conditions
 weight_pde = 1           # weight for PDE residual loss
 weight_ic = 1            # weight for initial condition loss
 weight_inlet_bc = 1      # weight for inlet boundary condition loss
 weight_outlet_bc = 1     # weight for outlet boundary condition loss
 
 # Plotting parameters
-times_days = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]  # times to plot (days)
+times_days = [0, 200, 400, 500, 600, 800, 1000]  # times to plot (days)
 num_spatial_points = 500            # number of spatial points for plotting
 plot_dpi = 800                      # DPI (dots per inch) for saved plots
 
@@ -176,10 +176,10 @@ plt.close()
 # ============================================================================
 
 # Optimizer options - uncomment the one you want to use
-# optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 # optimizer = torch.optim.Rprop(model.parameters(), lr=lr)
 # optimizer = torch.optim.LBFGS(model.parameters(), lr=lr, max_iter=20, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=100, line_search_fn=None)
-optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=lr/10)
+# optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=lr/10)
 # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
 
 # Initialize loss tracking lists

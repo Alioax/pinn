@@ -37,11 +37,11 @@ T_phys = 1000.0
 
 # Model architecture
 num_layers = 3
-num_neurons = 16
+num_neurons = 12
 activation = torch.nn.Tanh
 
 # Plotting parameters
-times_days = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+times_days = [0, 200, 400, 500, 600, 800, 1000]
 num_spatial_points = 500
 plot_dpi = 800
 
@@ -53,14 +53,23 @@ Pe = (U * L) / D
 # Model setup (must match training)
 # ============================================================================
 
-layers = []
-in_features = 2
-for i in range(num_layers):
-    layers.append(nn.Linear(in_features, num_neurons))
-    layers.append(activation())
-    in_features = num_neurons
-layers.append(nn.Linear(num_neurons, 1))
-model = nn.Sequential(*layers)
+class PINN(nn.Module):
+    def __init__(self, num_layers, num_neurons, activation):
+        super().__init__()
+        layers = []
+        in_features = 2
+        for _ in range(num_layers):
+            layers.append(nn.Linear(in_features, num_neurons))
+            layers.append(activation())
+            in_features = num_neurons
+        layers.append(nn.Linear(num_neurons, 1))
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, x_star, t_star):
+        inputs = torch.cat([x_star, t_star], dim=1)
+        return self.net(inputs)
+
+model = PINN(num_layers, num_neurons, activation)
 
 model_path = Path(__file__).parent / "results" / "pinn_baseline_model.pt"
 state_dict = torch.load(model_path, map_location="cpu")
@@ -76,7 +85,7 @@ results_dir = script_dir / "results"
 results_dir.mkdir(exist_ok=True)
 
 x_plot = np.linspace(0, L, num_spatial_points)
-plt.figure(figsize=(5, 3.5))
+plt.figure(figsize=(4.5, 4))
 
 plt.plot([], [], linewidth=2, linestyle="-", color="black", label="PINN")
 plt.plot([], [], linewidth=2, linestyle="--", color="black", label="Analytical")
@@ -93,7 +102,7 @@ for idx, t_days in enumerate(reversed(times_days)):
         t_star_plot_tensor = t_star_plot_tensor.expand(x_star_plot_tensor.shape[0], -1)
 
     with torch.no_grad():
-        C_star_pinn = model(torch.cat([x_star_plot_tensor, t_star_plot_tensor], dim=1))
+        C_star_pinn = model(x_star_plot_tensor, t_star_plot_tensor)
     C_pinn = (C_star_pinn * C0).cpu().numpy()
     plt.plot(x_plot, C_pinn, linewidth=2, linestyle="-", color=color)
 
@@ -105,8 +114,8 @@ for idx, t_days in enumerate(reversed(times_days)):
 plt.xlabel("Distance x (m)", fontsize=12)
 plt.ylabel("Concentration C (kg/m^3)", fontsize=12)
 
-legend = plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.45),
-                    ncol=4, frameon=False, fontsize=10,
+legend = plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.4),
+                    ncol=3, frameon=False, fontsize=10,
                     labelspacing=0.5, columnspacing=1.2)
 for text in legend.get_texts():
     text.set_color("black")
@@ -170,7 +179,9 @@ plot_path = results_dir / "pinn_baseline_concentration_profiles.png"
 plt.savefig(str(plot_path), dpi=plot_dpi, bbox_inches="tight")
 print(f"Plot saved to: {plot_path}")
 
-pdf_path = results_dir / "pinn_baseline_concentration_profiles.pdf"
+reports_pdf_dir = Path(r"C:\Research\PINN\Code Base\reports\report 2 - PINN Update\figs")
+reports_pdf_dir.mkdir(parents=True, exist_ok=True)
+pdf_path = reports_pdf_dir / "pinn_baseline_concentration_profiles.pdf"
 plt.savefig(str(pdf_path), format="pdf", bbox_inches="tight")
 print(f"PDF copy saved to: {pdf_path}")
 

@@ -45,8 +45,7 @@ mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=["#FF5F05", "#13294B", "#009F
 # Physics parameters (dimensional)
 physics_params = {
     'U': 0.1,                    # m/day (advection velocity)
-    # 'D': 1e-7 * 86400,          # m²/day (dispersion coefficient, converted from m²/s)
-    'D': 1e-8 * 86400,          # m²/day (dispersion coefficient, converted from m²/s)
+    'D': 1e-7 * 86400,          # m²/day (dispersion coefficient, converted from m²/s)
     'C_0': 5.0,                 # kg/m³ (concentration scale)
     'L': 100.0,                 # m (length scale)
 }
@@ -54,7 +53,7 @@ physics_params = {
 # Neural network model parameters
 model_params = {
     'num_layers': 3,            # number of hidden layers
-    'num_neurons': 16,          # number of neurons per hidden layer
+    'num_neurons': 12,          # number of neurons per hidden layer
     'activation': torch.nn.Tanh,  # activation function
 }
 
@@ -70,7 +69,7 @@ training_params = {
     'num_bc': 200,              # number of points for boundary conditions
     't_final_star': 1.0,        # final dimensionless time
     'verbose': True,            # print training progress
-    'export_interval': 100,     # export plot every N epochs (set to None to disable)
+    'export_interval': 250,     # export plot every N epochs (set to None to disable)
     'overwrite_gif_frames': True,  # if True, export gif frames with same name (overwriting)
     # Adaptive learning parameters
     'adaptive_update_interval': 10000,  # Number of epochs between collocation point updates
@@ -703,10 +702,10 @@ def train_pinn(model, training_params=None, plot_callback=None):
     weight_outlet_bc = training_params.get('weight_outlet_bc', 1.0)
     
     # Optimizer options - uncomment the one you want to use
-    # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     # optimizer = torch.optim.Rprop(model.parameters(), lr=lr)
     # optimizer = torch.optim.LBFGS(model.parameters(), lr=lr, max_iter=200, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=100, line_search_fn=None)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=5e-4)
+    # optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=5e-4)
     # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
     
     # Loss history

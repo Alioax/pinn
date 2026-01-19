@@ -12,8 +12,8 @@
 \usepackage{caption}
 \usepackage{tabularx}
 \usepackage{booktabs}
-\usepackage{amsmath}
 % \usepackage{stfloats}  % Commented out - package not available
+\usepackage{amsmath}
 \usepackage{titlesec}
 \usepackage{setspace}
 \usepackage{xcolor}
@@ -87,7 +87,7 @@
 \vspace*{1.5cm}
 
 % Title
-{\fontsize{36}{42}\selectfont\bfseries\color{UofT_blue} Physics-Informed Neural Networks for Contaminant Transport in Aquifers\par}
+{\fontsize{36}{42}\selectfont\bfseries\color{UofT_blue} PINN Update:\\Baseline Enhancement and Parametric Extension\par}
 \vspace{3.5cm}
 
 % Author
@@ -121,85 +121,241 @@
 \twocolumn
 \section*{Abstract}
 
-This report summarizes recent progress on simplified baseline and parametric Physics-Informed Neural Networks (PINNs) for the 1D advection-dispersion equation in a fully dimensionless form. The baseline model solves for C* as a function of (x*, t*), while the parametric model extends the input space to (x*, t*, log Pe) to cover a wide Peclet range. Results are presented as dimensionless concentration profiles and loss curves, with an analytical overlay used strictly as a qualitative shape reference.
+This report presents recent progress on baseline and parametric Physics-Informed Neural Networks (PINNs) for the one-dimensional advection--dispersion equation formulated in a fully dimensionless setting. The baseline PINN approximates the concentration $C^*$ as a function of space and time $(x^*, t^*)$, while the parametric extension augments the input space to $(x^*, t^*, \log Pe)$, enabling a single model to represent solutions across a wide range of Peclet numbers. Both scripts are designed for clarity, reproducibility, and ease of understanding, following the guidance emphasized by Dr.~Lehmann to keep the implementations linear and easy to follow, with full code available at \href{https://github.com/Alioax/pinn/blob/main/pinn_baseline/pinn_baseline.py}{baseline PINN} and \href{https://github.com/Alioax/pinn/blob/main/parametric%20pinn_baseline/pinn_parametric_baseline.py}{parametric PINN}.
 
-\section{Executive Summary}
-
-The baseline PINN has been simplified into a linear, step-by-step implementation, and the parametric PINN now generalizes across multiple Peclet numbers within a single model. Both scripts operate entirely in dimensionless variables. Key outcomes include stable training behavior and consistent qualitative trends across Pe. The two scripts referenced in this report are the simplified baseline PINN and the parametric PINN.
-
-\section{Scope}
-
-This report focuses on a dimensionless formulation of the 1D advection-dispersion equation with inputs x*, t*, and log Pe. Emphasis is placed on clarity, reproducibility, and parametric generalization rather than architectural complexity.
+In addition to the main baseline and parametric models, I also explored complementary experimental directions to assess robustness and potential performance improvements. Appendix~\ref{app:grid_search} reports a grid search evaluating training efficiency and sensitivity to architectural and sampling choices, while Appendix~\ref{app:adaptive_collocation} documents an exploratory adaptive collocation strategy combined with an Adam--LBFGS optimizer schedule.
 
 \section{Methods}
 
-\subsection{Dimensionless problem}
-
-The governing equation is:
-\[
-C^*_{t^*} + C^*_{x^*} - \frac{1}{Pe} C^*_{x^*x^*} = 0
-\]
-with domain x* in [0, 1], t* in [0, t*_final], and Pe in [Pe_min, Pe_max]. Initial and boundary conditions are C*(x*, 0) = 0, C*(0, t*) = 1, and C*(1, t*) = 0.
-
 \subsection{Baseline PINN}
 
-The baseline model maps (x*, t*) to C* and is trained using a weighted loss that combines PDE residual, initial condition, inlet, and outlet boundary losses. Collocation points are sampled uniformly within the dimensionless domain.
+The baseline model solves the dimensionless advection--dispersion equation with a fixed $Pe$:
+\begin{equation*}
+\frac{\partial C^*}{\partial t^*} + \frac{\partial C^*}{\partial x^*} = \frac{1}{Pe} \frac{\partial^2 C^*}{\partial x^{*2}}
+\end{equation*}
+
+The dimensionless domains and conditions are:
+\begin{align*}
+x^* &\in [0, 1] \\
+t^* &\in [0, 1] \\
+C^*(x^*, 0) &= 0 \\
+C^*(0, t^*) &= 1 \\
+C^*(1, t^*) &= 0
+\end{align*}
+
+Guided by the grid-search results in Appendix~\ref{app:grid_search}, the baseline PINN uses a compact fully connected architecture with 3 hidden layers of 12 neurons (Tanh) to approximate the mapping $(x^*, t^*) \mapsto C^*$, written in the same functional form used later for the parametric model but without the $\log Pe$ input. This configuration offered a favorable accuracy--runtime trade-off in our tests. For reference, the 3$\times$12 network has 361 trainable parameters, compared with 257 parameters for the 1$\times$64 single-hidden-layer variant suggested during the meeting; despite being slightly larger, the deeper 3$\times$12 configuration converged more reliably to substantially lower losses in the explored settings. Xavier normal initialization \cite{glorot2010understanding} is applied to all linear layers to keep forward activations and backward gradients at comparable scales across depth, reducing vanishing/exploding behavior and improving training stability. Training is implemented with a closure-style loss block and automatic differentiation to compute $C^*_{t^*}$, $C^*_{x^*}$, and $C^*_{x^*x^*}$. Collocation points are sampled uniformly over $(x^*,t^*)$ using $300\times 300$ interior points and 300 points each for the initial and boundary conditions. Optimization uses Adam (lr $=10^{-3}$) for 15{,}000 epochs with all loss-term weights set to 1.
 
 \subsection{Parametric PINN}
 
-The parametric model augments the input with log Pe, allowing a single network to represent solution behavior across a wide Peclet range. Sampling is uniform in log Pe to balance coverage across orders of magnitude.
+The parametric model extends the baseline formulation by augmenting the input with $\log Pe$ and learning the mapping $(x^*, t^*, \log Pe) \mapsto C^*$ across a continuous range of Peclet numbers. This enables a single network to represent solutions spanning diffusion-dominated to advection-dominated regimes. In the current implementation, $Pe_{\min}=1$ and $Pe_{\max}=10^5$, with $x^* \in [0,1]$ and $t^* \in [0,1]$. The governing equation remains
+\begin{equation*}
+\frac{\partial C^*}{\partial t^*} + \frac{\partial C^*}{\partial x^*}
+= \frac{1}{Pe} \frac{\partial^2 C^*}{\partial x^{*2}}
+\end{equation*}
 
-\subsection{Analytical overlay}
+The dimensionless domains and conditions are
+\begin{align*}
+x^* &\in [0,1] \\
+t^* &\in [0,1] \\
+Pe &\in [Pe_{\min}, Pe_{\max}] \\
+C^*(x^*,0) &= 0 \\
+C^*(0,t^*) &= 1 \\
+C^*(1,t^*) &= 0
+\end{align*}
 
-Analytical curves are overlaid as a qualitative shape reference using a dimensionless proxy mapping (U = 1, C0 = 1, D = 1/Pe). This overlay is not treated as a strict benchmark.
+\subsubsection{Architecture and initialization}
+
+The parametric network is a fully connected feedforward model with 4 hidden layers and 16 neurons per layer, using Tanh activations. Inputs are $(x^*, t^*, \log Pe)$ and the scalar output is $C^*$. Xavier normal initialization with a Tanh gain is applied to all linear layers to stabilize activation and gradient magnitudes across depth, which is particularly important for the increased input dimensionality \cite{glorot2010understanding}.
+
+\subsubsection{Collocation sampling}
+
+To avoid overfitting to a fixed collocation cloud, new collocation sets are sampled at each training epoch. Interior PDE points are drawn uniformly with $N_{\mathrm{coll}} = 250 \times 250$. Initial condition points are sampled at $t^* = 0$ with $N_{\mathrm{IC}} = 250$, and boundary condition points are sampled at $x^* = 0$ (inlet) and $x^* = 1$ (outlet) with $N_{\mathrm{BC}} = 250$ each. For all sets, $x^*$ and $t^*$ are sampled uniformly on $[0,1]$, while $\log Pe$ is sampled uniformly in $[\log Pe_{\min}, \log Pe_{\max}]$ so that each order of magnitude in $Pe$ is equally represented during training.
+
+\subsubsection{Automatic differentiation and residual}
+
+The PDE residual is evaluated at the interior points using automatic differentiation:
+\begin{equation*}
+R_{\mathrm{PDE}} =
+\frac{\partial C^*}{\partial t^*}
++ \frac{\partial C^*}{\partial x^*}
+- \frac{1}{Pe} \frac{\partial^2 C^*}{\partial x^{*2}},
+\quad Pe = \exp(\log Pe).
+\end{equation*}
+First derivatives are computed using \texttt{grad(..., create\_graph=True)}, and the second derivative is obtained by differentiating $\partial C^*/\partial x^*$ with respect to $x^*$.
+
+\subsubsection{Loss function and training loop}
+
+The total loss is defined as an unweighted sum of the PDE residual, initial condition, and boundary condition losses:
+\begin{equation*}
+\mathcal{L}_{\text{total}}
+= \mathcal{L}_{\text{PDE}}
++ \mathcal{L}_{\text{IC}}
++ \mathcal{L}_{\text{inlet}}
++ \mathcal{L}_{\text{outlet}}.
+\end{equation*}
+Loss terms mirror those of the baseline model; the only difference is that the PDE residual is evaluated using the sampled $Pe=\exp(\log Pe)$ at each collocation point. Training uses AdamW with learning rate $10^{-3}$ and weight decay equal to $\mathrm{lr}/10$ for 15{,}000 epochs. Loss histories are logged for diagnostics before generating $C^*$ profiles for selected Peclet numbers and time slices.
+
+\subsubsection{Parametric application to the baseline case}
+
+To recover the baseline physical problem from the trained parametric model, physical variables are mapped to the dimensionless inputs required by the network and the output is rescaled to physical units. The physical advection--dispersion equation
+\begin{equation*}
+\frac{\partial C}{\partial t}
++ U \frac{\partial C}{\partial x}
+= D \frac{\partial^2 C}{\partial x^2}
+\end{equation*}
+is nondimensionalized using
+\begin{equation*}
+x^* = \frac{x}{L}, \quad
+t^* = \frac{t}{T}, \quad
+C^* = \frac{C}{C_0}, \quad
+T = \frac{L}{U},
+\end{equation*}
+which yields
+\begin{equation*}
+\frac{\partial C^*}{\partial t^*}
++ \frac{\partial C^*}{\partial x^*}
+= \frac{1}{Pe} \frac{\partial^2 C^*}{\partial x^{*2}},
+\quad
+Pe = \frac{U L}{D}.
+\end{equation*}
+
+For the baseline parameters $U=0.1$ m/day, $D=1.0\times10^{-7}\times86400$ m$^2$/day, $C_0=5$ kg/m$^3$, and $L=100$ m, we obtain $Pe \approx 1157.41$ and set $\log Pe = \log(UL/D)$. For a given physical time $t$ and spatial coordinate $x$, the network is evaluated at $(x^*, t^*, \log Pe)$ with $x^* = x/L$ and $t^* = t/(L/U)$, producing $C^*(x^*, t^*; \log Pe)$. The physical concentration is then recovered as
+\begin{equation*}
+C(x,t) = C_0\, C^*(x^*, t^*; \log Pe).
+\end{equation*}
+
+\subsubsection{Analytical overlay}
+
+The one-dimensional Ogata--Banks analytical solution \cite{OgataBanks1961} is overlaid as a qualitative reference rather than a training target. The closed-form solution is evaluated on the plotting grid at selected time slices and rendered as dashed curves alongside the PINN outputs. To remain in dimensionless form, the overlay is computed with $U=1$, $C_0=1$, and $D=1/Pe$, ensuring consistency with $x^*$ and $t^*$ while reflecting the intended Peclet regime.
 
 \section{Results}
 
 \subsection{Baseline PINN}
 
-Figure~\ref{fig:baseline_loss} shows the baseline loss curves. Figure~\ref{fig:baseline_profiles} shows C* profiles over x* at selected t* values.
+The baseline model is trained in dimensionless form on $C^*(x^*, t^*)$. Figure~\ref{fig:baseline_profiles} reports the corresponding rescaled dimensional concentration $C$, using the same physical parameters as the baseline study: $U = 0.1$~m/day, $D = 1.0 \times 10^{-7} \times 86400$~m$^2$/day, $C_0 = 5$~kg/m$^3$, with $x \in [0,100]$~m and $t \in [0,1000]$~days. With Xavier initialization and the revised training procedure, the PINN predictions are now almost perfectly aligned with the analytical solution across the domain. The only visible discrepancy appears immediately after the sharp advective front, where the concentration briefly undershoots below zero before relaxing back to zero as the profile flattens. This localized artifact represents the most noticeable remaining mismatch; it could be mitigated in future work by enforcing physical constraints such as non-negativity of concentration and monotonicity in space. Overall, the current baseline model exhibits stable training behavior and highly accurate solution profiles.
 
-\begin{figure}[h]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\columnwidth]{baseline_loss.pdf}
-\caption{Baseline PINN loss curves (dimensionless).}
-\label{fig:baseline_loss}
-\end{figure}
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=\columnwidth]{baseline_profiles.pdf}
-\caption{Baseline PINN C* profiles over x* at selected t* values with analytical overlay (shape reference).}
+\includegraphics[width=\columnwidth]{pinn_baseline_concentration_profiles.pdf}
+\caption{Baseline PINN concentration profiles $C$ (kg/m$^3$) over $x$ at selected $t$ values with analytical overlay (shape reference, inlet $C_0 = 5$).}
 \label{fig:baseline_profiles}
 \end{figure}
 
 \subsection{Parametric PINN}
 
-Figure~\ref{fig:parametric_loss} shows the parametric training losses. Figures~\ref{fig:parametric_pe10} and~\ref{fig:parametric_pe1e5} illustrate C* profiles for two representative Peclet numbers. As expected, low Pe yields smoother diffusion-dominated profiles, while high Pe produces sharper fronts.
+Figure~\ref{fig:parametric_profiles} presents dimensionless concentration profiles $C^*$ predicted by the parametric PINN for representative Peclet numbers $Pe=10$, $50$, $500$, and $10^5$, selected from the full training range $Pe\in[1,10^5]$. Across all cases, the model reproduces the expected transition from smooth, diffusion-dominated fronts at low $Pe$ to increasingly sharp, advection-dominated fronts at higher $Pe$, with good agreement with the analytical reference solutions.
 
-\begin{figure}[h]
+For $Pe=10$, the analytical solution has not yet fully relaxed to zero at the outlet for the larger plotted times (e.g., $t^*=0.6$, $0.8$, and $1.0$), whereas the PINN predictions enforce the outlet boundary condition $C^*(1,t^*)=0$ as imposed during training. As a result, the predicted profiles deviate from the analytical curves near $x^*=1$, decaying to zero earlier than the analytical solution, which naturally reaches zero only after $t^*>1$. A similar, though weaker, effect is observed for $Pe=50$ at later times, reflecting the same interaction between finite-time analytical behavior and the enforced boundary condition.
+
+As in the baseline model, the most visible discrepancy appears immediately behind the sharp advective front, particularly at higher Peclet numbers where the concentration gradient is steepest. In these regions, the PINN solution exhibits a small localized undershoot below zero before relaxing back to zero as the profile flattens. This artifact becomes more noticeable as $Pe$ increases but remains spatially confined. Overall, the parametric PINN demonstrates stable training behavior and maintains high accuracy across the full Peclet range considered.
+
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\columnwidth]{parametric_loss.pdf}
-\caption{Parametric PINN loss curves (dimensionless).}
-\label{fig:parametric_loss}
+\subfloat[$Pe=10$]{\includegraphics[width=\columnwidth]{parametric_pe10.pdf}}\\
+\subfloat[$Pe=50$]{\includegraphics[width=\columnwidth]{parametric_pe50.pdf}}\\
+\subfloat[$Pe=500$]{\includegraphics[width=\columnwidth]{parametric_pe500.pdf}}\\
+\subfloat[$Pe=10^5$]{\includegraphics[width=\columnwidth]{parametric_pe100000.pdf}}
+\caption{Parametric PINN $C^*$ profiles across representative Peclet numbers.}
+\label{fig:parametric_profiles}
 \end{figure}
 
-\begin{figure}[h]
-\centering
-\includegraphics[width=\columnwidth]{parametric_profiles_pe10.pdf}
-\caption{Parametric PINN C* profiles for Pe = 10.}
-\label{fig:parametric_pe10}
-\end{figure}
+\subsection{Parametric PINN application (physical units)}
 
-\begin{figure}[h]
+Figure~\ref{fig:parametric_application_physical} applies the trained parametric PINN to the baseline physical parameter set and reports the concentration $C(x,t)$ in physical units. The model is evaluated at the baseline Peclet number $Pe \approx 1157.41$, demonstrating that the parametric formulation can accurately recover the original single-$Pe$ problem without retraining.
+
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\columnwidth]{parametric_profiles_pe1e5.pdf}
-\caption{Parametric PINN C* profiles for Pe = 1e5.}
-\label{fig:parametric_pe1e5}
+\includegraphics[width=\columnwidth]{pinn_parametric_application_baseline_physical.pdf}
+\caption{Parametric PINN applied to the baseline physical problem. The model is evaluated at the baseline $Pe \approx 1157.41$ and rescaled to $C$ (kg/m$^3$) over $x$ for selected times $t$.}
+\label{fig:parametric_application_physical}
 \end{figure}
 
 \section{Summary and Next Steps}
 
-The baseline PINN is simplified and stable, and the parametric PINN demonstrates consistent qualitative behavior across Peclet numbers in a fully dimensionless setting. Next steps include sensitivity checks on t*_final, optional loss reweighting, and expanding the set of reported Pe values for visual coverage.
+The baseline PINN yields stable and consistent dimensionless concentration profiles, while the parametric extension successfully captures the expected transition from diffusion-dominated to advection-dominated behavior across a wide range of Peclet numbers. Together, these results establish a clear and reproducible foundation for parametric modeling of transport problems using PINNs. Future work will move beyond parametric PINNs of this form toward neural-operator approaches.
+
+\printbibliography
+
+\clearpage
+\appendix
+\onecolumn
+\section{Grid Search for Training Efficiency}
+\label{app:grid_search}
+
+We explored a grid search system (not used in the main scripts) to quantify how architecture and sampling choices affect accuracy and runtime. Each experiment trains a baseline PINN variant, logs loss histories, and writes per-run outputs to a unique hash-based folder. Runs are resumable by skipping configurations that already have a saved loss file. A master CSV aggregates final losses and timing to support side-by-side comparisons of quality versus cost. The full experimental script is available at \href{https://github.com/Alioax/pinn/tree/main/Experimental/pinn_grid_search}{Experimental/pinn\_grid\_search}.
+
+Table~\ref{tab:grid_search_configs} reports all grid search configurations ranked by final total loss, along with training time.
+
+\begin{center}
+\captionof{table}{Grid search configurations ranked by final total loss.}
+\label{tab:grid_search_configs}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} r r r r r r r r r}
+\toprule
+Rank & Layers & Neurons & Epochs & LR & PDE Collocation & Final Total Loss & Training Time (s) \\
+\midrule
+1 & 3 & 12 & 15000 & 0.001 & 2000 & 0.00286496 & 84.6 \\
+2 & 3 & 12 & 15000 & 0.001 & 5000 & 0.00433964 & 108.0 \\
+3 & 2 & 16 & 15000 & 0.001 & 5000 & 0.00514802 & 78.8 \\
+4 & 2 & 16 & 15000 & 0.001 & 2000 & 0.00539711 & 63.5 \\
+5 & 3 & 12 & 15000 & 0.001 & 10000 & 0.00590407 & 146.0 \\
+6 & 2 & 16 & 15000 & 0.001 & 10000 & 0.00650195 & 114.6 \\
+7 & 2 & 16 & 5000 & 0.0001 & 2000 & 0.00870967 & 25.2 \\
+8 & 3 & 12 & 5000 & 0.0001 & 2000 & 0.01193960 & 26.3 \\
+9 & 2 & 16 & 5000 & 0.0001 & 5000 & 0.01331970 & 31.9 \\
+10 & 3 & 12 & 5000 & 0.0001 & 5000 & 0.01467140 & 31.9 \\
+11 & 1 & 64 & 5000 & 0.0001 & 2000 & 0.15456900 & 27.0 \\
+12 & 1 & 64 & 5000 & 0.0001 & 10000 & 0.16024500 & 63.0 \\
+13 & 1 & 64 & 5000 & 0.001 & 2000 & 0.16057000 & 27.0 \\
+14 & 1 & 64 & 5000 & 0.001 & 10000 & 0.16221000 & 63.0 \\
+15 & 2 & 16 & 5000 & 0.001 & 2000 & 0.16547400 & 25.2 \\
+16 & 3 & 12 & 5000 & 0.001 & 2000 & 0.16603900 & 26.3 \\
+17 & 2 & 16 & 5000 & 0.001 & 10000 & 0.16735700 & 63.0 \\
+18 & 3 & 12 & 5000 & 0.001 & 10000 & 0.16743300 & 63.0 \\
+\bottomrule
+\end{tabular*}
+\end{center}
+
+\clearpage
+\section{Adaptive Collocation with Adam--LBFGS Schedule}
+\label{app:adaptive_collocation}
+
+This appendix documents an experimental PINN variant that combines adaptive collocation with a two-stage optimizer schedule. The model remains fully dimensionless in training, using $(x^*, t^*) \mapsto C^*$ internally and converting to physical units only for plotting and comparison. The full experimental script is available at \href{https://github.com/Alioax/pinn/tree/main/Experimental/pinn_distribution_adaptive_adam_lbfgs}{Experimental/pinn\_distribution\_adaptive\_adam\_lbfgs}.
+
+\textbf{Adaptive collocation (loss-distribution driven).} The PDE residual is evaluated on a uniform $(x^*, t^*)$ grid to build a loss distribution. New collocation points are then sampled using an inverse-CDF procedure so that regions with higher residuals receive denser sampling, while still preserving a fixed total collocation budget.
+
+\textbf{Anchors vs adaptive points.} The total collocation set is split into anchors (fixed points) and adaptive points (redistributed). The anchor ratio is a single configurable parameter in $[0,1]$: at 0, all points are adaptive; at 1, all points are fixed. This provides a controlled trade-off between global coverage (anchors) and local refinement (adaptive points).
+
+\textbf{Optimizer schedule.} Training uses an Adam phase followed by an LBFGS phase, with the length of each phase controlled in the configuration. This schedule is intended to combine fast initial progress with a stronger final refinement.
+
+\textbf{Algorithm (high level).}
+\begin{enumerate}
+  \item Initialize collocation points (anchors and adaptive points).
+  \item Train with Adam while logging PDE residuals.
+  \item Periodically compute a loss grid and resample adaptive points via inverse-CDF.
+  \item Switch to LBFGS for final refinement.
+\end{enumerate}
+
+\textbf{Configurable parameters (no fixed values).}
+\begin{table}[h]
+\centering
+\caption{Adaptive collocation and optimizer schedule parameters.}
+\label{tab:adaptive_params}
+\begin{tabularx}{\columnwidth}{l X}
+\toprule
+Parameter & Purpose \\
+\midrule
+Adam epochs, LBFGS epochs & Length of each optimizer phase \\
+Learning rate & Shared learning rate for both optimizers \\
+Collocation grid sizes & Base collocation resolution in $x^*$ and $t^*$ \\
+Adaptive update interval & How often adaptive points are redistributed \\
+Loss evaluation grid & Resolution for PDE loss distribution estimation \\
+Anchor ratio & Fraction of fixed anchors vs adaptive points \\
+Loss weights & Balancing PDE, IC, and BC losses \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Outputs include concentration profiles with analytical overlay, collocation distribution heatmaps, PDE-loss heatmaps, and loss curves for diagnostics.
+
 
 \end{document}

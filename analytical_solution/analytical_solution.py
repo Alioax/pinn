@@ -26,7 +26,7 @@ from pathlib import Path
 
 # Physical parameters
 U = 0.1  # m/day (advection velocity)
-D = 1e-8 * 86400  # m²/day (dispersion coefficient, converted from m²/s)
+D = 1e-7 * 86400  # m²/day (dispersion coefficient, converted from m²/s)
 # D = 1e-7 * 86400  # m²/day (dispersion coefficient, converted from m²/s)
 C_0 = 5.0  # kg/m³ (inlet concentration)
 
