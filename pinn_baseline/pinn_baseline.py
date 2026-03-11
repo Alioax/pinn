@@ -94,6 +94,7 @@ class PINN(nn.Module):
             layers.append(activation())
             in_features = num_neurons
         layers.append(nn.Linear(num_neurons, 1))
+        layers.append(nn.Sigmoid())
         self.net = nn.Sequential(*layers)
         
         # Apply Xavier normal initialization with gain to all linear layers

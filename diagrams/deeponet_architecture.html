@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeepONet Architecture — Unsupervised 1D Transport</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    h1 { font-size: 1.5rem; font-weight: 600; color: #1a1a2e; margin-bottom: 0.35rem; }
+    .subtitle { font-size: 1rem; color: #555; margin-bottom: 1rem; }
+    .diagram-wrap {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+      padding: 12px;
+    }
+    svg { display: block; }
+    .label { font-size: 13px; fill: #222; font-weight: 600; }
+    .label-branch { font-size: 13px; fill: #1565c0; font-weight: 600; }
+    .label-trunk { font-size: 13px; fill: #2e7d32; font-weight: 600; }
+    .small { font-size: 11px; fill: #555; }
+    .op { font-size: 12px; fill: #0d47a1; font-weight: 600; }
+    .layer { font-size: 11px; fill: #333; }
+  </style>
+</head>
+<body>
+  <h1>DeepONet neural operator (unsupervised)</h1>
+  <p class="subtitle">1D advection–dispersion: C* = f(x*, t*, log Pe)</p>
+  <div class="diagram-wrap">
+    <svg width="1200" height="500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 500">
+      <defs>
+        <marker id="arrBlue" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#1565c0"/>
+        </marker>
+        <marker id="arrGreen" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#2e7d32"/>
+        </marker>
+        <marker id="arrOrange" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#f57c00"/>
+        </marker>
+        <marker id="arrMagenta" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#c2185b"/>
+        </marker>
+        <marker id="arrDark" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#333"/>
+        </marker>
+        <linearGradient id="branchBg" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" style="stop-color:#e3f2fd"/>
+          <stop offset="100%" style="stop-color:#bbdefb"/>
+        </linearGradient>
+        <linearGradient id="trunkBg" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" style="stop-color:#e8f5e9"/>
+          <stop offset="100%" style="stop-color:#c8e6c9"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Input: log Pe -->
+      <rect x="20" y="158" width="64" height="52" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.5"/>
+      <text x="52" y="184" text-anchor="middle" class="label">log Pe</text>
+      <text x="52" y="198" text-anchor="middle" class="small">(1)</text>
+
+      <!-- Input: x*, t* (vertical center at 334 to align with Trunk and arrow) -->
+      <rect x="20" y="308" width="64" height="52" rx="6" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.5"/>
+      <text x="52" y="334" text-anchor="middle" class="label">x*, t*</text>
+      <text x="52" y="348" text-anchor="middle" class="small">(2)</text>
+
+      <!-- Arrows from inputs to nets: horizontal, at vertical center of each box -->
+      <path d="M 84 188 L 128 188" stroke="#1565c0" stroke-width="1.5" fill="none" marker-end="url(#arrBlue)"/>
+      <path d="M 84 334 L 128 334" stroke="#2e7d32" stroke-width="1.5" fill="none" marker-end="url(#arrGreen)"/>
+
+      <!-- Branch net: one line per layer with pointer -->
+      <rect x="128" y="118" width="268" height="128" rx="8" fill="url(#branchBg)" stroke="#1565c0" stroke-width="1.5"/>
+      <text x="262" y="144" text-anchor="middle" class="label-branch">Branch net</text>
+      <text x="262" y="160" text-anchor="middle" class="small">parameter: log Pe</text>
+      <line x1="142" y1="170" x2="382" y2="170" stroke="#1565c0" stroke-width="1" opacity="0.5"/>
+      <text x="148" y="190" text-anchor="start" class="layer">→ Linear(1→24) → Tanh</text>
+      <text x="148" y="206" text-anchor="start" class="layer">→ Linear(24→24) → Tanh</text>
+      <text x="148" y="222" text-anchor="start" class="layer">→ Linear(24→48) → b ∈ ℝ⁴⁸</text>
+
+      <!-- Trunk net: one line per layer with pointer -->
+      <rect x="128" y="268" width="268" height="148" rx="8" fill="url(#trunkBg)" stroke="#2e7d32" stroke-width="1.5"/>
+      <text x="262" y="294" text-anchor="middle" class="label-trunk">Trunk net</text>
+      <text x="262" y="310" text-anchor="middle" class="small">query: (x*, t*)</text>
+      <line x1="142" y1="320" x2="382" y2="320" stroke="#2e7d32" stroke-width="1" opacity="0.5"/>
+      <text x="148" y="340" text-anchor="start" class="layer">→ Linear(2→32) → Tanh</text>
+      <text x="148" y="356" text-anchor="start" class="layer">→ Linear(32→32) → Tanh</text>
+      <text x="148" y="372" text-anchor="start" class="layer">→ Linear(32→32) → Tanh</text>
+      <text x="148" y="388" text-anchor="start" class="layer">→ Linear(32→48) → t ∈ ℝ⁴⁸</text>
+
+      <!-- Arrows from right-center of branch/trunk, straight then 90° to top/bottom of b·t+bias (at box center x=470) -->
+      <path d="M 396 182 L 470 182 L 470 230" stroke="#1565c0" stroke-width="1.5" fill="none" marker-end="url(#arrBlue)"/>
+      <path d="M 396 342 L 470 342 L 470 286" stroke="#2e7d32" stroke-width="1.5" fill="none" marker-end="url(#arrGreen)"/>
+
+      <!-- Output row: b·t + bias → σ(·) → C* (b = branch blue, t = trunk green) -->
+      <rect x="434" y="230" width="72" height="56" rx="6" fill="#fff8e1" stroke="#f57c00" stroke-width="1.5"/>
+      <text x="470" y="254" text-anchor="middle" class="op"><tspan fill="#1565c0">b</tspan><tspan>·</tspan><tspan fill="#2e7d32">t</tspan><tspan>+bias</tspan></text>
+      <text x="470" y="272" text-anchor="middle" class="small">dot + bias</text>
+
+      <path d="M 506 258 L 538 258" stroke="#f57c00" stroke-width="1.5" fill="none" marker-end="url(#arrOrange)"/>
+
+      <rect x="538" y="230" width="72" height="56" rx="6" fill="#fce4ec" stroke="#c2185b" stroke-width="1.5"/>
+      <text x="574" y="258" text-anchor="middle" class="op">σ(·)</text>
+      <text x="574" y="272" text-anchor="middle" class="small">Sigmoid</text>
+
+      <path d="M 610 258 L 642 258" stroke="#c2185b" stroke-width="1.5" fill="none" marker-end="url(#arrMagenta)"/>
+
+      <rect x="642" y="230" width="72" height="56" rx="6" fill="#e8eaf6" stroke="#3949ab" stroke-width="1.5"/>
+      <text x="678" y="258" text-anchor="middle" class="label">C*</text>
+      <text x="678" y="272" text-anchor="middle" class="small">[0, 1]</text>
+
+      <!-- Training (unsupervised): a little less wide -->
+      <rect x="734" y="204" width="358" height="108" rx="8" fill="#fafafa" stroke="#757575" stroke-width="1.5"/>
+      <text x="913" y="232" text-anchor="middle" class="label">Training (unsupervised)</text>
+      <text x="913" y="254" text-anchor="middle" class="small">PDE: ∂C*/∂t* + ∂C*/∂x* − (1/Pe) ∂²C*/∂x*² = 0</text>
+      <text x="913" y="276" text-anchor="middle" class="small">IC: C*(x*, 0) = 0  BC: C*(0, t*) = 1,  C*(1, t*) = 0</text>
+      <text x="913" y="298" text-anchor="middle" class="small">Loss = PDE + IC + BC  (no solution data)</text>
+      <path d="M 714 258 L 734 258" stroke="#757575" stroke-width="1.5" stroke-dasharray="4 3" fill="none" marker-end="url(#arrDark)"/>
+    </svg>
+  </div>
+</body>
+</html>

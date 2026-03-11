@@ -97,6 +97,7 @@ for i in range(num_layers):
     layers.append(activation_cls())
     in_features = num_neurons
 layers.append(nn.Linear(num_neurons, 1))
+layers.append(nn.Sigmoid())
 model = nn.Sequential(*layers)
 
 gain = nn.init.calculate_gain("tanh")
