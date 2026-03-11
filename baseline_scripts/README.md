@@ -2,14 +2,14 @@
 
 Minimal, self-contained prototypes for PINN and related methods.  
 One script per variant; no imports from other project modules.  
-Parameters and analytical formulae are kept in-file. Simple, linear, easy to read.
+Parameters and analytical formulae are kept in-file.
 
 ## Structure
 
 | Folder | Description |
 |--------|-------------|
-| **pinn_baseline** | Normal PINN for 1D advection–dispersion (single Péclet number). |
-| **parametric_pinn** | Parametric PINN (multiple Pe). |
-| **neural_operator_deeponet** | Neural operator / DeepONet baseline. |
+| **1._pinn_baseline** | PINN for 1D advection–dispersion (single Péclet number). |
+| **2._parametric_pinn** | Parametric PINN (multiple Pe). |
+| **3._neural_operator_deeponet** | Neural operator / DeepONet baseline. |
 
-Each folder contains its script(s); figures and outputs are saved in that same folder.
+Outputs and figures are saved in each folder.

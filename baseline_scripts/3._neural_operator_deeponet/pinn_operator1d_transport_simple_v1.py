@@ -63,12 +63,11 @@ Pe_max = 1e5
 t_final_star = 1.0
 
 # DeepONet: branch encodes log Pe, trunk encodes (x*, t*), latent_dim = output size of both
-# Slightly larger latent_dim and branch help low-Pe (more diffusive) regimes.
 branch_layers = 2
-branch_neurons = 24
+branch_neurons = 16
 trunk_layers = 3
 trunk_neurons = 32
-latent_dim = 48
+latent_dim = 32
 activation = torch.nn.Tanh
 
 # Training parameters (aligned with baseline/parametric for consistency)
@@ -116,8 +115,6 @@ class DeepONet_Transp(nn.Module):
             tl.append(activation())
         tl.append(nn.Linear(trunk_neurons, latent_dim))
         self.trunk = nn.Sequential(*tl)
-        # Output bias (like parametric PINN's last linear layer) helps low-Pe fit.
-        self.output_bias = nn.Parameter(torch.zeros(1))
 
     def init_weights(self):
         gain = nn.init.calculate_gain('tanh')
@@ -136,7 +133,7 @@ class DeepONet_Transp(nn.Module):
         points = torch.cat([x_star, t_star], dim=1)
         b = self.branch(log_pe)
         t = self.trunk(points)
-        return torch.sigmoid((b * t).sum(dim=-1, keepdim=True) + self.output_bias)
+        return torch.sigmoid((b * t).sum(dim=-1, keepdim=True))
 
 
 def gradients(outputs, inputs):
