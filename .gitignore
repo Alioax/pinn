@@ -1,7 +1,6 @@
 # GIF animation frames and epoch exports (too many files)
-pinn adaptive learning/results/gif_frames/
-Experimental/pinn adaptive learning playground/results/epoch_exports/
-Experimental/loss distribution based learning/results/epoch_exports/
+code/exploratory/loss_distribution_learning/results/epoch_exports/
+code/exploratory/pinn_distribution_adaptive_adam_lbfgs/results/epoch_exports/
 
 # Python
 __pycache__/
@@ -43,3 +42,10 @@ nul
 # OS
 .DS_Store
 Thumbs.db
+
+# Reports and references
+references/
+docs/reports/**/*.tex
+docs/reports/**/*.bib
+docs/reports/**/figs/
+docs/reports/**/README.md
