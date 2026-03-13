@@ -28,7 +28,6 @@ import torch.nn as nn
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-mpl.rcParams['figure.dpi'] = 800
 from scipy.special import erfc
 from scipy.stats import qmc
 from tqdm import trange

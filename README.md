@@ -19,18 +19,33 @@ with boundary conditions:
 ## Report
 
 A comprehensive research report documenting the methodology, results, and analysis is available:
-- **Report**: [`reports/report 1 - PINN Baseline/PINN Baseline - Ali Haghighi.pdf`](reports/report%201%20-%20PINN%20Baseline/PINN%20Baseline%20-%20Ali%20Haghighi.pdf)
+- **Report**: [`docs/reports/report 1 - PINN Baseline/PINN Baseline - Ali Haghighi.pdf`](docs/reports/report%201%20-%20PINN%20Baseline/PINN%20Baseline%20-%20Ali%20Haghighi.pdf)
 
 The report provides detailed theoretical background, implementation details, results analysis, and comparisons with analytical solutions.
 
-## Baseline Implementation: `pinn_baseline/pinn_baseline.py`
+## Repository layout
 
-The main implementation is the baseline PINN located in `pinn_baseline/pinn_baseline.py`. This is a minimal, clean, and self-contained implementation (~330 lines) that serves as the foundation for understanding PINNs applied to contaminant transport problems.
+The repo is organized by **research status**, not by method. All source code lives under `code/`:
+
+- **`code/review_ready/`** — Minimal, supervisor-facing scripts. One script per variant (PINN, parametric PINN, DeepONet); self-contained, no cross-module imports. These are the only “review ready” deliverables.
+- **`code/mainline_wip/`** — Active work on the main research path: full baseline implementations (PINN, parametric PINN, neural operator) that are still in development.
+- **`code/exploratory/`** — Experiments and side ideas (sandboxes, grid searches, alternative loss schemes, etc.). Anything speculative or off the main trajectory lives here.
+- **`code/shared/`** — Reusable pieces used by multiple projects (e.g. the analytical solution).
+
+**Outputs** stay with the code that produced them: each project has its own `results/` folder (and for multi-run experiments, subfolders like `results/exp_001/`). Nothing is scattered at the repo root.
+
+**Docs and references:** `docs/reports/` and `docs/slides/` hold LaTeX reports and presentation PDFs; `docs/diagrams/` holds architecture diagrams. `references/` holds literature PDFs.
+
+As work matures, the intended flow is: **exploratory → mainline_wip → review_ready**.
+
+## Baseline Implementation: `code/mainline_wip/pinn_baseline/pinn_baseline.py`
+
+The main implementation is the baseline PINN located in `code/mainline_wip/pinn_baseline/pinn_baseline.py`. This is a minimal, clean, and self-contained implementation (~330 lines) that serves as the foundation for understanding PINNs applied to contaminant transport problems.
 
 ### Quick Start
 
 ```bash
-cd pinn_baseline
+cd code/mainline_wip/pinn_baseline
 python pinn_baseline.py
 ```
 
@@ -40,7 +55,7 @@ This will train the PINN and generate:
 
 ### Code Structure and Implementation Details
 
-The baseline implementation (`pinn_baseline/pinn_baseline.py`) is organized into clear sections:
+The baseline implementation (`code/mainline_wip/pinn_baseline/pinn_baseline.py`) is organized into clear sections:
 
 #### 1. **Configuration Section** (Lines 35-68)
 All parameters are configurable at the top of the file:
@@ -101,7 +116,7 @@ The `train_pinn` function implements the training process:
   - Generates concentration profiles at multiple time steps
   - Compares PINN predictions with analytical solution (Ogata-Banks)
   - Creates publication-quality plots with proper styling
-  - Saves both PNG (to `results/`) and PDF (to `reports/report 1 - PINN Baseline/figs/`) formats
+  - Saves both PNG (to `results/`) and PDF (to `docs/reports/report 1 - PINN Baseline/figs/`) formats
 
 ### Key Features of Baseline Implementation
 
@@ -119,66 +134,36 @@ Running the baseline implementation generates:
 - Collocation points distribution visualization
 - Concentration profiles at multiple time steps (0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000 days)
 - Comparison plots showing PINN predictions vs. analytical solution
-- Results saved to `pinn_baseline/results/pinn_baseline_concentration_profiles.png`
-- PDF copy saved to `reports/report 1 - PINN Baseline/figs/pinn_baseline_concentration_profiles.pdf`
+- Results saved to `code/mainline_wip/pinn_baseline/results/pinn_baseline_concentration_profiles.png`
+- PDF copy saved to `docs/reports/report 1 - PINN Baseline/figs/pinn_baseline_concentration_profiles.pdf`
 
-See `pinn_baseline/README.md` for additional details.
-
-## Experimental Implementations
-
-### Adaptive Learning Implementation
-
-An advanced implementation with adaptive learning is available in `Experimental/pinn adaptive learning/`:
-
-```bash
-cd "Experimental/pinn adaptive learning"
-python "pinn adaptive learning.py"
-```
-
-This experimental implementation extends the baseline with:
-
-- **Residual-based Adaptive Refinement (RAR)**: Periodically identifies high-residual regions and adds collocation points around them
-- **Hybrid Sampling Strategy**: Combines uniform random sampling with adaptive Gaussian-based sampling
-- **Enhanced Visualization**: 
-  - Residual analysis plots showing where physics violations occur
-  - Training animation GIFs showing convergence over epochs
-  - Comprehensive comparison with analytical solution
-- **Advanced Loss Components**: Optional monotonicity constraints
-
-The implementation is more complex (~1690 lines) and includes research-grade features for investigating adaptive learning strategies.
-
-### Parameter Study Implementation
-
-A parameter study implementation is available in `Experimental/pinn_parameter_study/` for investigating the effects of different hyperparameters and physical parameters on PINN performance.
+See `code/mainline_wip/pinn_baseline/README.md` for additional details.
 
 ## Project Structure
 
-- **`pinn_baseline/`** - Main baseline PINN implementation (primary focus)
-  - `pinn_baseline.py` - Complete, self-contained implementation with collocation point visualization
-  - `README.md` - Detailed usage instructions
-  - `results/` - Generated plots and results
+Code is organized by maturity:
 
-- **`misc baseline/`** - Original baseline implementation (archived)
-  - Previous version of the baseline for reference
+- **`code/review_ready/`** — Minimal, supervisor-facing scripts (from former baseline_scripts)
+  - `pinn_baseline/`, `parametric_pinn/`, `neural_operator_deeponet/`
 
-- **`Experimental/pinn adaptive learning/`** - Advanced experimental implementation
-  - Adaptive learning with RAR
-  - Comprehensive visualization and analysis tools
+- **`code/mainline_wip/`** — Main research path, active development
+  - `pinn_baseline/` — Baseline PINN (primary focus)
+  - `parametric_pinn/` — Parametric PINN
+  - `neural_operator_supervised/`, `neural_operator_unsupervised/` — Neural operator baselines
 
-- **`Experimental/pinn_parameter_study/`** - Parameter study implementation
-  - Hyperparameter and physical parameter investigations
+- **`code/exploratory/`** — Experiments and side ideas
+  - `parametric_pinn_sandbox/`, `pinn_grid_search/`, `pinn_parameter_study/`
+  - `loss_distribution_learning/`, `pinn_distribution_adaptive_adam_lbfgs/`, `volume_of_error_pinn/`
 
-- **`Experimental/pinn_grid_search/`** - Hyperparameter grid search runner
+- **`code/shared/`** — Shared utilities
+  - `analytical_solution/` — Ogata-Banks analytical solution for validation
 
-- **`analytical_solution/`** - Analytical solution implementation
-  - Ogata-Banks analytical solution for 1D contaminant transport
-  - Used for validation and comparison
+- **`docs/reports/`** — LaTeX reports and figures
+- **`docs/slides/`** — Presentation PDFs
+- **`docs/diagrams/`** — Architecture diagrams
+- **`references/`** — Literature PDFs
 
-- **`reports/`** - Research reports and figures
-  - `report 1 - PINN Baseline/` - LaTeX report with full documentation and figures
-  - `report 2 - PINN Update/` - Update report and figures
-
-Each folder is self-contained with its code and results in `results/` subdirectories.
+Each code project has its own `results/` subdirectory.
 
 ## Installation
 

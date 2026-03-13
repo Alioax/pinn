@@ -251,7 +251,7 @@ print("Network info")
 print(model.state_dict)
 print("Total number of parameters :", sum(p.numel() for p in params))
 
-optimizer = torch.optim.LBFGS(model.parameters(), lr=0.1,
+optimizer = torch.optim.LBFGS(model.parameters(), lr=lr,
                               max_iter=100, max_eval=None, tolerance_grad=1e-10,
                               tolerance_change=1e-12, history_size=100,
                               line_search_fn=None)
