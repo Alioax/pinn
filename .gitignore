@@ -49,3 +49,5 @@ docs/reports/**/*.tex
 docs/reports/**/*.bib
 docs/reports/**/figs/
 docs/reports/**/README.md
+# Always track PDFs under docs/reports (including any added later)
+!docs/reports/**/*.pdf
