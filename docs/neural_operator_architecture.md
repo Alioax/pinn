@@ -203,14 +203,17 @@ So in unsupervised training, there is **no** concentration dataset. The only “
 
 ## 9. Where to Find the Code
 
-- **Supervised:** `Neural Operator/supervised_neural_operator_baseline/supervised_neural_operator_baseline.py`  
+- **Supervised:** `code/archive/legacy_mainline_wip/neural_operator_supervised/supervised_neural_operator_baseline.py`  
   - Data build: analytical \(C^*\) on a fixed grid for many \(Pe\); Dataset/DataLoader over \((\log Pe, C^*_{\mathrm{flat}})\).  
   - Forward: grid mode (batch of Pe × grid points).  
   - Loss: MSE.
 
-- **Unsupervised:** `Neural Operator/unsupervised_neural_operator_baseline/unsupervised_neural_operator_baseline.py`  
+- **Unsupervised:** `code/archive/legacy_mainline_wip/neural_operator_unsupervised/unsupervised_neural_operator_baseline.py`  
   - No dataset; each epoch resamples PDE, IC, inlet, outlet collocation points.  
   - Forward: pointwise at collocation points; PDE derivatives via `torch.autograd.grad`.  
   - Loss: PDE + IC + inlet + outlet.
 
-Both scripts use the same branch/trunk layout, same latent dimension, and same combination (inner product + sigmoid). The architecture document you are reading applies to both.
+**Current canonical PINO (Report 3):** `code/homogeneous_pe/pino/pinn1d_transport_parametric_neural_operator.py`  
+**Current canonical PINO (Report 4, CFL):** `code/homogeneous_cfl/pino_cfl/pinn1d_cfl_pe_parametric_neural_operator.py`
+
+Both archived and current scripts use the same branch/trunk layout, same latent dimension, and same combination (inner product + sigmoid). The architecture document you are reading applies to all of them.

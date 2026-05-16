@@ -33,8 +33,8 @@ import sys
 from pathlib import Path
 from tqdm import tqdm
 
-# Import analytical solution from root-level folder
-sys.path.append(str(Path(__file__).parent.parent.parent / 'analytical_solution'))
+# Import analytical solution from shared module
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'shared' / 'analytical_solution'))
 from analytical_solution import analytical_solution
 
 # Visualization settings
@@ -63,7 +63,7 @@ model_params = {
 # Training parameters
 training_params = {
     # Optimizer schedule: Adam for first X epochs, then LBFGS for Y epochs
-    'adam_epochs': 40000,          # number of epochs with Adam optimizer
+    'adam_epochs': 5000,          # number of epochs with Adam optimizer
     'lbfgs_epochs': 0,        # number of epochs with LBFGS optimizer
     # Total epochs = adam_epochs + lbfgs_epochs (computed automatically)
     'num_epochs': None,           # will be set to adam_epochs + lbfgs_epochs
@@ -76,7 +76,7 @@ training_params = {
     'num_bc': 200,              # number of points for boundary conditions
     't_final_star': 1.0,        # final dimensionless time
     'verbose': True,            # print training progress
-    'export_interval': 1000,     # export plot every N epochs (set to None to disable)
+    'export_interval': 100,     # export plot every N epochs (set to None to disable)
     'overwrite_gif_frames': True,  # if True, export gif frames with same name (overwriting)
     # Adaptive learning parameters
     'adaptive_update_interval': 40000,  # Number of epochs between collocation point updates

@@ -17,7 +17,7 @@ Analytical Solution (Ogata-Banks):
 
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.special import erfc
+from scipy.special import erfc, erfcx
 from pathlib import Path
 
 # ============================================================================
@@ -83,26 +83,15 @@ def analytical_solution(x, t, U_param=None, D_param=None, C_0_param=None):
     term1 = erfc(term1_arg)
     
     # Second term: exp(ux/D) * erfc((x + ut) / (2√(Dt)))
-    # Handle numerical overflow: for large x, exp(ux/D) overflows but erfc becomes very small
-    # Use a threshold to avoid overflow
+    # Evaluate with a numerically stable identity:
+    #   exp(a) * erfc(b) = exp(a - b^2) * erfcx(b)
+    # where erfcx(b) = exp(b^2) * erfc(b). This removes the hard mask cutoff
+    # that can create visible discontinuities in concentration curves.
     ux_over_D = u * x / d
     term2_arg = (x + u * t) / (2 * sqrt_Dt)
-    
-    # For large ux/D, check if erfc term is negligible first
-    # If erfc argument is large (>10), erfc is essentially zero, so skip exp calculation
-    term2 = np.zeros_like(x)
-    mask = term2_arg < 10  # Only compute where erfc might be non-negligible
-    
-    if np.any(mask):
-        # For values that might matter, compute carefully
-        # If exp would overflow, the erfc term should make it negligible anyway
-        try:
-            term2_exp = np.exp(np.clip(ux_over_D[mask], None, 700))  # Clip to avoid overflow
-            term2_erfc = erfc(term2_arg[mask])
-            term2[mask] = term2_exp * term2_erfc
-        except (OverflowError, RuntimeWarning):
-            # If still problematic, set to zero (erfc of large argument is ~0)
-            term2[mask] = 0.0
+    exponent = ux_over_D - term2_arg**2
+    # Clip exponent to floating-point-safe exp range.
+    term2 = np.exp(np.clip(exponent, -745, 700)) * erfcx(term2_arg)
     
     # Final solution
     C = (c0 / 2) * (term1 + term2)
