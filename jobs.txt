@@ -1,0 +1,15 @@
+# jobs.txt - the scripts run.bat will execute, top to bottom.
+#
+#   * one script per line, paths relative to the repo root
+#   * use FORWARD slashes (they work on Windows too)
+#   * blank lines and lines starting with # are ignored
+#   * add arguments after the path if your script takes them
+#   * quote any path that contains spaces
+#
+# Workflow: edit this list on your laptop, commit & push, then run
+# run.bat on the remote. The run stops at the first script that fails.
+#
+# ----- examples (remove the leading # to enable, or replace with your own) -----
+# code/homogeneous_pe/baseline_pinn/pinn1d_transport_simple_baseline.py
+# code/homogeneous_cfl/baseline_cfl_pinn/pinn1d_cfl_pe_baseline.py
+# code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py
