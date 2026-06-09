@@ -12,4 +12,4 @@
 # ----- examples (remove the leading # to enable, or replace with your own) -----
 # code/homogeneous_pe/baseline_pinn/pinn1d_transport_simple_baseline.py
 # code/homogeneous_cfl/baseline_cfl_pinn/pinn1d_cfl_pe_baseline.py
-# code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py
