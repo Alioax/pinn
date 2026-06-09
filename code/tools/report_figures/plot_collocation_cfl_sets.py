@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-_FIGS_DIR = _REPO_ROOT / "docs" / "reports" / "report 4 - CLF" / "figs"
+_FIGS_DIR = _REPO_ROOT / "docs" / "reports" / "_src" / "report-4-cfl" / "figs"
 
 # -----------------------------------------------------------------------------
 # Style/config (editable)

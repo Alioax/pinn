@@ -45,12 +45,8 @@ Thumbs.db
 
 # Reports and references
 references/
-docs/reports/**/*.tex
-docs/reports/**/*.bib
-docs/reports/**/figs/
-docs/reports/**/README.md
-# Always track PDFs under docs/reports (including any added later)
-!docs/reports/**/*.pdf
+# LaTeX sources live under docs/reports/_src/ (local only); track published PDFs in docs/reports/
+docs/reports/_src/
 
 # ===== Experiment runner =====
 # Keep run logs & summaries under runs/ tracked, even though *.log/*.out are ignored above.
@@ -60,9 +56,3 @@ docs/reports/**/README.md
 # Keep auto-commits (git add -A) clean: never auto-commit these scratch artifacts.
 *.zip
 _tmp_*
-# If your scripts save large model weights you do NOT want pushed, uncomment below.
-# You can still force-add a specific one with:  git add -f <path>
-# *.pt
-# *.pth
-# *.ckpt
-# *.npz

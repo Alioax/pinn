@@ -19,7 +19,7 @@ with boundary conditions:
 ## Report
 
 A comprehensive research report documenting the methodology, results, and analysis is available:
-- **Report**: [`docs/reports/report 1 - PINN Baseline/PINN Baseline - Ali Haghighi.pdf`](docs/reports/report%201%20-%20PINN%20Baseline/PINN%20Baseline%20-%20Ali%20Haghighi.pdf)
+- **Report**: [`docs/reports/report-1-pinn-baseline.pdf`](docs/reports/report-1-pinn-baseline.pdf)
 
 The report provides detailed theoretical background, implementation details, results analysis, and comparisons with analytical solutions.
 
@@ -37,9 +37,9 @@ All source code lives under [`code/`](code/README.md), organized by **research p
 
 See [`code/README.md`](code/README.md) for paths, quick-start commands, and the full map.
 
-**Outputs** stay beside the script that produced them (`results/` per project).
+**Outputs** stay beside the script that produced them (`results/` per project), including trained model weights (`.pt`).
 
-**Docs:** `docs/reports/` (PDF reports), `docs/neural_operator_architecture.md`, `cfl_models_methodology.md`.
+**Docs:** `docs/reports/` (PDF reports), `docs/methodology/` (architecture and training notes).
 
 ## Quick start (current canonical baseline)
 
@@ -59,16 +59,16 @@ python pinn1d_cfl_pe_baseline.py
 
 Each run writes plots and checkpoints under that folder’s `results/`.
 
-Implementation notes: dimensionless formulation, L-BFGS on regular collocation meshes, and Ogata–Banks validation are documented in the PDF reports and in [`cfl_models_methodology.md`](cfl_models_methodology.md) (Report 4).
+Implementation notes: dimensionless formulation, L-BFGS on regular collocation meshes, and Ogata–Banks validation are documented in the PDF reports and in [`docs/methodology/cfl_models_methodology.md`](docs/methodology/cfl_models_methodology.md) (Report 4).
 
 ## Reports
 
 | # | PDF | Code folder |
 |---|-----|-------------|
-| 1 | `docs/reports/report 1 - PINN Baseline/` | `code/archive/` (superseded) |
-| 2 | `docs/reports/report 2 - PINN Update/` | `code/exploratory/` + archive |
-| 3 | `docs/reports/report 3 - PINO/` | `code/homogeneous_pe/` |
-| 4 | `docs/reports/report 4 - CLF/` | `code/homogeneous_cfl/` |
+| 1 | [`docs/reports/report-1-pinn-baseline.pdf`](docs/reports/report-1-pinn-baseline.pdf) | `code/archive/` (superseded) |
+| 2 | [`docs/reports/report-2-pinn-update.pdf`](docs/reports/report-2-pinn-update.pdf) | `code/exploratory/` + archive |
+| 3 | [`docs/reports/report-3-pino.pdf`](docs/reports/report-3-pino.pdf) | `code/homogeneous_pe/` |
+| 4 | [`docs/reports/report-4-cfl.pdf`](docs/reports/report-4-cfl.pdf) | `code/homogeneous_cfl/` |
 | 5 | (planned) heterogeneous operator | `code/heterogeneous/` |
 
 ## Installation

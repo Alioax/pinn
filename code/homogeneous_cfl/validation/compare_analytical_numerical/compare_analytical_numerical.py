@@ -18,7 +18,7 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 _VALIDATION_DIR = _SCRIPT_DIR.parent
 _DEFAULT_DATA_FILE = _VALIDATION_DIR / "data" / "comsol_1zone.txt"
 _DEFAULT_RESULTS = _SCRIPT_DIR / "results"
-_FIGS_DIR = _REPO_ROOT / "docs" / "reports" / "report 4 - CLF" / "figs"
+_FIGS_DIR = _REPO_ROOT / "docs" / "reports" / "_src" / "report-4-cfl" / "figs"
 
 U_VALUES = [0.01, 0.02, 0.03, 0.04, 0.05]
 

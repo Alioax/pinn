@@ -12,6 +12,8 @@ Scripts are grouped by **research phase** (aligned with reports), not by trainin
 | [`shared/`](shared/) | — | Library | Ogata–Banks analytical solution |
 | [`archive/`](archive/) | Reports 1–2 | Legacy | Superseded `mainline_wip` / `review_ready` snapshots from git |
 
+Supervisor-facing **canonical** implementations for completed phases live in the phase folders above (Reports 3–4: `homogeneous_pe/`, `homogeneous_cfl/`). Older v1 scripts (Reports 1–2 era) are preserved under [`archive/legacy_review_ready/`](archive/legacy_review_ready/).
+
 ## Intended workflow
 
 ```
@@ -32,4 +34,4 @@ cd code/homogeneous_pe/baseline_pinn && python pinn1d_transport_simple_baseline.
 cd code/homogeneous_cfl/baseline_cfl_pinn && python pinn1d_cfl_pe_baseline.py
 ```
 
-See [`../cfl_models_methodology.md`](../cfl_models_methodology.md) for Report 4 training details.
+See [`../docs/methodology/cfl_models_methodology.md`](../docs/methodology/cfl_models_methodology.md) for Report 4 training details.

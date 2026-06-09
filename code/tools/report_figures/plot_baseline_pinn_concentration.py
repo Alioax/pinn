@@ -19,7 +19,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _DEFAULT_RESULTS = _REPO_ROOT / "code" / "homogeneous_cfl" / "baseline_cfl_pinn" / "results"
 _DEFAULT_MODEL = _DEFAULT_RESULTS / "baseline_cfl_pinn_model.pt"
 _DEFAULT_CONFIG = _DEFAULT_RESULTS / "run_config.json"
-_FIGS_DIR = _REPO_ROOT / "docs" / "reports" / "report 4 - CLF" / "figs"
+_FIGS_DIR = _REPO_ROOT / "docs" / "reports" / "_src" / "report-4-cfl" / "figs"
 _OUT_PDF = _FIGS_DIR / "baseline_pinn_concentration.pdf"
 
 _DT_STR_TO_TORCH = {
