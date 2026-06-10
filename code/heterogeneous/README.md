@@ -111,6 +111,41 @@ Validation-only (no retrain): set `run_training = False` and `run_comsol_validat
 
 [`data/comsol_4zones.txt`](data/comsol_4zones.txt) is already dimensionless \(C^* \in [0,1]\) (do not rescale by Report-4 \(C_0=5\)).
 
+## Report 5 batch runs (remote)
+
+Four training-parameter designs, each writing to its own results subfolder:
+
+| `--design` | Training tuples |
+|------------|-----------------|
+| `capacity` | 81 COMSOL grid \(\{0.01,0.03,0.05\}^4\) (in-sample velocities) |
+| `lhc` | N plain Latin-hypercube samples (exclude COMSOL grid) |
+| `maximin` | N maximin-optimized LHC samples |
+| `anchored` | N LHC + 16 cube corners \(\{0.01,0.05\}^4\) |
+
+Example (single experiment):
+
+```bash
+cd code/heterogeneous/pino_heterogeneous
+python pinn1d_heterogeneous_parametric_neural_operator.py \
+  --design lhc --n-train 500 \
+  --out-dir results/exp_B_lhc_N500 \
+  --skip-validation-plots
+```
+
+**Remote workflow:** queue all four runs in [`jobs.txt`](../../jobs.txt) at the repo root, commit & push from your laptop, then run `run.bat` on the remote GPU. The runner pulls, executes jobs fail-fast, and pushes one commit with logs under `runs/<timestamp>/` plus artifacts under `pino_heterogeneous/results/exp_*`.
+
+**Per-run outputs** (`results/exp_<name>/`):
+
+| File | Content |
+|------|---------|
+| `pino_heterogeneous_model.pt` | Checkpoint (pull to laptop for local analysis) |
+| `train_u_cases.csv` | Velocity tuples used for training |
+| `comsol_validation_summary.csv` | L2 metrics over 81 COMSOL cases |
+| `run_meta.json` | Design, N, wall-clock, mean/max L2 |
+| `pino_heterogeneous_loss.png` | Training loss curve |
+
+Use `--reload-train-cases` to regenerate `train_u_cases.csv`. Omit `--skip-validation-plots` to also write 81 COMSOL comparison PNGs.
+
 ## Layout
 
 | Path | Role |

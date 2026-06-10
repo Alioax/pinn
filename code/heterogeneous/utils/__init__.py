@@ -3,7 +3,12 @@
 from .comsol_4zones import list_parameter_combos, load_case, parse_comsol_grid
 from .lhc_sampling import (
     comsol_validation_u_grid,
+    cube_corners_u_grid,
+    expected_train_count,
+    generate_anchored_lhc_u_samples,
     generate_lhc_u_samples,
+    generate_maximin_lhc_u_samples,
+    load_or_generate_train_u_cases,
     load_u_cases_csv,
     save_u_cases_csv,
 )
@@ -25,7 +30,12 @@ __all__ = [
     "load_case",
     "parse_comsol_grid",
     "comsol_validation_u_grid",
+    "cube_corners_u_grid",
+    "expected_train_count",
     "generate_lhc_u_samples",
+    "generate_maximin_lhc_u_samples",
+    "generate_anchored_lhc_u_samples",
+    "load_or_generate_train_u_cases",
     "load_u_cases_csv",
     "save_u_cases_csv",
 ]

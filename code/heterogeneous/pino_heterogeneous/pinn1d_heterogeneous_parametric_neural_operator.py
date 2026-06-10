@@ -11,8 +11,11 @@ Edit the configuration block below, then run this file.
 
 from __future__ import annotations
 
+import argparse
 import csv
+import json
 import sys
+import time
 from pathlib import Path
 
 import matplotlib as mpl
@@ -31,10 +34,9 @@ for _p in (_HETERO_ROOT, _PINO_DIR):
 from deeponet import DeepONetParametric  # noqa: E402
 from utils.comsol_4zones import list_parameter_combos, load_case  # noqa: E402
 from utils.lhc_sampling import (  # noqa: E402
+    TrainDesign,
     comsol_validation_u_grid,
-    generate_lhc_u_samples,
-    load_u_cases_csv,
-    save_u_cases_csv,
+    load_or_generate_train_u_cases as load_train_u_cases_for_design,
 )
 from utils.zone_velocity import (  # noqa: E402
     L_DEFAULT,
@@ -117,6 +119,12 @@ COMSOL_VALIDATION_DIR = RESULTS_DIR / "comsol_validation"
 MODEL_PATH = RESULTS_DIR / "pino_heterogeneous_model.pt"
 U_TRAIN_CASES_PATH = RESULTS_DIR / f"lhc_train_u{N_LHC_TRAIN}.csv"
 
+# Set by parse_cli() when the script is invoked with batch flags.
+train_design: TrainDesign = "lhc"
+n_train_requested = N_LHC_TRAIN
+skip_validation_plots = False
+batch_mode = False
+
 # =============================================================================
 # Plot style
 # =============================================================================
@@ -169,30 +177,24 @@ def branch_cfl_from_u(u: np.ndarray) -> np.ndarray:
 
 
 def load_or_generate_train_u_cases() -> np.ndarray:
-    """Training media: ``N_LHC_TRAIN`` LHC samples in [U_LO, U_HI]^4, shape (N, 4)."""
-    if reload_lhc_train_cases and U_TRAIN_CASES_PATH.is_file():
-        U_TRAIN_CASES_PATH.unlink()
-    if U_TRAIN_CASES_PATH.is_file():
-        u_cases = load_u_cases_csv(U_TRAIN_CASES_PATH)
-        if u_cases.shape[0] != N_LHC_TRAIN:
-            raise ValueError(
-                f"{U_TRAIN_CASES_PATH} has {u_cases.shape[0]} rows; "
-                f"expected N_LHC_TRAIN={N_LHC_TRAIN}. Set reload_lhc_train_cases=True."
-            )
-        return u_cases
-
-    exclude = comsol_validation_u_grid() if LHC_EXCLUDE_COMSOL_GRID else None
-    u_cases = generate_lhc_u_samples(
-        N_LHC_TRAIN,
-        U_LO,
-        U_HI,
+    """Training media for the active design, shape (N, 4)."""
+    if train_design == "capacity":
+        exclude_comsol = False
+    elif batch_mode:
+        exclude_comsol = True
+    else:
+        exclude_comsol = LHC_EXCLUDE_COMSOL_GRID
+    return load_train_u_cases_for_design(
+        train_design,
+        n_train_requested,
+        U_TRAIN_CASES_PATH,
+        u_lo=U_LO,
+        u_hi=U_HI,
         seed=seed,
-        exclude_near=exclude,
+        exclude_comsol_grid=exclude_comsol,
         exclude_atol=LHC_EXCLUDE_ATOL,
+        reload=reload_lhc_train_cases,
     )
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    save_u_cases_csv(U_TRAIN_CASES_PATH, u_cases)
-    return u_cases
 
 
 def _pde_collocation_from_u_cases(
@@ -312,6 +314,36 @@ def _pde_residual_1d(
     return residual.detach().cpu().numpy().flatten()
 
 
+def comsol_case_mean_l2(
+    *,
+    model: DeepONetParametric,
+    device: torch.device,
+    dtype: torch.dtype,
+    x_m: np.ndarray,
+    comsol_by_time: dict[float, np.ndarray],
+    u_case: tuple[float, float, float, float],
+    x_star: np.ndarray | None = None,
+) -> float:
+    """Mean relative L2 of C* vs COMSOL over the five reference times."""
+    if x_star is None:
+        x_star = pde_collocation_x_star_1d()
+    n_x = x_star.size
+    x_t = torch.tensor(x_star.reshape(-1, 1), dtype=dtype, device=device)
+    branch = branch_tensor_from_u_case(u_case, n_x, device=device, dtype=dtype)
+
+    l2_sum = 0.0
+    matched = _match_comsol_times(comsol_by_time, COMSOL_TIMES_DAYS)
+    model.eval()
+    for t_days, c_comsol in matched:
+        t_star = t_days / T_MAX
+        t_t = torch.full((n_x, 1), t_star, dtype=dtype, device=device)
+        with torch.no_grad():
+            c_pred = model(x_t, t_t, branch).cpu().numpy().flatten()
+        c_ref = comsol_c_star_on_x_star(x_star, x_m, c_comsol)
+        l2_sum += _l2_rel(c_pred, c_ref)
+    return l2_sum / len(matched)
+
+
 def plot_comsol_case(
     *,
     model: DeepONetParametric,
@@ -358,9 +390,9 @@ def plot_comsol_case(
         label=r"PDE residual",
     )
 
-    l2_sum = 0.0
     matched = _match_comsol_times(comsol_by_time, COMSOL_TIMES_DAYS)
     model.eval()
+    l2_sum = 0.0
     for idx, (t_days, c_comsol) in enumerate(matched):
         t_star = t_days / T_MAX
         t_t = torch.full((n_x, 1), t_star, dtype=dtype, device=device)
@@ -430,6 +462,7 @@ def validate_against_comsol(
     *,
     data_file: Path = COMSOL_DATA_PATH,
     out_dir: Path = COMSOL_VALIDATION_DIR,
+    save_plots: bool = True,
 ) -> list[dict[str, object]]:
     if not data_file.is_file():
         raise FileNotFoundError(f"COMSOL data not found: {data_file}")
@@ -445,16 +478,29 @@ def validate_against_comsol(
     for u_case in tqdm(u_cases, desc="COMSOL vs PINO"):
         x_m, comsol_by_time = load_case(data_file, u_case)
         out_png = out_dir / f"compare_comsol_pino_{u_case_tag(u_case)}.png"
-        mean_l2 = plot_comsol_case(
-            model=model,
-            device=device,
-            dtype=dtype,
-            x_m=x_m,
-            comsol_by_time=comsol_by_time,
-            u_case=u_case,
-            out_png=out_png,
-            x_star=x_star_val,
-        )
+        if save_plots:
+            mean_l2 = plot_comsol_case(
+                model=model,
+                device=device,
+                dtype=dtype,
+                x_m=x_m,
+                comsol_by_time=comsol_by_time,
+                u_case=u_case,
+                out_png=out_png,
+                x_star=x_star_val,
+            )
+            plot_path = str(out_png)
+        else:
+            mean_l2 = comsol_case_mean_l2(
+                model=model,
+                device=device,
+                dtype=dtype,
+                x_m=x_m,
+                comsol_by_time=comsol_by_time,
+                u_case=u_case,
+                x_star=x_star_val,
+            )
+            plot_path = ""
         rows.append(
             {
                 "u1": u_case[0],
@@ -462,7 +508,7 @@ def validate_against_comsol(
                 "u3": u_case[2],
                 "u4": u_case[3],
                 "mean_rel_l2": mean_l2,
-                "plot": str(out_png),
+                "plot": plot_path,
             }
         )
 
@@ -675,7 +721,7 @@ def train_model(
     return history
 
 
-def plot_collocation_points(plot_data: dict) -> Path:
+def plot_collocation_points(plot_data: dict, *, n_train_media: int) -> Path:
     """Write collocation mesh figure (no model / training required)."""
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     ms = collocation_scatter_ms
@@ -711,7 +757,7 @@ def plot_collocation_points(plot_data: dict) -> Path:
     _apply_xstar_ticks_y(axes2[1], pad=collocation_xstar_axis_pad)
     _grid_x_only(axes2[1])
     fig2.suptitle(
-        f"LHC training collocation ({N_LHC_TRAIN} media, one slice shown)",
+        f"Training collocation ({n_train_media} media, one slice shown)",
         fontsize=14,
     )
     coll_path = RESULTS_DIR / "pino_heterogeneous_collocation_points.png"
@@ -800,7 +846,118 @@ def plot_training_figures(
     return conc_path, loss_path
 
 
+def parse_cli() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Physics-informed heterogeneous PINO: train and COMSOL validation."
+    )
+    parser.add_argument(
+        "--design",
+        choices=["capacity", "lhc", "maximin", "anchored"],
+        default=None,
+        help="Training-parameter design (Report 5 batch mode).",
+    )
+    parser.add_argument(
+        "--n-train",
+        type=int,
+        default=None,
+        help="Number of LHC training tuples for lhc/maximin/anchored (default 500 in batch mode).",
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=str,
+        default=None,
+        help="Results subfolder relative to this script, e.g. results/exp_B_lhc_N500.",
+    )
+    parser.add_argument(
+        "--skip-validation-plots",
+        action="store_true",
+        help="Write comsol_validation_summary.csv only; skip per-case PNGs.",
+    )
+    parser.add_argument(
+        "--reload-train-cases",
+        action="store_true",
+        help="Regenerate train_u_cases.csv even if it already exists.",
+    )
+    return parser.parse_args()
+
+
+def apply_cli(args: argparse.Namespace) -> None:
+    global RESULTS_DIR, COMSOL_VALIDATION_DIR, MODEL_PATH, U_TRAIN_CASES_PATH
+    global train_design, n_train_requested, skip_validation_plots, batch_mode
+    global reload_lhc_train_cases
+
+    if args.reload_train_cases:
+        reload_lhc_train_cases = True
+
+    if args.design is not None or args.out_dir is not None:
+        batch_mode = True
+
+    if args.out_dir is not None:
+        RESULTS_DIR = _PINO_DIR / args.out_dir
+    else:
+        RESULTS_DIR = _PINO_DIR / "results"
+
+    MODEL_PATH = RESULTS_DIR / "pino_heterogeneous_model.pt"
+
+    if batch_mode:
+        COMSOL_VALIDATION_DIR = RESULTS_DIR
+        U_TRAIN_CASES_PATH = RESULTS_DIR / "train_u_cases.csv"
+    else:
+        COMSOL_VALIDATION_DIR = RESULTS_DIR / "comsol_validation"
+        U_TRAIN_CASES_PATH = RESULTS_DIR / f"lhc_train_u{N_LHC_TRAIN}.csv"
+
+    if args.design is not None:
+        train_design = args.design  # type: ignore[assignment]
+        if train_design == "capacity":
+            n_train_requested = 81
+        elif args.n_train is not None:
+            n_train_requested = args.n_train
+        else:
+            n_train_requested = 500
+    elif args.n_train is not None:
+        n_train_requested = args.n_train
+
+    if args.skip_validation_plots:
+        skip_validation_plots = True
+
+
+def write_run_meta(
+    *,
+    wall_clock_s: float,
+    n_train_actual: int,
+    validation_rows: list[dict[str, object]] | None,
+) -> Path:
+    meta: dict[str, object] = {
+        "design": train_design,
+        "n_train": n_train_requested,
+        "n_train_actual": n_train_actual,
+        "seed": seed,
+        "dtype": str(torch_dtype).replace("torch.", ""),
+        "wall_clock_s": round(wall_clock_s, 3),
+        "out_dir": str(RESULTS_DIR.relative_to(_PINO_DIR)),
+    }
+    if validation_rows:
+        l2_vals = np.array(
+            [float(r["mean_rel_l2"]) for r in validation_rows], dtype=np.float64
+        )
+        meta["mean_rel_l2"] = float(l2_vals.mean())
+        meta["max_rel_l2"] = float(l2_vals.max())
+        meta["min_rel_l2"] = float(l2_vals.min())
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    meta_path = RESULTS_DIR / "run_meta.json"
+    meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+    return meta_path
+
+
 def main() -> None:
+    global reload_lhc_train_cases
+
+    args = parse_cli()
+    apply_cli(args)
+
+    t_start = time.perf_counter()
+    validation_rows: list[dict[str, object]] | None = None
+
     torch.set_default_dtype(torch_dtype)
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -812,17 +969,22 @@ def main() -> None:
         print(f"Using CPU (CUDA not available, dtype={dtype})")
 
     print(f"PE (computed) = {PE:.12g}")
+    print(f"design={train_design}  n_train_requested={n_train_requested}  batch_mode={batch_mode}")
+    print(f"results_dir={RESULTS_DIR}")
     u_train = load_or_generate_train_u_cases()
     cfl_train = branch_cfl_from_u(u_train)
-    print(
-        f"Training: {N_LHC_TRAIN} LHC samples in [{U_LO:g}, {U_HI:g}] m/d "
-        f"(exclude COMSOL 3^4 grid: {LHC_EXCLUDE_COMSOL_GRID})"
-    )
-    print(f"  saved/loaded: {U_TRAIN_CASES_PATH}")
-    print(
-        f"  branch CFL range [{cfl_train.min():g}, {cfl_train.max():g}]"
-    )
     n_u = u_train.shape[0]
+    if train_design == "capacity":
+        train_desc = f"{n_u} COMSOL grid tuples (capacity / in-sample)"
+    elif train_design == "anchored":
+        train_desc = (
+            f"{n_train_requested} LHC + corners -> {n_u} unique tuples (anchored)"
+        )
+    else:
+        train_desc = f"{n_u} {train_design} samples in [{U_LO:g}, {U_HI:g}] m/d"
+    print(f"Training: {train_desc}")
+    print(f"  saved/loaded: {U_TRAIN_CASES_PATH}")
+    print(f"  branch CFL range [{cfl_train.min():g}, {cfl_train.max():g}]")
     n_if_per = mesh_nx_interface_per_band * len(ZONE_INTERFACE_XSTAR)
     print(
         f"PDE mesh: bulk {mesh_nx_pde}x{mesh_nt_pde}x{n_u} + interface bands "
@@ -833,7 +995,10 @@ def main() -> None:
         f"COMSOL validation: {len(comsol_validation_u_grid())} fixed grid cases "
         f"from {COMSOL_DATA_PATH.name}"
     )
-    print(f"run_training={run_training}  run_comsol_validation={run_comsol_validation}")
+    print(
+        f"run_training={run_training}  run_comsol_validation={run_comsol_validation}  "
+        f"skip_validation_plots={skip_validation_plots}"
+    )
 
     model = DeepONetParametric(
         branch_architecture, trunk_architecture, activation_cls
@@ -845,11 +1010,12 @@ def main() -> None:
             f"PDE collocation points: {plot_data['n_pde']:,} "
             f"(bulk {plot_data['n_pde_bulk']:,}, interface {plot_data['n_pde_interface']:,})"
         )
-        coll_path = plot_collocation_points(plot_data)
+        coll_path = plot_collocation_points(plot_data, n_train_media=n_u)
         print(f"Collocation mesh plot (pre-train): {coll_path}")
         history = train_model(model, device, tensors)
         conc_path, loss_path = plot_training_figures(model, device, dtype, history)
         if save_model:
+            RESULTS_DIR.mkdir(parents=True, exist_ok=True)
             torch.save(model.state_dict(), MODEL_PATH)
         print("Training saved:", conc_path, loss_path, MODEL_PATH)
     else:
@@ -862,7 +1028,19 @@ def main() -> None:
         print(f"Loaded checkpoint: {MODEL_PATH}")
 
     if run_comsol_validation:
-        validate_against_comsol(model, device, dtype)
+        validation_rows = validate_against_comsol(
+            model,
+            device,
+            dtype,
+            save_plots=not skip_validation_plots,
+        )
+
+    meta_path = write_run_meta(
+        wall_clock_s=time.perf_counter() - t_start,
+        n_train_actual=n_u,
+        validation_rows=validation_rows,
+    )
+    print(f"Run metadata: {meta_path}")
 
 
 if __name__ == "__main__":
