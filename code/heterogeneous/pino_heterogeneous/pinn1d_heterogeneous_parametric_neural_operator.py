@@ -59,7 +59,7 @@ PE = PE_DEFAULT
 
 U_LO = 0.01
 U_HI = 0.05
-N_LHC_TRAIN = 500
+N_LHC_TRAIN = 5000
 LHC_EXCLUDE_COMSOL_GRID = True
 LHC_EXCLUDE_ATOL = 1e-9
 
@@ -93,7 +93,7 @@ collocation_xstar_axis_pad = 0.05
 n_cycle_colors = 4
 
 times_tstar = [0.05, 0.2, 0.4, 0.6, 0.8, 1.0]
-num_spatial_points = 5000
+num_spatial_points = 500
 x_plot_max_star = 1.0
 
 PLOT_U_CASES: list[tuple[float, float, float, float]] = [
