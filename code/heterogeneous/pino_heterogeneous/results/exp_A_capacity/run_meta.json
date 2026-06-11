@@ -2,11 +2,32 @@
   "design": "capacity",
   "n_train": 81,
   "n_train_actual": 81,
+  "n_corner_anchors": null,
+  "arch_preset": "default",
+  "trunk_mode": "single",
+  "branch_architecture": [
+    4,
+    16,
+    16,
+    32
+  ],
+  "trunk_architecture": [
+    2,
+    32,
+    32,
+    32,
+    32
+  ],
   "seed": 1234567,
   "dtype": "float32",
-  "wall_clock_s": 101.655,
+  "num_epochs_lbfgs_requested": 1000,
+  "early_stop_patience": 150,
+  "wall_clock_s": 33.025,
   "out_dir": "results\\exp_A_capacity",
-  "mean_rel_l2": 0.13637003036004045,
-  "max_rel_l2": 0.21864837729732,
-  "min_rel_l2": 0.09629949428252808
+  "num_epochs_lbfgs_actual": 189,
+  "early_stopped": true,
+  "best_total_loss": 0.06788010150194168,
+  "mean_rel_l2": 0.13637003814627988,
+  "max_rel_l2": 0.2186482115278907,
+  "min_rel_l2": 0.09629956012143596
 }
