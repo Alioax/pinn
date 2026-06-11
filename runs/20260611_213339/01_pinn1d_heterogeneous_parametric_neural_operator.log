@@ -1,0 +1,34 @@
+# code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design capacity --arch dense --out-dir results/exp_E_capacity_dense --validate-only --skip-validation-plots
+# started 2026-06-11 21:33:41
+# cwd C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous
+
+Using GPU: NVIDIA GeForce RTX 3090 (cuda:0, dtype=torch.float32)
+PE (computed) = 0.010368
+design=capacity  n_train_requested=81  n_corner_anchors=16  arch=dense  batch_mode=True
+branch=[4, 64, 64, 128]  trunk=[2, 64, 64, 64, 64, 128]
+results_dir=C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_E_capacity_dense
+validate_only: loading checkpoint from C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_E_capacity_dense\pino_heterogeneous_model.pt
+COMSOL validation: 81 fixed grid cases from comsol_4zones.txt -> C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_E_capacity_dense
+run_training=False  run_comsol_validation=True  validate_only=True  skip_validation_plots=True
+Loaded checkpoint: C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_E_capacity_dense\pino_heterogeneous_model.pt
+COMSOL validation: 81 media -> C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_E_capacity_dense  (x* collocation n=86)
+
+COMSOL vs PINO:   0%|          | 0/81 [00:00<?, ?it/s]
+COMSOL vs PINO:   1%|          | 1/81 [00:00<00:11,  6.72it/s]
+COMSOL vs PINO:  10%|▉         | 8/81 [00:00<00:02, 35.12it/s]
+COMSOL vs PINO:  19%|█▊        | 15/81 [00:00<00:01, 46.21it/s]
+COMSOL vs PINO:  27%|██▋       | 22/81 [00:00<00:01, 52.01it/s]
+COMSOL vs PINO:  36%|███▌      | 29/81 [00:00<00:00, 55.56it/s]
+COMSOL vs PINO:  44%|████▍     | 36/81 [00:00<00:00, 57.87it/s]
+COMSOL vs PINO:  53%|█████▎    | 43/81 [00:00<00:00, 59.10it/s]
+COMSOL vs PINO:  62%|██████▏   | 50/81 [00:00<00:00, 60.02it/s]
+COMSOL vs PINO:  70%|███████   | 57/81 [00:01<00:00, 60.91it/s]
+COMSOL vs PINO:  79%|███████▉  | 64/81 [00:01<00:00, 60.95it/s]
+COMSOL vs PINO:  88%|████████▊ | 71/81 [00:01<00:00, 61.44it/s]
+COMSOL vs PINO:  96%|█████████▋| 78/81 [00:01<00:00, 61.61it/s]
+COMSOL vs PINO: 100%|██████████| 81/81 [00:01<00:00, 56.11it/s]
+COMSOL validation summary: n=81  mean=1.216763e-01  max=1.874820e-01  min=8.901912e-02
+Wrote C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_E_capacity_dense\comsol_validation_summary.csv
+Run metadata: C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_E_capacity_dense\run_meta.json
+
+# exit 0 after 0:00:18.201983

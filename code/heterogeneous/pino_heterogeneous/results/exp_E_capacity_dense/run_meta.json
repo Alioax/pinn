@@ -1,0 +1,28 @@
+{
+  "design": "capacity",
+  "n_train": 81,
+  "n_train_actual": 81,
+  "n_corner_anchors": null,
+  "arch_preset": "dense",
+  "branch_architecture": [
+    4,
+    64,
+    64,
+    128
+  ],
+  "trunk_architecture": [
+    2,
+    64,
+    64,
+    64,
+    64,
+    128
+  ],
+  "seed": 1234567,
+  "dtype": "float32",
+  "wall_clock_s": 244.066,
+  "out_dir": "results\\exp_E_capacity_dense",
+  "mean_rel_l2": 0.12167629540608887,
+  "max_rel_l2": 0.1874819789271865,
+  "min_rel_l2": 0.08901911905475957
+}
