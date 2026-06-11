@@ -1,0 +1,8 @@
+run 20260611_221445
+jobs file: jobs.txt
+result: all 2 ok
+2/2 script(s) succeeded
+
+  #        status   elapsed  script
+01            ok   0:07:07  code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py
+02            ok   0:58:40  code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py

@@ -1,0 +1,124 @@
+# code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design maximin --n-train 500 --dtype float64 --out-dir results/exp_F_maximin_N500_float64 --skip-validation-plots
+# started 2026-06-11 22:08:32
+# cwd C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous
+
+Using GPU: NVIDIA GeForce RTX 3090 (cuda:0, dtype=torch.float64)
+PE (computed) = 0.010368
+design=maximin  n_train_requested=500  n_corner_anchors=16  arch=default  trunk_mode=single  batch_mode=True
+branch=[4, 16, 16, 32]  trunk=[2, 32, 32, 32, 32]
+results_dir=C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_F_maximin_N500_float64
+Training: 500 maximin samples in [0.01, 0.05] m/d
+  saved/loaded: C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_F_maximin_N500_float64\train_u_cases.csv
+  branch CFL range [0.120085, 0.599848]
+PDE mesh: bulk 50x50x500 + interface bands (36 x* / band, +/-0.025 around (0.2, 0.4, 0.6))
+COMSOL validation: 81 fixed grid cases from comsol_4zones.txt -> C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_F_maximin_N500_float64
+run_training=True  run_comsol_validation=True  validate_only=False  skip_validation_plots=True
+PDE collocation points: 2,150,000 (bulk 1,250,000, interface 900,000)
+Collocation mesh plot (pre-train): C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_F_maximin_N500_float64\pino_heterogeneous_collocation_points.png
+LBFGS (
+Parameter Group 0
+    history_size: 50
+    line_search_fn: strong_wolfe
+    lr: 1
+    max_eval: 1
+    max_iter: 1
+    tolerance_change: 1e-09
+    tolerance_grad: 1e-07
+)
+
+L-BFGS:   0%|          | 0/1000 [? > 00:00]
+L-BFGS:   0%|          | 1/1000 [52:34 > 00:03]
+L-BFGS:   0%|          | 2/1000 [51:12 > 00:06]
+L-BFGS:   0%|          | 3/1000 [47:04 > 00:08]
+L-BFGS:   0%|          | 4/1000 [46:09 > 00:11]
+L-BFGS:   0%|          | 5/1000 [43:37 > 00:13]
+L-BFGS:   1%|          | 6/1000 [41:57 > 00:16]
+L-BFGS:   1%|          | 7/1000 [42:52 > 00:18]
+L-BFGS:   1%|          | 8/1000 [41:55 > 00:21]
+L-BFGS:   1%|          | 9/1000 [43:05 > 00:24]
+L-BFGS:   1%|          | 10/1000 [42:32 > 00:26]
+L-BFGS:   1%|          | 11/1000 [43:32 > 00:29]
+L-BFGS:   1%|          | 12/1000 [43:58 > 00:32]
+L-BFGS:   1%|▏         | 13/1000 [42:50 > 00:34]
+L-BFGS:   1%|▏         | 14/1000 [44:46 > 00:37]
+L-BFGS:   2%|▏         | 15/1000 [47:00 > 00:40]
+L-BFGS:   2%|▏         | 16/1000 [47:06 > 00:43]
+L-BFGS:   2%|▏         | 17/1000 [45:26 > 00:46]
+L-BFGS:   2%|▏         | 18/1000 [45:28 > 00:48]
+L-BFGS:   2%|▏         | 19/1000 [44:56 > 00:51]
+L-BFGS:   2%|▏         | 20/1000 [44:37 > 00:54]
+L-BFGS:   2%|▏         | 21/1000 [45:05 > 00:57]
+L-BFGS:   2%|▏         | 22/1000 [43:18 > 00:59]
+L-BFGS:   2%|▏         | 23/1000 [42:09 > 01:01]
+L-BFGS:   2%|▏         | 24/1000 [42:12 > 01:04]
+L-BFGS:   2%|▎         | 25/1000 [41:43 > 01:07]
+L-BFGS:   3%|▎         | 26/1000 [41:27 > 01:09]
+L-BFGS:   3%|▎         | 27/1000 [42:44 > 01:12]
+L-BFGS:   3%|▎         | 28/1000 [43:53 > 01:15]
+L-BFGS:   3%|▎         | 29/1000 [41:53 > 01:17]
+L-BFGS:   3%|▎         | 30/1000 [43:46 > 01:20]
+L-BFGS:   3%|▎         | 31/1000 [44:09 > 01:23]
+L-BFGS:   3%|▎         | 32/1000 [44:53 > 01:26]
+L-BFGS:   3%|▎         | 33/1000 [46:46 > 01:29]
+L-BFGS:   3%|▎         | 34/1000 [45:20 > 01:32]
+L-BFGS:   4%|▎         | 35/1000 [44:03 > 01:34]
+L-BFGS:   4%|▎         | 36/1000 [44:32 > 01:37]
+L-BFGS:   4%|▎         | 37/1000 [45:36 > 01:40]
+L-BFGS:   4%|▍         | 38/1000 [44:15 > 01:43]
+L-BFGS:   4%|▍         | 39/1000 [44:11 > 01:45]
+L-BFGS:   4%|▍         | 40/1000 [42:28 > 01:48]
+L-BFGS:   4%|▍         | 41/1000 [40:56 > 01:50]
+L-BFGS:   4%|▍         | 42/1000 [41:50 > 01:53]
+L-BFGS:   4%|▍         | 43/1000 [41:05 > 01:55]
+L-BFGS:   4%|▍         | 44/1000 [42:00 > 01:58]
+L-BFGS:   4%|▍         | 45/1000 [41:19 > 02:01]
+L-BFGS:   5%|▍         | 46/1000 [42:12 > 02:03]
+L-BFGS:   5%|▍         | 47/1000 [42:28 > 02:06]
+L-BFGS:   5%|▍         | 48/1000 [41:34 > 02:09]
+L-BFGS:   5%|▍         | 49/1000 [43:27 > 02:12]
+L-BFGS:   5%|▌         | 50/1000 [45:37 > 02:15]
+L-BFGS:   5%|▌         | 51/1000 [45:42 > 02:18]
+L-BFGS:   5%|▌         | 52/1000 [44:09 > 02:20]
+L-BFGS:   5%|▌         | 53/1000 [44:18 > 02:23]
+L-BFGS:   5%|▌         | 54/1000 [43:39 > 02:26]
+L-BFGS:   6%|▌         | 55/1000 [43:14 > 02:29]
+L-BFGS:   6%|▌         | 56/1000 [43:52 > 02:31]
+L-BFGS:   6%|▌         | 57/1000 [42:13 > 02:34]
+L-BFGS:   6%|▌         | 58/1000 [40:50 > 02:36]
+L-BFGS:   6%|▌         | 59/1000 [40:41 > 02:39]
+L-BFGS:   6%|▌         | 60/1000 [40:10 > 02:41]
+L-BFGS:   6%|▌         | 61/1000 [39:57 > 02:44]
+L-BFGS:   6%|▌         | 62/1000 [41:13 > 02:47]
+L-BFGS:   6%|▋         | 63/1000 [42:18 > 02:50]
+L-BFGS:   6%|▋         | 64/1000 [40:13 > 02:52]
+L-BFGS:   6%|▋         | 65/1000 [42:00 > 02:55]
+L-BFGS:   7%|▋         | 66/1000 [42:29 > 02:58]
+L-BFGS:   7%|▋         | 67/1000 [43:09 > 03:01]
+L-BFGS:   7%|▋         | 68/1000 [45:14 > 03:04]
+L-BFGS:   7%|▋         | 69/1000 [44:02 > 03:06]
+L-BFGS:   7%|▋         | 70/1000 [42:48 > 03:09]
+L-BFGS:   7%|▋         | 71/1000 [42:57 > 03:12]
+L-BFGS:   7%|▋         | 72/1000 [43:58 > 03:15]
+L-BFGS:   7%|▋         | 73/1000 [42:43 > 03:17]
+L-BFGS:   7%|▋         | 74/1000 [42:33 > 03:20]
+L-BFGS:   8%|▊         | 75/1000 [40:46 > 03:23]
+L-BFGS:   8%|▊         | 76/1000 [39:24 > 03:25]
+L-BFGS:   8%|▊         | 77/1000 [40:02 > 03:28]
+L-BFGS:   8%|▊         | 78/1000 [39:28 > 03:30]
+L-BFGS:   8%|▊         | 79/1000 [40:21 > 03:33]
+L-BFGS:   8%|▊         | 80/1000 [39:41 > 03:35]
+L-BFGS:   8%|▊         | 81/1000 [40:45 > 03:38]
+L-BFGS:   8%|▊         | 82/1000 [40:59 > 03:41]
+L-BFGS:   8%|▊         | 83/1000 [40:04 > 03:43]
+L-BFGS:   8%|▊         | 84/1000 [41:48 > 03:46]
+L-BFGS:   8%|▊         | 85/1000 [43:47 > 03:50]
+L-BFGS:   9%|▊         | 86/1000 [44:01 > 03:52]
+L-BFGS:   9%|▊         | 87/1000 [42:34 > 03:55]
+L-BFGS:   9%|▉         | 88/1000 [42:49 > 03:58]
+L-BFGS:   9%|▉         | 89/1000 [42:16 > 04:01]
+L-BFGS:   9%|▉         | 90/1000 [41:56 > 04:03]
+L-BFGS:   9%|▉         | 91/1000 [42:23 > 04:06]
+L-BFGS:   9%|▉         | 92/1000 [40:47 > 04:09]
+L-BFGS:   9%|▉         | 93/1000 [39:24 > 04:11]
+L-BFGS:   9%|▉         | 94/1000 [39:27 > 04:14]
+L-BFGS:  10%|▉         | 95/1000 [39:04 > 04:16]
