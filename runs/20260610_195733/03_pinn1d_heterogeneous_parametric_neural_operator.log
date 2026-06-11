@@ -1,0 +1,4 @@
+# code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design maximin --n-train 500 --out-dir results/exp_C_maximin_N500 --skip-validation-plots
+# started 2026-06-10 22:04:46
+# cwd C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous
+

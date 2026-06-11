@@ -1,82 +1,82 @@
 u1,u2,u3,u4,mean_rel_l2,plot
-0.01,0.01,0.01,0.01,0.2098193288213624,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p01_0p01_0p01.png
-0.01,0.01,0.01,0.03,0.18311557265406414,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p01_0p01_0p03.png
-0.01,0.01,0.01,0.05,0.17566443233030848,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p01_0p01_0p05.png
-0.01,0.01,0.03,0.01,0.12897744478083023,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p01_0p03_0p01.png
-0.01,0.01,0.03,0.03,0.14204444207661102,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p01_0p03_0p03.png
-0.01,0.01,0.03,0.05,0.15814628735245115,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p01_0p03_0p05.png
-0.01,0.01,0.05,0.01,0.13643744908651967,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p01_0p05_0p01.png
-0.01,0.01,0.05,0.03,0.15989377931972326,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p01_0p05_0p03.png
-0.01,0.01,0.05,0.05,0.18070257988702335,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p01_0p05_0p05.png
-0.01,0.03,0.01,0.01,0.1246028967140339,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p03_0p01_0p01.png
-0.01,0.03,0.01,0.03,0.12698367564022434,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p03_0p01_0p03.png
-0.01,0.03,0.01,0.05,0.13814002756206484,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p03_0p01_0p05.png
-0.01,0.03,0.03,0.01,0.12809542101292143,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p03_0p03_0p01.png
-0.01,0.03,0.03,0.03,0.140403267806205,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p03_0p03_0p03.png
-0.01,0.03,0.03,0.05,0.15448078855331127,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p03_0p03_0p05.png
-0.01,0.03,0.05,0.01,0.15032044378959133,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p03_0p05_0p01.png
-0.01,0.03,0.05,0.03,0.17098823551163594,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p03_0p05_0p03.png
-0.01,0.03,0.05,0.05,0.18641660674934543,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p03_0p05_0p05.png
-0.01,0.05,0.01,0.01,0.16494984916167676,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p05_0p01_0p01.png
-0.01,0.05,0.01,0.03,0.1852102485575803,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p05_0p01_0p03.png
-0.01,0.05,0.01,0.05,0.20012910796312786,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p05_0p01_0p05.png
-0.01,0.05,0.03,0.01,0.16929773172541332,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p05_0p03_0p01.png
-0.01,0.05,0.03,0.03,0.1887644533947455,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p05_0p03_0p03.png
-0.01,0.05,0.03,0.05,0.20108923806200915,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p05_0p03_0p05.png
-0.01,0.05,0.05,0.01,0.17919150917943716,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p05_0p05_0p01.png
-0.01,0.05,0.05,0.03,0.19851996857355864,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p05_0p05_0p03.png
-0.01,0.05,0.05,0.05,0.21018089348879854,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p01_0p05_0p05_0p05.png
-0.03,0.01,0.01,0.01,0.17073484187628382,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p01_0p01_0p01.png
-0.03,0.01,0.01,0.03,0.13229276597817702,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p01_0p01_0p03.png
-0.03,0.01,0.01,0.05,0.1157021394265008,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p01_0p01_0p05.png
-0.03,0.01,0.03,0.01,0.11698265146489994,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p01_0p03_0p01.png
-0.03,0.01,0.03,0.03,0.11478444016212301,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p01_0p03_0p03.png
-0.03,0.01,0.03,0.05,0.11998205264214587,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p01_0p03_0p05.png
-0.03,0.01,0.05,0.01,0.15522321519370402,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p01_0p05_0p01.png
-0.03,0.01,0.05,0.03,0.15052575738081414,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p01_0p05_0p03.png
-0.03,0.01,0.05,0.05,0.1505827240272925,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p01_0p05_0p05.png
-0.03,0.03,0.01,0.01,0.12006032286260857,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p03_0p01_0p01.png
-0.03,0.03,0.01,0.03,0.09371532708356274,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p03_0p01_0p03.png
-0.03,0.03,0.01,0.05,0.09016504086409036,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p03_0p01_0p05.png
-0.03,0.03,0.03,0.01,0.10588056164523219,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p03_0p03_0p01.png
-0.03,0.03,0.03,0.03,0.08871017364441462,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p03_0p03_0p03.png
-0.03,0.03,0.03,0.05,0.08879042071669968,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p03_0p03_0p05.png
-0.03,0.03,0.05,0.01,0.12692433470074255,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p03_0p05_0p01.png
-0.03,0.03,0.05,0.03,0.11194201339473824,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p03_0p05_0p03.png
-0.03,0.03,0.05,0.05,0.11288876847561491,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p03_0p05_0p05.png
-0.03,0.05,0.01,0.01,0.16276279764648235,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p05_0p01_0p01.png
-0.03,0.05,0.01,0.03,0.11174714260573222,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p05_0p01_0p03.png
-0.03,0.05,0.01,0.05,0.10819198607240828,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p05_0p01_0p05.png
-0.03,0.05,0.03,0.01,0.11640623535517865,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p05_0p03_0p01.png
-0.03,0.05,0.03,0.03,0.09389141471793314,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p05_0p03_0p03.png
-0.03,0.05,0.03,0.05,0.09228246457075262,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p05_0p03_0p05.png
-0.03,0.05,0.05,0.01,0.11732025728720616,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p05_0p05_0p01.png
-0.03,0.05,0.05,0.03,0.09832223983559933,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p05_0p05_0p03.png
-0.03,0.05,0.05,0.05,0.10011771264893543,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p03_0p05_0p05_0p05.png
-0.05,0.01,0.01,0.01,0.15752682878454963,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p01_0p01_0p01.png
-0.05,0.01,0.01,0.03,0.14156918311518008,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p01_0p01_0p03.png
-0.05,0.01,0.01,0.05,0.1356355437113268,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p01_0p01_0p05.png
-0.05,0.01,0.03,0.01,0.1318170476152853,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p01_0p03_0p01.png
-0.05,0.01,0.03,0.03,0.12841221799844424,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p01_0p03_0p03.png
-0.05,0.01,0.03,0.05,0.1285017024700093,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p01_0p03_0p05.png
-0.05,0.01,0.05,0.01,0.1388628050450263,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p01_0p05_0p01.png
-0.05,0.01,0.05,0.03,0.13873365452034164,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p01_0p05_0p03.png
-0.05,0.01,0.05,0.05,0.13957560133145183,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p01_0p05_0p05.png
-0.05,0.03,0.01,0.01,0.15282080044092936,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p03_0p01_0p01.png
-0.05,0.03,0.01,0.03,0.10728348553407341,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p03_0p01_0p03.png
-0.05,0.03,0.01,0.05,0.09663621445036505,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p03_0p01_0p05.png
-0.05,0.03,0.03,0.01,0.11084149754773494,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p03_0p03_0p01.png
-0.05,0.03,0.03,0.03,0.08584797615325604,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p03_0p03_0p03.png
-0.05,0.03,0.03,0.05,0.08076796831272062,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p03_0p03_0p05.png
-0.05,0.03,0.05,0.01,0.11871667648620084,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p03_0p05_0p01.png
-0.05,0.03,0.05,0.03,0.1046277390947501,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p03_0p05_0p03.png
-0.05,0.03,0.05,0.05,0.10278794109516262,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p03_0p05_0p05.png
-0.05,0.05,0.01,0.01,0.2376775123287646,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p05_0p01_0p01.png
-0.05,0.05,0.01,0.03,0.1629915790733903,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p05_0p01_0p03.png
-0.05,0.05,0.01,0.05,0.1312384163383923,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p05_0p01_0p05.png
-0.05,0.05,0.03,0.01,0.15538740735336082,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p05_0p03_0p01.png
-0.05,0.05,0.03,0.03,0.10875880738239666,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p05_0p03_0p03.png
-0.05,0.05,0.03,0.05,0.09227260172081338,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p05_0p03_0p05.png
-0.05,0.05,0.05,0.01,0.13181745106392206,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p05_0p05_0p01.png
-0.05,0.05,0.05,0.03,0.10656122637811197,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p05_0p05_0p03.png
-0.05,0.05,0.05,0.05,0.10405357638253532,C:\Research\PINN\Code Base\code\heterogeneous\pino_heterogeneous\results\comsol_validation\compare_comsol_pino_0p05_0p05_0p05_0p05.png
+0.01,0.01,0.01,0.01,0.11481249845137105,
+0.01,0.01,0.01,0.03,0.12044706078089795,
+0.01,0.01,0.01,0.05,0.12821651140570725,
+0.01,0.01,0.03,0.01,0.09391474569991547,
+0.01,0.01,0.03,0.03,0.10663725862830069,
+0.01,0.01,0.03,0.05,0.12370230554824439,
+0.01,0.01,0.05,0.01,0.12154973078365719,
+0.01,0.01,0.05,0.03,0.13603807537151824,
+0.01,0.01,0.05,0.05,0.15295212491340443,
+0.01,0.03,0.01,0.01,0.13382930997403375,
+0.01,0.03,0.01,0.03,0.10661909521335038,
+0.01,0.03,0.01,0.05,0.10421458783563202,
+0.01,0.03,0.03,0.01,0.15112417410174048,
+0.01,0.03,0.03,0.03,0.12203016209233808,
+0.01,0.03,0.03,0.05,0.1264672249948816,
+0.01,0.03,0.05,0.01,0.16229644368821597,
+0.01,0.03,0.05,0.03,0.16300257092019882,
+0.01,0.03,0.05,0.05,0.17705277669283823,
+0.01,0.05,0.01,0.01,0.17227731087589715,
+0.01,0.05,0.01,0.03,0.14780481652519367,
+0.01,0.05,0.01,0.05,0.14246965308102763,
+0.01,0.05,0.03,0.01,0.18648660202205306,
+0.01,0.05,0.03,0.03,0.1626593085943599,
+0.01,0.05,0.03,0.05,0.16203803513123421,
+0.01,0.05,0.05,0.01,0.21043955780281193,
+0.01,0.05,0.05,0.03,0.2067174570543117,
+0.01,0.05,0.05,0.05,0.21561043554463236,
+0.03,0.01,0.01,0.01,0.09606123259961516,
+0.03,0.01,0.01,0.03,0.07740128997216641,
+0.03,0.01,0.01,0.05,0.0801875403168937,
+0.03,0.01,0.03,0.01,0.10033697041035569,
+0.03,0.01,0.03,0.03,0.10760498702235954,
+0.03,0.01,0.03,0.05,0.11241317878756833,
+0.03,0.01,0.05,0.01,0.14518690123546413,
+0.03,0.01,0.05,0.03,0.1419042796888072,
+0.03,0.01,0.05,0.05,0.13988670154176838,
+0.03,0.03,0.01,0.01,0.08653825737760702,
+0.03,0.03,0.01,0.03,0.08055442332911537,
+0.03,0.03,0.01,0.05,0.08117597940210551,
+0.03,0.03,0.03,0.01,0.09209711107347733,
+0.03,0.03,0.03,0.03,0.08837253140787163,
+0.03,0.03,0.03,0.05,0.08982155096147862,
+0.03,0.03,0.05,0.01,0.1079113736750352,
+0.03,0.03,0.05,0.03,0.10544444012591318,
+0.03,0.03,0.05,0.05,0.10785113256850214,
+0.03,0.05,0.01,0.01,0.12962425819456588,
+0.03,0.05,0.01,0.03,0.12006222765948962,
+0.03,0.05,0.01,0.05,0.12040953936323391,
+0.03,0.05,0.03,0.01,0.11933427167528048,
+0.03,0.05,0.03,0.03,0.11284959274672743,
+0.03,0.05,0.03,0.05,0.11189116480203769,
+0.03,0.05,0.05,0.01,0.13113856697606982,
+0.03,0.05,0.05,0.03,0.1255086368020322,
+0.03,0.05,0.05,0.05,0.12276548281212521,
+0.05,0.01,0.01,0.01,0.11809503783712319,
+0.05,0.01,0.01,0.03,0.11590023729761714,
+0.05,0.01,0.01,0.05,0.1191870029584033,
+0.05,0.01,0.03,0.01,0.11907939099565305,
+0.05,0.01,0.03,0.03,0.1234107218488052,
+0.05,0.01,0.03,0.05,0.12669702263966784,
+0.05,0.01,0.05,0.01,0.13547244592506186,
+0.05,0.01,0.05,0.03,0.13743168467495115,
+0.05,0.01,0.05,0.05,0.1387133513460224,
+0.05,0.03,0.01,0.01,0.08726702374749004,
+0.05,0.03,0.01,0.03,0.08446155629249527,
+0.05,0.03,0.01,0.05,0.08495627144152149,
+0.05,0.03,0.03,0.01,0.07564757021429992,
+0.05,0.03,0.03,0.03,0.07268480343068359,
+0.05,0.03,0.03,0.05,0.07374642737474521,
+0.05,0.03,0.05,0.01,0.08912320002325395,
+0.05,0.03,0.05,0.03,0.09066134131195244,
+0.05,0.03,0.05,0.05,0.09532902969230655,
+0.05,0.05,0.01,0.01,0.14636588655990743,
+0.05,0.05,0.01,0.03,0.13921244495747373,
+0.05,0.05,0.01,0.05,0.13859156088452745,
+0.05,0.05,0.03,0.01,0.10928476767250173,
+0.05,0.05,0.03,0.03,0.1030082834425784,
+0.05,0.05,0.03,0.05,0.10199104233431958,
+0.05,0.05,0.05,0.01,0.10303401199398028,
+0.05,0.05,0.05,0.03,0.09812262910418765,
+0.05,0.05,0.05,0.05,0.10013711923085437,

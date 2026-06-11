@@ -1,0 +1,12 @@
+{
+  "design": "maximin",
+  "n_train": 500,
+  "n_train_actual": 500,
+  "seed": 1234567,
+  "dtype": "float32",
+  "wall_clock_s": 478.128,
+  "out_dir": "results\\exp_C_maximin_N500",
+  "mean_rel_l2": 0.10250597448116604,
+  "max_rel_l2": 0.20319537574688967,
+  "min_rel_l2": 0.05911657607961633
+}

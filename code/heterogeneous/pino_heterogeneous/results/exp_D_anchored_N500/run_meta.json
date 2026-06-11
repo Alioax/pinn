@@ -1,0 +1,12 @@
+{
+  "design": "anchored",
+  "n_train": 500,
+  "n_train_actual": 516,
+  "seed": 1234567,
+  "dtype": "float32",
+  "wall_clock_s": 492.872,
+  "out_dir": "results\\exp_D_anchored_N500",
+  "mean_rel_l2": 0.12115253483318295,
+  "max_rel_l2": 0.21561043554463236,
+  "min_rel_l2": 0.07268480343068359
+}

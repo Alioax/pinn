@@ -1,0 +1,28 @@
+# code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py 
+# started 2026-06-10 15:52:15
+# cwd C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous
+
+Using CPU (CUDA not available, dtype=torch.float32)
+PE (computed) = 0.010368
+Training: 5000 LHC samples in [0.01, 0.05] m/d (exclude COMSOL 3^4 grid: True)
+  saved/loaded: C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\lhc_train_u5000.csv
+  branch CFL range [0.12, 0.599981]
+PDE mesh: bulk 50x50x5000 + interface bands (36 x* / band, +/-0.025 around (0.2, 0.4, 0.6))
+COMSOL validation: 81 fixed grid cases from comsol_4zones.txt
+run_training=True  run_comsol_validation=True
+PDE collocation points: 21,500,000 (bulk 12,500,000, interface 9,000,000)
+Collocation mesh plot (pre-train): C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\pino_heterogeneous_collocation_points.png
+LBFGS (
+Parameter Group 0
+    history_size: 50
+    line_search_fn: strong_wolfe
+    lr: 1
+    max_eval: 1
+    max_iter: 1
+    tolerance_change: 1e-09
+    tolerance_grad: 1e-07
+)
+
+L-BFGS:   0%|          | 0/1000 [? > 00:00]
+L-BFGS:   0%|          | 1/1000 [31:16:20 > 01:52]
+L-BFGS:   0%|          | 2/1000 [31:10:00 > 03:44]
