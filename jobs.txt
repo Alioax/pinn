@@ -9,9 +9,5 @@
 # Workflow: edit this list on your laptop, commit & push, then run
 # run.bat on the remote. The run stops at the first script that fails.
 #
-# ----- Report 5 batch E-F: dense architecture -----
-# E: checkpoint already trained; validation-only to write CSV + run_meta.
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design capacity --arch dense --out-dir results/exp_E_capacity_dense --validate-only --skip-validation-plots
-
-# F: full train + validation.
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design anchored --n-train 500 --n-corner-anchors 100 --arch dense --out-dir results/exp_F_anchored_N500_dense --skip-validation-plots
+# Report 5 experiment E: dense capacity (81 COMSOL grid, in-sample).
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design capacity --arch dense --out-dir results/exp_E_capacity_dense --skip-validation-plots
