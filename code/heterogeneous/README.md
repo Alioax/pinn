@@ -126,6 +126,7 @@ Four training-parameter designs, each writing to its own results subfolder:
 
 | `--dtype` | `float32` (default) or `float64` |
 | `--trunk-mode` | `single` (default) or `zone` (one trunk per zone + interface losses) |
+| `--early-stop-patience` | Stop L-BFGS after N steps with no total-loss improvement (`0` = disabled) |
 
 Report 5 follow-on experiments (vs maximin C):
 

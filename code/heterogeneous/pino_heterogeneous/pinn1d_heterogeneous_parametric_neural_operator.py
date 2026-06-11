@@ -79,6 +79,7 @@ activation_cls = nn.Tanh
 
 num_epochs_lbfgs = 1000
 lr_lbfgs = 1
+early_stop_patience = 0  # 0 = disabled; stop after N steps with no total-loss improvement
 
 mesh_nx_pde = 50
 mesh_nt_pde = 50
@@ -812,6 +813,13 @@ def compute_physics_loss(
     return total_loss, metrics
 
 
+def _loss_improved(current: float, best: float, *, rtol: float, atol: float) -> bool:
+    if not np.isfinite(best):
+        return True
+    margin = atol + rtol * max(abs(best), 1.0)
+    return current < best - margin
+
+
 def train_model(
     model: nn.Module,
     device: torch.device,
@@ -819,7 +827,7 @@ def train_model(
     *,
     use_zone_pde: bool = False,
     use_interface_losses: bool = False,
-) -> list[list[float]]:
+) -> tuple[list[list[float]], dict[str, object]]:
     optimizer = torch.optim.LBFGS(
         model.parameters(),
         lr=lr_lbfgs,
@@ -828,8 +836,19 @@ def train_model(
         line_search_fn="strong_wolfe",
     )
     print(optimizer)
+    if early_stop_patience > 0:
+        stop_rtol = 1e-12 if torch_dtype == torch.float64 else 1e-8
+        print(
+            f"Early stopping: patience={early_stop_patience} L-BFGS steps "
+            f"(no total-loss improvement, rtol={stop_rtol:g})"
+        )
+    else:
+        stop_rtol = 0.0
 
     history: list[list[float]] = []
+    best_loss = float("inf")
+    stale_epochs = 0
+    early_stopped = False
 
     def closure():
         optimizer.zero_grad(set_to_none=True)
@@ -851,12 +870,35 @@ def train_model(
             "[{remaining} > {elapsed}]"
         ),
     )
-    for _ in t_bar:
+    for epoch in t_bar:
         model.train()
         optimizer.step(closure)
         history.append(list(closure.latest))
+        total_loss = float(closure.latest[0])
+        if _loss_improved(total_loss, best_loss, rtol=stop_rtol, atol=0.0):
+            best_loss = total_loss
+            stale_epochs = 0
+        else:
+            stale_epochs += 1
+            if early_stop_patience > 0 and stale_epochs >= early_stop_patience:
+                early_stopped = True
+                t_bar.set_postfix_str("early stop", refresh=False)
+                print(
+                    f"\nEarly stopping at L-BFGS step {epoch + 1}/{num_epochs_lbfgs}: "
+                    f"total loss unchanged for {early_stop_patience} steps "
+                    f"(best={best_loss:.6e})."
+                )
+                break
     t_bar.close()
-    return history
+
+    summary: dict[str, object] = {
+        "num_epochs_lbfgs_requested": num_epochs_lbfgs,
+        "num_epochs_lbfgs_actual": len(history),
+        "early_stop_patience": early_stop_patience,
+        "early_stopped": early_stopped,
+        "best_total_loss": best_loss,
+    }
+    return history, summary
 
 
 def plot_collocation_points(plot_data: dict, *, n_train_media: int) -> Path:
@@ -1062,6 +1104,16 @@ def parse_cli() -> argparse.Namespace:
         default=None,
         help="Trunk architecture: one shared trunk or one trunk per zone.",
     )
+    parser.add_argument(
+        "--early-stop-patience",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "Stop L-BFGS after N steps with no total-loss improvement (0 = run all "
+            "num_epochs_lbfgs steps)."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -1100,7 +1152,7 @@ def apply_cli(args: argparse.Namespace) -> None:
     global RESULTS_DIR, COMSOL_VALIDATION_DIR, MODEL_PATH, U_TRAIN_CASES_PATH
     global train_design, n_train_requested, n_corner_anchors, skip_validation_plots
     global batch_mode, reload_lhc_train_cases, run_training, validate_only
-    global torch_dtype, trunk_mode
+    global torch_dtype, trunk_mode, early_stop_patience
 
     if args.reload_train_cases:
         reload_lhc_train_cases = True
@@ -1150,6 +1202,9 @@ def apply_cli(args: argparse.Namespace) -> None:
     if args.trunk_mode is not None:
         trunk_mode = args.trunk_mode
 
+    if args.early_stop_patience is not None:
+        early_stop_patience = args.early_stop_patience
+
     if batch_mode:
         U_TRAIN_CASES_PATH = RESULTS_DIR / "train_u_cases.csv"
         if skip_validation_plots:
@@ -1166,6 +1221,7 @@ def write_run_meta(
     wall_clock_s: float,
     n_train_actual: int,
     validation_rows: list[dict[str, object]] | None,
+    training_summary: dict[str, object] | None = None,
 ) -> Path:
     meta: dict[str, object] = {
         "design": train_design,
@@ -1178,9 +1234,13 @@ def write_run_meta(
         "trunk_architecture": trunk_architecture,
         "seed": seed,
         "dtype": str(torch_dtype).replace("torch.", ""),
+        "num_epochs_lbfgs_requested": num_epochs_lbfgs,
+        "early_stop_patience": early_stop_patience,
         "wall_clock_s": round(wall_clock_s, 3),
         "out_dir": str(RESULTS_DIR.relative_to(_PINO_DIR)),
     }
+    if training_summary:
+        meta.update(training_summary)
     if validation_rows:
         l2_vals = np.array(
             [float(r["mean_rel_l2"]) for r in validation_rows], dtype=np.float64
@@ -1202,6 +1262,7 @@ def main() -> None:
 
     t_start = time.perf_counter()
     validation_rows: list[dict[str, object]] | None = None
+    training_summary: dict[str, object] | None = None
 
     torch.set_default_dtype(torch_dtype)
     torch.manual_seed(seed)
@@ -1254,6 +1315,11 @@ def main() -> None:
         f"run_training={run_training}  run_comsol_validation={run_comsol_validation}  "
         f"validate_only={validate_only}  skip_validation_plots={skip_validation_plots}"
     )
+    if run_training and early_stop_patience > 0:
+        print(
+            f"L-BFGS early stopping: patience={early_stop_patience} "
+            f"(max steps={num_epochs_lbfgs})"
+        )
 
     use_zone_trunks = trunk_mode == "zone"
     model = build_deeponet(
@@ -1276,7 +1342,7 @@ def main() -> None:
                 f"Zone trunks: per-zone PDE CFL + interface losses "
                 f"({n_if_pts:,} interface collocation pairs)"
             )
-        history = train_model(
+        history, training_summary = train_model(
             model,
             device,
             tensors,
@@ -1313,6 +1379,7 @@ def main() -> None:
             wall_clock_s=time.perf_counter() - t_start,
             n_train_actual=n_u,
             validation_rows=validation_rows,
+            training_summary=training_summary,
         )
         print(f"Run metadata: {meta_path}")
 
