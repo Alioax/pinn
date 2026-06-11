@@ -524,6 +524,7 @@ def validate_against_comsol(
         )
 
     summary_path = out_dir / "comsol_validation_summary.csv"
+    out_dir.mkdir(parents=True, exist_ok=True)
     with open(summary_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f, fieldnames=["u1", "u2", "u3", "u4", "mean_rel_l2", "plot"]
@@ -942,31 +943,14 @@ def apply_cli(args: argparse.Namespace) -> None:
     if args.reload_train_cases:
         reload_lhc_train_cases = True
 
+    if args.skip_validation_plots:
+        skip_validation_plots = True
+
     if args.validate_only:
         validate_only = True
         run_training = False
         if not args.skip_validation_plots:
             skip_validation_plots = False
-
-    if args.design is not None or args.out_dir is not None:
-        batch_mode = True
-
-    if args.out_dir is not None:
-        RESULTS_DIR = _PINO_DIR / args.out_dir
-    else:
-        RESULTS_DIR = _PINO_DIR / "results"
-
-    MODEL_PATH = RESULTS_DIR / "pino_heterogeneous_model.pt"
-
-    if batch_mode:
-        U_TRAIN_CASES_PATH = RESULTS_DIR / "train_u_cases.csv"
-        if skip_validation_plots:
-            COMSOL_VALIDATION_DIR = RESULTS_DIR
-        else:
-            COMSOL_VALIDATION_DIR = RESULTS_DIR / "comsol_validation"
-    else:
-        COMSOL_VALIDATION_DIR = RESULTS_DIR / "comsol_validation"
-        U_TRAIN_CASES_PATH = RESULTS_DIR / f"lhc_train_u{N_LHC_TRAIN}.csv"
 
     if args.design is not None:
         train_design = args.design  # type: ignore[assignment]
@@ -979,16 +963,33 @@ def apply_cli(args: argparse.Namespace) -> None:
     elif args.n_train is not None:
         n_train_requested = args.n_train
 
-    if args.skip_validation_plots:
-        skip_validation_plots = True
-
     if args.n_corner_anchors is not None:
         n_corner_anchors = args.n_corner_anchors
+
+    if args.design is not None or args.out_dir is not None:
+        batch_mode = True
+
+    if args.out_dir is not None:
+        RESULTS_DIR = _PINO_DIR / args.out_dir
+    else:
+        RESULTS_DIR = _PINO_DIR / "results"
+
+    MODEL_PATH = RESULTS_DIR / "pino_heterogeneous_model.pt"
 
     if args.arch is not None:
         _apply_arch_preset(args.arch)
     elif args.validate_only:
         _load_arch_from_run_meta()
+
+    if batch_mode:
+        U_TRAIN_CASES_PATH = RESULTS_DIR / "train_u_cases.csv"
+        if skip_validation_plots:
+            COMSOL_VALIDATION_DIR = RESULTS_DIR
+        else:
+            COMSOL_VALIDATION_DIR = RESULTS_DIR / "comsol_validation"
+    else:
+        COMSOL_VALIDATION_DIR = RESULTS_DIR / "comsol_validation"
+        U_TRAIN_CASES_PATH = RESULTS_DIR / f"lhc_train_u{N_LHC_TRAIN}.csv"
 
 
 def write_run_meta(
