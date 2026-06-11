@@ -61,19 +61,16 @@ Target (homogeneous Report 4): near-perfection (\(\ll 1\%\)). Worst errors align
 
 **Diagnosis:** The true solution has **slope discontinuities** at the three zone interfaces. One \(\sigma(\mathbf{b}^\top \mathbf{t})\) with smooth MLPs cannot represent that exactly; kink features were sufficient in principle but sat in a smooth fit that minimizes average PDE loss with less coordination. Worst cases are exactly those demanding piecewise advection structure.
 
-## Next direction (planned): domain decomposition (cPINN / XPINN style)
+## Zone trunks (`--trunk-mode zone`, experiment G)
 
-Not implemented yet. Intended design:
+Implemented in `deeponet.py` (`DeepONetZoneTrunks`):
 
-- Keep a **shared branch** on \((\mathrm{CFL}_1,\ldots,\mathrm{CFL}_4)\).
-- Replace the single trunk with **four zone-specific trunks**; select by `zone_index(x*)` (e.g. `torch.where`).
-- PDE residual **per zone** with constant \(\mathrm{CFL}_z\) (no piecewise coefficient in the residual).
-- **Interface losses** at \(x^*=0.2, 0.4, 0.6\):
-  - \(C\) continuity
-  - Flux continuity: \(\mathrm{CFL}_z\,C - Pe\,\partial_x C\) matched from both sides
-- Drop kink trunk features and interface-band upweighting once decomposition is in place.
+- Shared branch on \((\mathrm{CFL}_1,\ldots,\mathrm{CFL}_4)\); **four zone-specific trunks** selected by `zone_index(x*)`.
+- PDE residual uses **zone-constant** \(\mathrm{CFL}_z\) per collocation point.
+- **Interface losses** at \(x^*=0.2, 0.4, 0.6\): \(C\) continuity and flux continuity
+  \(\mathrm{CFL}_z C - Pe\,\partial_x C\) from both sides.
 
-Expected: uniform cases near-perfect; heterogeneous cases \(\approx 1\)–\(2\%\) \(L_2\) with correct shoulder/tail structure.
+Enable with `--trunk-mode zone` (see `exp_G_maximin_N500_zone_trunks`).
 
 ## Collocation (defaults)
 
@@ -126,6 +123,16 @@ Four training-parameter designs, each writing to its own results subfolder:
 |----------|-------------------|
 | `default` | `[4,16,16,32]` / `[2,32,32,32,32]` |
 | `dense` | `[4,64,64,128]` / `[2,64,64,64,64,128]` |
+
+| `--dtype` | `float32` (default) or `float64` |
+| `--trunk-mode` | `single` (default) or `zone` (one trunk per zone + interface losses) |
+
+Report 5 follow-on experiments (vs maximin C):
+
+| Folder | Change vs `exp_C_maximin_N500` |
+|--------|--------------------------------|
+| `exp_F_maximin_N500_float64` | `--dtype float64` |
+| `exp_G_maximin_N500_zone_trunks` | `--trunk-mode zone` (per-zone PDE CFL + interface C/flux losses) |
 
 Example (single experiment):
 

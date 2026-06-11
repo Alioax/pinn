@@ -9,5 +9,8 @@
 # Workflow: edit this list on your laptop, commit & push, then run
 # run.bat on the remote. The run stops at the first script that fails.
 #
-# Report 5 experiment E: dense capacity (81 COMSOL grid, in-sample).
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design capacity --arch dense --out-dir results/exp_E_capacity_dense --skip-validation-plots
+# Report 5 experiment F: maximin N=500 (same as C) with float64.
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design maximin --n-train 500 --dtype float64 --out-dir results/exp_F_maximin_N500_float64 --skip-validation-plots
+#
+# Report 5 experiment G: maximin N=500 (same as C) with one trunk per zone.
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design maximin --n-train 500 --trunk-mode zone --out-dir results/exp_G_maximin_N500_zone_trunks --skip-validation-plots

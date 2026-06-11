@@ -31,7 +31,7 @@ for _p in (_HETERO_ROOT, _PINO_DIR):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from deeponet import DeepONetParametric  # noqa: E402
+from deeponet import DeepONetParametric, build_deeponet  # noqa: E402
 from utils.comsol_4zones import list_parameter_combos, load_case  # noqa: E402
 from utils.lhc_sampling import (  # noqa: E402
     TrainDesign,
@@ -45,8 +45,10 @@ from utils.zone_velocity import (  # noqa: E402
     T_MAX_DEFAULT,
     XSTAR_TICKS,
     ZONE_INTERFACE_XSTAR,
+    cfl_from_u,
     cfl_from_u_np,
     piecewise_cfl_from_branch,
+    zone_index_xstar,
     zone_index_xstar_np,
 )
 
@@ -91,6 +93,11 @@ weight_pde = 1.0
 weight_ic = 1.0
 weight_inlet_bc = 1.0
 weight_outlet_bc = 1.0
+weight_interface_c = 1.0
+weight_interface_flux = 1.0
+
+# Half-width for left/right interface collocation (zone trunks only).
+interface_collocation_eps = 1e-3
 
 save_model = True
 collocation_scatter_ms = 3
@@ -128,6 +135,7 @@ train_design: TrainDesign = "lhc"
 n_train_requested = N_LHC_TRAIN
 n_corner_anchors = 16
 arch_preset = "default"
+trunk_mode = "single"
 skip_validation_plots = False
 batch_mode = False
 
@@ -541,10 +549,22 @@ def validate_against_comsol(
     return rows
 
 
+def zone_local_cfl_from_u(
+    x_star: torch.Tensor,
+    u_phys: torch.Tensor,
+) -> torch.Tensor:
+    """Zone-constant CFL at each collocation point (zone trunks / per-zone PDE)."""
+    cfl_all = cfl_from_u(u_phys, l_m=L, t_max_d=T_MAX)
+    zidx = zone_index_xstar(x_star).long().view(-1)
+    return cfl_all.gather(1, zidx.unsqueeze(1))
+
+
 def build_collocation_tensors(
     device: torch.device,
     dtype: torch.dtype,
     u_cases: np.ndarray,
+    *,
+    include_interface: bool = False,
 ):
     tf = float(T_MAX / T_MAX)
 
@@ -614,7 +634,7 @@ def build_collocation_tensors(
     if not np.any(slice_mask):
         slice_mask = np.ones_like(x_star_pde_np, dtype=bool)
 
-    tensors = {
+    tensors: dict[str, torch.Tensor] = {
         "x_pde": torch.tensor(
             x_star_pde_np.reshape(-1, 1), dtype=dtype, device=device, requires_grad=True
         ),
@@ -641,6 +661,59 @@ def build_collocation_tensors(
             branch_cfl_from_u(branch_out_np), dtype=dtype, device=device
         ),
     }
+
+    if include_interface:
+        eps = interface_collocation_eps
+        x_left_parts: list[np.ndarray] = []
+        x_right_parts: list[np.ndarray] = []
+        t_if_parts: list[np.ndarray] = []
+        u_if_parts: list[np.ndarray] = []
+        z_left_parts: list[np.ndarray] = []
+        for i_if, xi in enumerate(ZONE_INTERFACE_XSTAR):
+            x_l = max(0.0, float(xi) - eps)
+            x_r = min(1.0, float(xi) + eps)
+            gtb, gub = np.meshgrid(t_bc_1d, np.arange(n_u, dtype=np.int64), indexing="ij")
+            t_flat = gtb.reshape(-1)
+            u_flat = u_cases[gub.reshape(-1)]
+            n_pts = t_flat.size
+            x_left_parts.append(np.full(n_pts, x_l, dtype=np.float64))
+            x_right_parts.append(np.full(n_pts, x_r, dtype=np.float64))
+            t_if_parts.append(t_flat)
+            u_if_parts.append(u_flat)
+            z_left_parts.append(np.full(n_pts, i_if, dtype=np.int64))
+
+        x_if_l_np = np.concatenate(x_left_parts)
+        x_if_r_np = np.concatenate(x_right_parts)
+        t_if_np = np.concatenate(t_if_parts)
+        u_if_np = np.concatenate(u_if_parts)
+        z_if_left_np = np.concatenate(z_left_parts)
+        tensors.update(
+            {
+                "x_if_l": torch.tensor(
+                    x_if_l_np.reshape(-1, 1),
+                    dtype=dtype,
+                    device=device,
+                    requires_grad=True,
+                ),
+                "x_if_r": torch.tensor(
+                    x_if_r_np.reshape(-1, 1),
+                    dtype=dtype,
+                    device=device,
+                    requires_grad=True,
+                ),
+                "t_if": torch.tensor(
+                    t_if_np.reshape(-1, 1), dtype=dtype, device=device
+                ),
+                "branch_if": torch.tensor(
+                    branch_cfl_from_u(u_if_np), dtype=dtype, device=device
+                ),
+                "u_if": torch.tensor(u_if_np, dtype=dtype, device=device),
+                "z_if_left": torch.tensor(
+                    z_if_left_np, dtype=torch.long, device=device
+                ),
+            }
+        )
+
     plot_data = {
         "x_star_pde_np": x_star_pde_np,
         "t_star_pde_np": t_star_pde_np,
@@ -656,17 +729,50 @@ def build_collocation_tensors(
     return tensors, plot_data
 
 
-def compute_physics_loss(
-    model: DeepONetParametric,
+def compute_interface_losses(
+    model: nn.Module,
     tensors: dict[str, torch.Tensor],
-) -> tuple[torch.Tensor, tuple[float, float, float, float, float]]:
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """C and flux continuity at zone interfaces (zone-trunk models)."""
+    x_l = tensors["x_if_l"]
+    x_r = tensors["x_if_r"]
+    t = tensors["t_if"]
+    branch = tensors["branch_if"]
+    u_phys = tensors["u_if"]
+    z_left = tensors["z_if_left"]
+
+    c_l = model(x_l, t, branch)
+    c_r = model(x_r, t, branch)
+    continuity_loss = torch.mean((c_l - c_r) ** 2)
+
+    dC_dx_l = gradients(c_l, x_l)
+    dC_dx_r = gradients(c_r, x_r)
+    cfl_all = cfl_from_u(u_phys, l_m=L, t_max_d=T_MAX)
+    cfl_l = cfl_all.gather(1, z_left.unsqueeze(1))
+    cfl_r = cfl_all.gather(1, (z_left + 1).unsqueeze(1))
+    flux_l = cfl_l * c_l - PE * dC_dx_l
+    flux_r = cfl_r * c_r - PE * dC_dx_r
+    flux_loss = torch.mean((flux_l - flux_r) ** 2)
+    return continuity_loss, flux_loss
+
+
+def compute_physics_loss(
+    model: nn.Module,
+    tensors: dict[str, torch.Tensor],
+    *,
+    use_zone_pde: bool = False,
+    use_interface_losses: bool = False,
+) -> tuple[torch.Tensor, tuple[float, ...]]:
     c_pde = model(tensors["x_pde"], tensors["t_pde"], tensors["branch_pde"])
     dC_dt = gradients(c_pde, tensors["t_pde"])
     dC_dx = gradients(c_pde, tensors["x_pde"])
     d2C_dx2 = gradients(dC_dx, tensors["x_pde"])
-    cfl_local = piecewise_cfl_from_branch(
-        tensors["x_pde"], tensors["u_pde"], l_m=L, t_max_d=T_MAX
-    )
+    if use_zone_pde:
+        cfl_local = zone_local_cfl_from_u(tensors["x_pde"], tensors["u_pde"])
+    else:
+        cfl_local = piecewise_cfl_from_branch(
+            tensors["x_pde"], tensors["u_pde"], l_m=L, t_max_d=T_MAX
+        )
     residual = dC_dt + cfl_local * dC_dx - PE * d2C_dx2
     pde_loss = torch.mean(residual**2)
     ic_loss = torch.mean(
@@ -678,11 +784,21 @@ def compute_physics_loss(
     outlet_loss = torch.mean(
         (model(tensors["x_out"], tensors["t_out"], tensors["branch_out"]) - 0.0) ** 2
     )
+
+    interface_c_loss = torch.tensor(0.0, dtype=pde_loss.dtype, device=pde_loss.device)
+    interface_flux_loss = torch.tensor(
+        0.0, dtype=pde_loss.dtype, device=pde_loss.device
+    )
+    if use_interface_losses:
+        interface_c_loss, interface_flux_loss = compute_interface_losses(model, tensors)
+
     total_loss = (
         weight_pde * pde_loss
         + weight_ic * ic_loss
         + weight_inlet_bc * inlet_loss
         + weight_outlet_bc * outlet_loss
+        + weight_interface_c * interface_c_loss
+        + weight_interface_flux * interface_flux_loss
     )
     metrics = (
         total_loss.item(),
@@ -690,14 +806,19 @@ def compute_physics_loss(
         ic_loss.item(),
         inlet_loss.item(),
         outlet_loss.item(),
+        interface_c_loss.item(),
+        interface_flux_loss.item(),
     )
     return total_loss, metrics
 
 
 def train_model(
-    model: DeepONetParametric,
+    model: nn.Module,
     device: torch.device,
     tensors: dict[str, torch.Tensor],
+    *,
+    use_zone_pde: bool = False,
+    use_interface_losses: bool = False,
 ) -> list[list[float]]:
     optimizer = torch.optim.LBFGS(
         model.parameters(),
@@ -712,7 +833,12 @@ def train_model(
 
     def closure():
         optimizer.zero_grad(set_to_none=True)
-        total_loss, metrics = compute_physics_loss(model, tensors)
+        total_loss, metrics = compute_physics_loss(
+            model,
+            tensors,
+            use_zone_pde=use_zone_pde,
+            use_interface_losses=use_interface_losses,
+        )
         total_loss.backward()
         closure.latest = metrics
         return total_loss
@@ -847,6 +973,23 @@ def plot_training_figures(
     ax3.plot(epochs, h[:, 2], color="gray", linewidth=1.0, alpha=0.6, label="IC")
     ax3.plot(epochs, h[:, 3], color="purple", linewidth=1.0, alpha=0.75, label="Inlet")
     ax3.plot(epochs, h[:, 4], color="crimson", linewidth=1.0, alpha=0.75, label="Outlet")
+    if h.shape[1] > 5 and (np.any(h[:, 5] > 0) or np.any(h[:, 6] > 0)):
+        ax3.plot(
+            epochs,
+            h[:, 5],
+            color="teal",
+            linewidth=1.0,
+            alpha=0.75,
+            label="Interface C",
+        )
+        ax3.plot(
+            epochs,
+            h[:, 6],
+            color="navy",
+            linewidth=1.0,
+            alpha=0.75,
+            label="Interface flux",
+        )
     ax3.set_yscale("log")
     ax3.set_xlabel("L-BFGS step")
     ax3.set_ylabel("Loss")
@@ -905,7 +1048,19 @@ def parse_cli() -> argparse.Namespace:
         "--n-corner-anchors",
         type=int,
         default=None,
-        help="Boundary anchor count for anchored design (default 16; experiment F uses 100).",
+        help="Boundary anchor count for anchored design (default 16 cube corners).",
+    )
+    parser.add_argument(
+        "--dtype",
+        choices=["float32", "float64"],
+        default=None,
+        help="Torch floating-point dtype (default float32).",
+    )
+    parser.add_argument(
+        "--trunk-mode",
+        choices=["single", "zone"],
+        default=None,
+        help="Trunk architecture: one shared trunk or one trunk per zone.",
     )
     return parser.parse_args()
 
@@ -918,8 +1073,8 @@ def _apply_arch_preset(name: str) -> None:
     branch_architecture, trunk_architecture = ARCH_PRESETS[name]
 
 
-def _load_arch_from_run_meta() -> bool:
-    """If run_meta.json exists, restore branch/trunk widths for validate-only."""
+def _load_run_meta_for_validate() -> bool:
+    """If run_meta.json exists, restore arch/dtype/trunk_mode for validate-only."""
     meta_path = RESULTS_DIR / "run_meta.json"
     if not meta_path.is_file():
         return False
@@ -928,10 +1083,16 @@ def _load_arch_from_run_meta() -> bool:
     trunk = meta.get("trunk_architecture")
     if not branch or not trunk:
         return False
-    global branch_architecture, trunk_architecture, arch_preset
+    global branch_architecture, trunk_architecture, arch_preset, torch_dtype, trunk_mode
     branch_architecture = list(branch)
     trunk_architecture = list(trunk)
     arch_preset = str(meta.get("arch_preset", "custom"))
+    dtype_name = str(meta.get("dtype", "float32"))
+    if dtype_name == "float64":
+        torch_dtype = torch.float64
+    else:
+        torch_dtype = torch.float32
+    trunk_mode = str(meta.get("trunk_mode", "single"))
     return True
 
 
@@ -939,6 +1100,7 @@ def apply_cli(args: argparse.Namespace) -> None:
     global RESULTS_DIR, COMSOL_VALIDATION_DIR, MODEL_PATH, U_TRAIN_CASES_PATH
     global train_design, n_train_requested, n_corner_anchors, skip_validation_plots
     global batch_mode, reload_lhc_train_cases, run_training, validate_only
+    global torch_dtype, trunk_mode
 
     if args.reload_train_cases:
         reload_lhc_train_cases = True
@@ -976,10 +1138,17 @@ def apply_cli(args: argparse.Namespace) -> None:
 
     MODEL_PATH = RESULTS_DIR / "pino_heterogeneous_model.pt"
 
+    if args.validate_only:
+        _load_run_meta_for_validate()
+
     if args.arch is not None:
         _apply_arch_preset(args.arch)
-    elif args.validate_only:
-        _load_arch_from_run_meta()
+
+    if args.dtype is not None:
+        torch_dtype = torch.float64 if args.dtype == "float64" else torch.float32
+
+    if args.trunk_mode is not None:
+        trunk_mode = args.trunk_mode
 
     if batch_mode:
         U_TRAIN_CASES_PATH = RESULTS_DIR / "train_u_cases.csv"
@@ -1004,6 +1173,7 @@ def write_run_meta(
         "n_train_actual": n_train_actual,
         "n_corner_anchors": n_corner_anchors if train_design == "anchored" else None,
         "arch_preset": arch_preset,
+        "trunk_mode": trunk_mode,
         "branch_architecture": branch_architecture,
         "trunk_architecture": trunk_architecture,
         "seed": seed,
@@ -1046,7 +1216,8 @@ def main() -> None:
     print(f"PE (computed) = {PE:.12g}")
     print(
         f"design={train_design}  n_train_requested={n_train_requested}  "
-        f"n_corner_anchors={n_corner_anchors}  arch={arch_preset}  batch_mode={batch_mode}"
+        f"n_corner_anchors={n_corner_anchors}  arch={arch_preset}  "
+        f"trunk_mode={trunk_mode}  batch_mode={batch_mode}"
     )
     print(f"branch={branch_architecture}  trunk={trunk_architecture}")
     print(f"results_dir={RESULTS_DIR}")
@@ -1084,19 +1255,34 @@ def main() -> None:
         f"validate_only={validate_only}  skip_validation_plots={skip_validation_plots}"
     )
 
-    model = DeepONetParametric(
-        branch_architecture, trunk_architecture, activation_cls
+    use_zone_trunks = trunk_mode == "zone"
+    model = build_deeponet(
+        trunk_mode, branch_architecture, trunk_architecture, activation_cls
     ).to(device)
 
     if run_training:
-        tensors, plot_data = build_collocation_tensors(device, dtype, u_train)
+        tensors, plot_data = build_collocation_tensors(
+            device, dtype, u_train, include_interface=use_zone_trunks
+        )
         print(
             f"PDE collocation points: {plot_data['n_pde']:,} "
             f"(bulk {plot_data['n_pde_bulk']:,}, interface {plot_data['n_pde_interface']:,})"
         )
         coll_path = plot_collocation_points(plot_data, n_train_media=n_u)
         print(f"Collocation mesh plot (pre-train): {coll_path}")
-        history = train_model(model, device, tensors)
+        if use_zone_trunks:
+            n_if_pts = tensors["x_if_l"].shape[0]
+            print(
+                f"Zone trunks: per-zone PDE CFL + interface losses "
+                f"({n_if_pts:,} interface collocation pairs)"
+            )
+        history = train_model(
+            model,
+            device,
+            tensors,
+            use_zone_pde=use_zone_trunks,
+            use_interface_losses=use_zone_trunks,
+        )
         conc_path, loss_path = plot_training_figures(model, device, dtype, history)
         if save_model:
             RESULTS_DIR.mkdir(parents=True, exist_ok=True)

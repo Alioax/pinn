@@ -20,9 +20,9 @@
   ],
   "seed": 1234567,
   "dtype": "float32",
-  "wall_clock_s": 244.066,
+  "wall_clock_s": 132.137,
   "out_dir": "results\\exp_E_capacity_dense",
-  "mean_rel_l2": 0.12167629540608887,
-  "max_rel_l2": 0.1874819789271865,
-  "min_rel_l2": 0.08901911905475957
+  "mean_rel_l2": 0.12167633970751628,
+  "max_rel_l2": 0.18748234340913864,
+  "min_rel_l2": 0.0890191435800223
 }
