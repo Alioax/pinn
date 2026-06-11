@@ -79,6 +79,7 @@ activation_cls = nn.Tanh
 
 num_epochs_lbfgs = 1000
 lr_lbfgs = 1
+lbfgs_max_iter = 1  # PyTorch LBFGS max_iter per outer step
 early_stop_patience = 0  # 0 = disabled; stop after N steps with no total-loss improvement
 
 mesh_nx_pde = 50
@@ -831,7 +832,7 @@ def train_model(
     optimizer = torch.optim.LBFGS(
         model.parameters(),
         lr=lr_lbfgs,
-        max_iter=1,
+        max_iter=lbfgs_max_iter,
         history_size=50,
         line_search_fn="strong_wolfe",
     )
@@ -1114,6 +1115,19 @@ def parse_cli() -> argparse.Namespace:
             "num_epochs_lbfgs steps)."
         ),
     )
+    parser.add_argument(
+        "--lr-lbfgs",
+        type=float,
+        default=None,
+        help="L-BFGS learning rate (default 1).",
+    )
+    parser.add_argument(
+        "--lbfgs-max-iter",
+        type=int,
+        default=None,
+        metavar="N",
+        help="PyTorch LBFGS max_iter per outer step (default 1).",
+    )
     return parser.parse_args()
 
 
@@ -1136,6 +1150,7 @@ def _load_run_meta_for_validate() -> bool:
     if not branch or not trunk:
         return False
     global branch_architecture, trunk_architecture, arch_preset, torch_dtype, trunk_mode
+    global lr_lbfgs, lbfgs_max_iter, early_stop_patience
     branch_architecture = list(branch)
     trunk_architecture = list(trunk)
     arch_preset = str(meta.get("arch_preset", "custom"))
@@ -1145,6 +1160,12 @@ def _load_run_meta_for_validate() -> bool:
     else:
         torch_dtype = torch.float32
     trunk_mode = str(meta.get("trunk_mode", "single"))
+    if "lr_lbfgs" in meta:
+        lr_lbfgs = float(meta["lr_lbfgs"])
+    if "lbfgs_max_iter" in meta:
+        lbfgs_max_iter = int(meta["lbfgs_max_iter"])
+    if "early_stop_patience" in meta:
+        early_stop_patience = int(meta["early_stop_patience"])
     return True
 
 
@@ -1152,7 +1173,7 @@ def apply_cli(args: argparse.Namespace) -> None:
     global RESULTS_DIR, COMSOL_VALIDATION_DIR, MODEL_PATH, U_TRAIN_CASES_PATH
     global train_design, n_train_requested, n_corner_anchors, skip_validation_plots
     global batch_mode, reload_lhc_train_cases, run_training, validate_only
-    global torch_dtype, trunk_mode, early_stop_patience
+    global torch_dtype, trunk_mode, early_stop_patience, lr_lbfgs, lbfgs_max_iter
 
     if args.reload_train_cases:
         reload_lhc_train_cases = True
@@ -1205,6 +1226,12 @@ def apply_cli(args: argparse.Namespace) -> None:
     if args.early_stop_patience is not None:
         early_stop_patience = args.early_stop_patience
 
+    if args.lr_lbfgs is not None:
+        lr_lbfgs = args.lr_lbfgs
+
+    if args.lbfgs_max_iter is not None:
+        lbfgs_max_iter = args.lbfgs_max_iter
+
     if batch_mode:
         U_TRAIN_CASES_PATH = RESULTS_DIR / "train_u_cases.csv"
         if skip_validation_plots:
@@ -1236,6 +1263,8 @@ def write_run_meta(
         "dtype": str(torch_dtype).replace("torch.", ""),
         "num_epochs_lbfgs_requested": num_epochs_lbfgs,
         "early_stop_patience": early_stop_patience,
+        "lr_lbfgs": lr_lbfgs,
+        "lbfgs_max_iter": lbfgs_max_iter,
         "wall_clock_s": round(wall_clock_s, 3),
         "out_dir": str(RESULTS_DIR.relative_to(_PINO_DIR)),
     }
@@ -1319,6 +1348,11 @@ def main() -> None:
         print(
             f"L-BFGS early stopping: patience={early_stop_patience} "
             f"(max steps={num_epochs_lbfgs})"
+        )
+    if run_training:
+        print(
+            f"L-BFGS: lr={lr_lbfgs:g}  max_iter={lbfgs_max_iter}  "
+            f"outer_steps={num_epochs_lbfgs}"
         )
 
     use_zone_trunks = trunk_mode == "zone"

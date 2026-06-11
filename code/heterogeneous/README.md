@@ -127,6 +127,8 @@ Four training-parameter designs, each writing to its own results subfolder:
 | `--dtype` | `float32` (default) or `float64` |
 | `--trunk-mode` | `single` (default) or `zone` (one trunk per zone + interface losses) |
 | `--early-stop-patience` | Stop L-BFGS after N steps with no total-loss improvement (`0` = disabled) |
+| `--lr-lbfgs` | L-BFGS learning rate (default `1`) |
+| `--lbfgs-max-iter` | PyTorch LBFGS `max_iter` per outer step (default `1`) |
 
 Report 5 follow-on experiments (vs maximin C):
 
@@ -135,6 +137,8 @@ Report 5 follow-on experiments (vs maximin C):
 | `exp_F_maximin_N500_float64` | maximin C + `--dtype float64` |
 | `exp_G_maximin_N500_zone_trunks` | maximin C + `--trunk-mode zone` (per-zone PDE CFL + interface C/flux losses) |
 | `exp_H_capacity_float64` | capacity A + `--dtype float64` + `--early-stop-patience 150` |
+| `exp_I_maximin_N500_float64_lr01` | maximin F + `--lr-lbfgs 0.1` + `--early-stop-patience 150` |
+| `exp_J_maximin_N500_float64_lr01_maxiter20` | experiment I + `--lbfgs-max-iter 20` |
 
 Example (single experiment):
 

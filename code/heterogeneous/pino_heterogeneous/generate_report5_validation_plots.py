@@ -115,6 +115,40 @@ REPORT5_EXPERIMENTS: list[tuple[str, str, list[str]]] = [
             "results/exp_H_capacity_float64",
         ],
     ),
+    (
+        "exp_I_maximin_N500_float64_lr01",
+        "maximin",
+        [
+            "--design",
+            "maximin",
+            "--n-train",
+            "500",
+            "--dtype",
+            "float64",
+            "--lr-lbfgs",
+            "0.1",
+            "--out-dir",
+            "results/exp_I_maximin_N500_float64_lr01",
+        ],
+    ),
+    (
+        "exp_J_maximin_N500_float64_lr01_maxiter20",
+        "maximin",
+        [
+            "--design",
+            "maximin",
+            "--n-train",
+            "500",
+            "--dtype",
+            "float64",
+            "--lr-lbfgs",
+            "0.1",
+            "--lbfgs-max-iter",
+            "20",
+            "--out-dir",
+            "results/exp_J_maximin_N500_float64_lr01_maxiter20",
+        ],
+    ),
 ]
 
 
