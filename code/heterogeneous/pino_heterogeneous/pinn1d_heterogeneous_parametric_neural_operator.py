@@ -37,6 +37,7 @@ from utils.lhc_sampling import (  # noqa: E402
     TrainDesign,
     comsol_validation_u_grid,
     load_or_generate_train_u_cases as load_train_u_cases_for_design,
+    load_u_cases_csv,
 )
 from utils.zone_velocity import (  # noqa: E402
     L_DEFAULT,
@@ -66,10 +67,12 @@ LHC_EXCLUDE_COMSOL_GRID = True
 LHC_EXCLUDE_ATOL = 1e-9
 
 sensor_count = 4
-branch_architecture = [sensor_count, 16, 16, 32]
-trunk_architecture = [2, 32, 32, 32, 32]
-# branch_architecture = [sensor_count, 64, 64, 128]
-# trunk_architecture  = [2, 64, 64, 64, 64, 128]
+ARCH_PRESETS: dict[str, tuple[list[int], list[int]]] = {
+    "default": ([sensor_count, 16, 16, 32], [2, 32, 32, 32, 32]),
+    "dense": ([sensor_count, 64, 64, 128], [2, 64, 64, 64, 64, 128]),
+}
+branch_architecture = ARCH_PRESETS["default"][0]
+trunk_architecture = ARCH_PRESETS["default"][1]
 activation_cls = nn.Tanh
 
 num_epochs_lbfgs = 1000
@@ -108,6 +111,7 @@ PLOT_U_CASES: list[tuple[float, float, float, float]] = [
 
 run_training = True
 run_comsol_validation = True
+validate_only = False
 reload_lhc_train_cases = False
 
 COMSOL_DATA_PATH = (_HETERO_ROOT / "data" / "comsol_4zones.txt").resolve()
@@ -122,6 +126,8 @@ U_TRAIN_CASES_PATH = RESULTS_DIR / f"lhc_train_u{N_LHC_TRAIN}.csv"
 # Set by parse_cli() when the script is invoked with batch flags.
 train_design: TrainDesign = "lhc"
 n_train_requested = N_LHC_TRAIN
+n_corner_anchors = 16
+arch_preset = "default"
 skip_validation_plots = False
 batch_mode = False
 
@@ -194,6 +200,7 @@ def load_or_generate_train_u_cases() -> np.ndarray:
         exclude_comsol_grid=exclude_comsol,
         exclude_atol=LHC_EXCLUDE_ATOL,
         reload=reload_lhc_train_cases,
+        n_corner_anchors=n_corner_anchors,
     )
 
 
@@ -460,10 +467,14 @@ def validate_against_comsol(
     device: torch.device,
     dtype: torch.dtype,
     *,
-    data_file: Path = COMSOL_DATA_PATH,
-    out_dir: Path = COMSOL_VALIDATION_DIR,
+    data_file: Path | None = None,
+    out_dir: Path | None = None,
     save_plots: bool = True,
 ) -> list[dict[str, object]]:
+    if data_file is None:
+        data_file = COMSOL_DATA_PATH
+    if out_dir is None:
+        out_dir = COMSOL_VALIDATION_DIR
     if not data_file.is_file():
         raise FileNotFoundError(f"COMSOL data not found: {data_file}")
 
@@ -878,16 +889,64 @@ def parse_cli() -> argparse.Namespace:
         action="store_true",
         help="Regenerate train_u_cases.csv even if it already exists.",
     )
+    parser.add_argument(
+        "--validate-only",
+        action="store_true",
+        help="Load checkpoint and run COMSOL validation (with plots unless --skip-validation-plots).",
+    )
+    parser.add_argument(
+        "--arch",
+        choices=["default", "dense"],
+        default=None,
+        help="Network width preset (default: [4,16,16,32]/[2,32,32,32,32]; dense: [4,64,64,128]/[2,64,64,64,64,128]).",
+    )
+    parser.add_argument(
+        "--n-corner-anchors",
+        type=int,
+        default=None,
+        help="Boundary anchor count for anchored design (default 16; experiment F uses 100).",
+    )
     return parser.parse_args()
+
+
+def _apply_arch_preset(name: str) -> None:
+    global branch_architecture, trunk_architecture, arch_preset
+    if name not in ARCH_PRESETS:
+        raise ValueError(f"Unknown arch preset: {name!r}")
+    arch_preset = name
+    branch_architecture, trunk_architecture = ARCH_PRESETS[name]
+
+
+def _load_arch_from_run_meta() -> bool:
+    """If run_meta.json exists, restore branch/trunk widths for validate-only."""
+    meta_path = RESULTS_DIR / "run_meta.json"
+    if not meta_path.is_file():
+        return False
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    branch = meta.get("branch_architecture")
+    trunk = meta.get("trunk_architecture")
+    if not branch or not trunk:
+        return False
+    global branch_architecture, trunk_architecture, arch_preset
+    branch_architecture = list(branch)
+    trunk_architecture = list(trunk)
+    arch_preset = str(meta.get("arch_preset", "custom"))
+    return True
 
 
 def apply_cli(args: argparse.Namespace) -> None:
     global RESULTS_DIR, COMSOL_VALIDATION_DIR, MODEL_PATH, U_TRAIN_CASES_PATH
-    global train_design, n_train_requested, skip_validation_plots, batch_mode
-    global reload_lhc_train_cases
+    global train_design, n_train_requested, n_corner_anchors, skip_validation_plots
+    global batch_mode, reload_lhc_train_cases, run_training, validate_only
 
     if args.reload_train_cases:
         reload_lhc_train_cases = True
+
+    if args.validate_only:
+        validate_only = True
+        run_training = False
+        if not args.skip_validation_plots:
+            skip_validation_plots = False
 
     if args.design is not None or args.out_dir is not None:
         batch_mode = True
@@ -900,8 +959,11 @@ def apply_cli(args: argparse.Namespace) -> None:
     MODEL_PATH = RESULTS_DIR / "pino_heterogeneous_model.pt"
 
     if batch_mode:
-        COMSOL_VALIDATION_DIR = RESULTS_DIR
         U_TRAIN_CASES_PATH = RESULTS_DIR / "train_u_cases.csv"
+        if skip_validation_plots:
+            COMSOL_VALIDATION_DIR = RESULTS_DIR
+        else:
+            COMSOL_VALIDATION_DIR = RESULTS_DIR / "comsol_validation"
     else:
         COMSOL_VALIDATION_DIR = RESULTS_DIR / "comsol_validation"
         U_TRAIN_CASES_PATH = RESULTS_DIR / f"lhc_train_u{N_LHC_TRAIN}.csv"
@@ -920,6 +982,14 @@ def apply_cli(args: argparse.Namespace) -> None:
     if args.skip_validation_plots:
         skip_validation_plots = True
 
+    if args.n_corner_anchors is not None:
+        n_corner_anchors = args.n_corner_anchors
+
+    if args.arch is not None:
+        _apply_arch_preset(args.arch)
+    elif args.validate_only:
+        _load_arch_from_run_meta()
+
 
 def write_run_meta(
     *,
@@ -931,6 +1001,10 @@ def write_run_meta(
         "design": train_design,
         "n_train": n_train_requested,
         "n_train_actual": n_train_actual,
+        "n_corner_anchors": n_corner_anchors if train_design == "anchored" else None,
+        "arch_preset": arch_preset,
+        "branch_architecture": branch_architecture,
+        "trunk_architecture": trunk_architecture,
         "seed": seed,
         "dtype": str(torch_dtype).replace("torch.", ""),
         "wall_clock_s": round(wall_clock_s, 3),
@@ -969,35 +1043,44 @@ def main() -> None:
         print(f"Using CPU (CUDA not available, dtype={dtype})")
 
     print(f"PE (computed) = {PE:.12g}")
-    print(f"design={train_design}  n_train_requested={n_train_requested}  batch_mode={batch_mode}")
-    print(f"results_dir={RESULTS_DIR}")
-    u_train = load_or_generate_train_u_cases()
-    cfl_train = branch_cfl_from_u(u_train)
-    n_u = u_train.shape[0]
-    if train_design == "capacity":
-        train_desc = f"{n_u} COMSOL grid tuples (capacity / in-sample)"
-    elif train_design == "anchored":
-        train_desc = (
-            f"{n_train_requested} LHC + corners -> {n_u} unique tuples (anchored)"
-        )
-    else:
-        train_desc = f"{n_u} {train_design} samples in [{U_LO:g}, {U_HI:g}] m/d"
-    print(f"Training: {train_desc}")
-    print(f"  saved/loaded: {U_TRAIN_CASES_PATH}")
-    print(f"  branch CFL range [{cfl_train.min():g}, {cfl_train.max():g}]")
-    n_if_per = mesh_nx_interface_per_band * len(ZONE_INTERFACE_XSTAR)
     print(
-        f"PDE mesh: bulk {mesh_nx_pde}x{mesh_nt_pde}x{n_u} + interface bands "
-        f"({n_if_per} x* / band, +/-{interface_band_half_width:g} around "
-        f"{ZONE_INTERFACE_XSTAR})"
+        f"design={train_design}  n_train_requested={n_train_requested}  "
+        f"n_corner_anchors={n_corner_anchors}  arch={arch_preset}  batch_mode={batch_mode}"
     )
+    print(f"branch={branch_architecture}  trunk={trunk_architecture}")
+    print(f"results_dir={RESULTS_DIR}")
+    n_u = 0
+    if validate_only:
+        print(f"validate_only: loading checkpoint from {MODEL_PATH}")
+    else:
+        u_train = load_or_generate_train_u_cases()
+        cfl_train = branch_cfl_from_u(u_train)
+        n_u = u_train.shape[0]
+        if train_design == "capacity":
+            train_desc = f"{n_u} COMSOL grid tuples (capacity / in-sample)"
+        elif train_design == "anchored":
+            train_desc = (
+                f"{n_train_requested} LHC + {n_corner_anchors} boundary anchors "
+                f"-> {n_u} unique tuples (anchored)"
+            )
+        else:
+            train_desc = f"{n_u} {train_design} samples in [{U_LO:g}, {U_HI:g}] m/d"
+        print(f"Training: {train_desc}")
+        print(f"  saved/loaded: {U_TRAIN_CASES_PATH}")
+        print(f"  branch CFL range [{cfl_train.min():g}, {cfl_train.max():g}]")
+        n_if_per = mesh_nx_interface_per_band * len(ZONE_INTERFACE_XSTAR)
+        print(
+            f"PDE mesh: bulk {mesh_nx_pde}x{mesh_nt_pde}x{n_u} + interface bands "
+            f"({n_if_per} x* / band, +/-{interface_band_half_width:g} around "
+            f"{ZONE_INTERFACE_XSTAR})"
+        )
     print(
         f"COMSOL validation: {len(comsol_validation_u_grid())} fixed grid cases "
-        f"from {COMSOL_DATA_PATH.name}"
+        f"from {COMSOL_DATA_PATH.name} -> {COMSOL_VALIDATION_DIR}"
     )
     print(
         f"run_training={run_training}  run_comsol_validation={run_comsol_validation}  "
-        f"skip_validation_plots={skip_validation_plots}"
+        f"validate_only={validate_only}  skip_validation_plots={skip_validation_plots}"
     )
 
     model = DeepONetParametric(
@@ -1035,12 +1118,16 @@ def main() -> None:
             save_plots=not skip_validation_plots,
         )
 
-    meta_path = write_run_meta(
-        wall_clock_s=time.perf_counter() - t_start,
-        n_train_actual=n_u,
-        validation_rows=validation_rows,
-    )
-    print(f"Run metadata: {meta_path}")
+    if validate_only and n_u == 0 and U_TRAIN_CASES_PATH.is_file():
+        n_u = int(load_u_cases_csv(U_TRAIN_CASES_PATH).shape[0])
+
+    if validation_rows is not None or not validate_only:
+        meta_path = write_run_meta(
+            wall_clock_s=time.perf_counter() - t_start,
+            n_train_actual=n_u,
+            validation_rows=validation_rows,
+        )
+        print(f"Run metadata: {meta_path}")
 
 
 if __name__ == "__main__":

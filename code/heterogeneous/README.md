@@ -120,7 +120,12 @@ Four training-parameter designs, each writing to its own results subfolder:
 | `capacity` | 81 COMSOL grid \(\{0.01,0.03,0.05\}^4\) (in-sample velocities) |
 | `lhc` | N plain Latin-hypercube samples (exclude COMSOL grid) |
 | `maximin` | N maximin-optimized LHC samples |
-| `anchored` | N LHC + 16 cube corners \(\{0.01,0.05\}^4\) |
+| `anchored` | N LHC + boundary anchors (`--n-corner-anchors`, default 16 cube corners) |
+
+| `--arch` | Branch / trunk MLP |
+|----------|-------------------|
+| `default` | `[4,16,16,32]` / `[2,32,32,32,32]` |
+| `dense` | `[4,64,64,128]` / `[2,64,64,64,64,128]` |
 
 Example (single experiment):
 
@@ -145,6 +150,22 @@ python pinn1d_heterogeneous_parametric_neural_operator.py \
 | `pino_heterogeneous_loss.png` | Training loss curve |
 
 Use `--reload-train-cases` to regenerate `train_u_cases.csv`. Omit `--skip-validation-plots` to also write 81 COMSOL comparison PNGs.
+
+**Validation plots after remote training** (local, from saved checkpoints):
+
+```bash
+cd code/heterogeneous/pino_heterogeneous
+python generate_report5_validation_plots.py
+```
+
+Or one experiment:
+
+```bash
+python pinn1d_heterogeneous_parametric_neural_operator.py \
+  --design lhc --n-train 500 --out-dir results/exp_B_lhc_N500 --validate-only
+```
+
+Plots land in `results/exp_*/comsol_validation/` (81 PNGs + `comsol_validation_summary.csv` per run).
 
 ## Layout
 

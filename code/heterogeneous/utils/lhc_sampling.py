@@ -196,6 +196,79 @@ def _deduplicate_rows(
     return np.stack(kept, axis=0)
 
 
+def _maximin_subset(candidates: np.ndarray, n: int, *, seed: int) -> np.ndarray:
+    """Pick ``n`` rows from ``candidates`` with large minimum pairwise distance."""
+    if candidates.shape[0] <= n:
+        return candidates.copy()
+    rng = np.random.default_rng(seed)
+    best_idx: np.ndarray | None = None
+    best_score = -1.0
+    n_trials = min(400, max(50, candidates.shape[0]))
+    for _ in range(n_trials):
+        idx = rng.choice(candidates.shape[0], size=n, replace=False)
+        score = _min_pairwise_distance(candidates[idx])
+        if score > best_score:
+            best_score = score
+            best_idx = idx
+    if best_idx is None:
+        raise RuntimeError("Could not select boundary anchor subset.")
+    return candidates[best_idx].copy()
+
+
+def generate_boundary_anchor_u_samples(
+    n_anchors: int,
+    u_lo: float,
+    u_hi: float,
+    *,
+    seed: int,
+) -> np.ndarray:
+    """
+    ``n_anchors`` points on the boundary of ``[u_lo, u_hi]^4``.
+
+    Includes all 16 cube vertices when ``n_anchors >= 16``; additional points
+    are maximin-selected from face-stratified LHC candidates.
+    """
+    if n_anchors <= 0:
+        raise ValueError("n_anchors must be positive")
+
+    corners = cube_corners_u_grid(u_lo, u_hi)
+    if n_anchors <= corners.shape[0]:
+        return corners[:n_anchors].copy()
+
+    candidates: list[np.ndarray] = [corners[i] for i in range(corners.shape[0])]
+    sampler = qmc.LatinHypercube(d=3, seed=seed)
+    per_face = max(32, (n_anchors * 4) // 8)
+    for dim in range(4):
+        for val in (u_lo, u_hi):
+            inner_batch = qmc.scale(
+                sampler.random(per_face),
+                np.full(3, u_lo, dtype=np.float64),
+                np.full(3, u_hi, dtype=np.float64),
+            )
+            for inner in inner_batch:
+                row = np.empty(4, dtype=np.float64)
+                j = 0
+                for d in range(4):
+                    if d == dim:
+                        row[d] = val
+                    else:
+                        row[d] = inner[j]
+                        j += 1
+                candidates.append(row)
+
+    pool = _deduplicate_rows(
+        np.stack(candidates, axis=0),
+        exclude_near=None,
+        exclude_atol=1e-12,
+    )
+    if pool.shape[0] < n_anchors:
+        raise RuntimeError(
+            f"Only {pool.shape[0]} unique boundary anchors available; "
+            f"requested {n_anchors}."
+        )
+    return _maximin_subset(pool, n_anchors, seed=seed)
+
+
 def generate_anchored_lhc_u_samples(
     n: int,
     u_lo: float,
@@ -205,8 +278,9 @@ def generate_anchored_lhc_u_samples(
     exclude_near: np.ndarray | None = None,
     exclude_atol: float = 1e-9,
     max_attempts: int = 20,
+    n_corner_anchors: int = 16,
 ) -> np.ndarray:
-    """``n`` plain LHC rows plus 16 cube corners, deduplicated."""
+    """``n`` plain LHC rows plus boundary anchor points, deduplicated."""
     lhc = generate_lhc_u_samples(
         n,
         u_lo,
@@ -216,9 +290,16 @@ def generate_anchored_lhc_u_samples(
         exclude_atol=exclude_atol,
         max_attempts=max_attempts,
     )
-    corners = cube_corners_u_grid(u_lo, u_hi)
-    combined = np.concatenate([lhc, corners], axis=0)
-    # Corners are kept even when they coincide with COMSOL grid vertices.
+    if n_corner_anchors <= 16:
+        anchors = cube_corners_u_grid(u_lo, u_hi)
+        if n_corner_anchors < anchors.shape[0]:
+            anchors = anchors[:n_corner_anchors]
+    else:
+        anchors = generate_boundary_anchor_u_samples(
+            n_corner_anchors, u_lo, u_hi, seed=seed + 17
+        )
+    combined = np.concatenate([lhc, anchors], axis=0)
+    # Anchor points are kept even when they coincide with COMSOL grid vertices.
     return _deduplicate_rows(
         combined,
         exclude_near=None,
@@ -235,6 +316,7 @@ def _generate_for_design(
     seed: int,
     exclude_near: np.ndarray | None,
     exclude_atol: float,
+    n_corner_anchors: int = 16,
 ) -> np.ndarray:
     if design == "capacity":
         return comsol_validation_u_grid()
@@ -264,6 +346,7 @@ def _generate_for_design(
             seed=seed,
             exclude_near=exclude_near,
             exclude_atol=exclude_atol,
+            n_corner_anchors=n_corner_anchors,
         )
     raise ValueError(f"Unknown design: {design!r}")
 
@@ -288,6 +371,7 @@ def load_or_generate_train_u_cases(
     exclude_comsol_grid: bool,
     exclude_atol: float = 1e-9,
     reload: bool = False,
+    n_corner_anchors: int = 16,
 ) -> np.ndarray:
     """
     Load training velocities from ``csv_path`` or generate for ``design``.
@@ -318,6 +402,7 @@ def load_or_generate_train_u_cases(
         seed=seed,
         exclude_near=exclude,
         exclude_atol=exclude_atol,
+        n_corner_anchors=n_corner_anchors,
     )
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     save_u_cases_csv(csv_path, u_cases)

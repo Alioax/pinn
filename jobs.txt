@@ -9,11 +9,13 @@
 # Workflow: edit this list on your laptop, commit & push, then run
 # run.bat on the remote. The run stops at the first script that fails.
 #
-# Report 5 heterogeneous PINO batch (N=500 designs + capacity baseline).
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design capacity --out-dir results/exp_A_capacity --skip-validation-plots
+# ----- Report 5 batch A-D (completed) -----
+# code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design capacity --out-dir results/exp_A_capacity --skip-validation-plots
+# code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design lhc --n-train 500 --out-dir results/exp_B_lhc_N500 --skip-validation-plots
+# code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design maximin --n-train 500 --out-dir results/exp_C_maximin_N500 --skip-validation-plots
+# code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design anchored --n-train 500 --out-dir results/exp_D_anchored_N500 --skip-validation-plots
+#
+# ----- Report 5 batch E-F: dense architecture -----
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design capacity --arch dense --out-dir results/exp_E_capacity_dense --skip-validation-plots
 
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design lhc --n-train 500 --out-dir results/exp_B_lhc_N500 --skip-validation-plots
-
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design maximin --n-train 500 --out-dir results/exp_C_maximin_N500 --skip-validation-plots
-
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design anchored --n-train 500 --out-dir results/exp_D_anchored_N500 --skip-validation-plots
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design anchored --n-train 500 --n-corner-anchors 100 --arch dense --out-dir results/exp_F_anchored_N500_dense --skip-validation-plots

@@ -4,9 +4,9 @@
   "n_train_actual": 81,
   "seed": 1234567,
   "dtype": "float32",
-  "wall_clock_s": 130.906,
+  "wall_clock_s": 101.655,
   "out_dir": "results\\exp_A_capacity",
-  "mean_rel_l2": 0.13637003814627988,
-  "max_rel_l2": 0.2186482115278907,
-  "min_rel_l2": 0.09629956012143596
+  "mean_rel_l2": 0.13637003036004045,
+  "max_rel_l2": 0.21864837729732,
+  "min_rel_l2": 0.09629949428252808
 }

@@ -4,9 +4,9 @@
   "n_train_actual": 500,
   "seed": 1234567,
   "dtype": "float32",
-  "wall_clock_s": 478.448,
+  "wall_clock_s": 107.419,
   "out_dir": "results\\exp_B_lhc_N500",
-  "mean_rel_l2": 0.1344428878529542,
-  "max_rel_l2": 0.2134226980576972,
-  "min_rel_l2": 0.08142618533230084
+  "mean_rel_l2": 0.13444287240294878,
+  "max_rel_l2": 0.21342274176195447,
+  "min_rel_l2": 0.08142615694070114
 }
