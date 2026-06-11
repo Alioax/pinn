@@ -103,6 +103,18 @@ REPORT5_EXPERIMENTS: list[tuple[str, str, list[str]]] = [
             "results/exp_G_maximin_N500_zone_trunks",
         ],
     ),
+    (
+        "exp_H_capacity_float64",
+        "capacity",
+        [
+            "--design",
+            "capacity",
+            "--dtype",
+            "float64",
+            "--out-dir",
+            "results/exp_H_capacity_float64",
+        ],
+    ),
 ]
 
 

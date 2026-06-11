@@ -9,5 +9,5 @@
 # Workflow: edit this list on your laptop, commit & push, then run
 # run.bat on the remote. The run stops at the first script that fails.
 #
-# Report 5 experiment A: capacity (81 COMSOL grid, in-sample) + early stopping.
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design capacity --early-stop-patience 150 --out-dir results/exp_A_capacity --skip-validation-plots
+# Report 5 experiment H: capacity (same as A) + float64 + early stopping.
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design capacity --dtype float64 --early-stop-patience 150 --out-dir results/exp_H_capacity_float64 --skip-validation-plots

@@ -21,13 +21,10 @@
   "seed": 1234567,
   "dtype": "float64",
   "num_epochs_lbfgs_requested": 1000,
-  "early_stop_patience": 150,
-  "wall_clock_s": 422.529,
+  "early_stop_patience": 0,
+  "wall_clock_s": 129.311,
   "out_dir": "results\\exp_F_maximin_N500_float64",
-  "num_epochs_lbfgs_actual": 152,
-  "early_stopped": true,
-  "best_total_loss": 0.8171963438511287,
   "mean_rel_l2": 0.8030508912121195,
   "max_rel_l2": 0.9546795133261679,
-  "min_rel_l2": 0.39825219244016863
+  "min_rel_l2": 0.3982521924401686
 }

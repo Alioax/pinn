@@ -132,8 +132,9 @@ Report 5 follow-on experiments (vs maximin C):
 
 | Folder | Change vs `exp_C_maximin_N500` |
 |--------|--------------------------------|
-| `exp_F_maximin_N500_float64` | `--dtype float64` |
-| `exp_G_maximin_N500_zone_trunks` | `--trunk-mode zone` (per-zone PDE CFL + interface C/flux losses) |
+| `exp_F_maximin_N500_float64` | maximin C + `--dtype float64` |
+| `exp_G_maximin_N500_zone_trunks` | maximin C + `--trunk-mode zone` (per-zone PDE CFL + interface C/flux losses) |
+| `exp_H_capacity_float64` | capacity A + `--dtype float64` + `--early-stop-patience 150` |
 
 Example (single experiment):
 
