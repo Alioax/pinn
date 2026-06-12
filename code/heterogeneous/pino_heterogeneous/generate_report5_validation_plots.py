@@ -207,6 +207,28 @@ REPORT5_EXPERIMENTS: list[tuple[str, str, list[str]]] = [
             "results/exp_M_maximin_N200_float64_lr01_epochs5000",
         ],
     ),
+    (
+        "exp_N_maximin_N250_float64_lr01_maxiter25_epochs500",
+        "maximin",
+        [
+            "--design",
+            "maximin",
+            "--n-train",
+            "250",
+            "--dtype",
+            "float64",
+            "--early-stop-patience",
+            "150",
+            "--lr-lbfgs",
+            "0.1",
+            "--lbfgs-max-iter",
+            "25",
+            "--epochs",
+            "500",
+            "--out-dir",
+            "results/exp_N_maximin_N250_float64_lr01_maxiter25_epochs500",
+        ],
+    ),
 ]
 
 
