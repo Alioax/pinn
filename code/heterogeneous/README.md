@@ -142,6 +142,7 @@ Report 5 follow-on experiments (vs maximin C):
 | `exp_J_maximin_N500_float64_lr01_maxiter20` | experiment I + `--lbfgs-max-iter 20` |
 | `exp_K_maximin_N200_lr05_epochs5000` | experiment J except N=200, `float32`, `--lr-lbfgs 0.5`, `--epochs 5000`, `max_iter=1` (default) |
 | `exp_L_maximin_N200_float64_lr05_epochs5000` | experiment K + `--dtype float64` |
+| `exp_M_maximin_N200_float64_lr01_epochs5000` | experiment J except N=200, `--epochs 5000`, `max_iter=1` (default) |
 
 Example (single experiment):
 
