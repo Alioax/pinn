@@ -24,12 +24,9 @@
   "early_stop_patience": 150,
   "lr_lbfgs": 0.1,
   "lbfgs_max_iter": 1,
-  "wall_clock_s": 2704.572,
+  "wall_clock_s": 322.289,
   "out_dir": "results\\exp_I_maximin_N500_float64_lr01",
-  "num_epochs_lbfgs_actual": 1000,
-  "early_stopped": false,
-  "best_total_loss": 0.02113161612185254,
-  "mean_rel_l2": 0.06363406716526683,
-  "max_rel_l2": 0.16059693543031023,
-  "min_rel_l2": 0.03236858752435924
+  "mean_rel_l2": 0.06363406716526689,
+  "max_rel_l2": 0.16059693543031034,
+  "min_rel_l2": 0.03236858752435942
 }

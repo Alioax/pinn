@@ -129,6 +129,7 @@ Four training-parameter designs, each writing to its own results subfolder:
 | `--early-stop-patience` | Stop L-BFGS after N steps with no total-loss improvement (`0` = disabled) |
 | `--lr-lbfgs` | L-BFGS learning rate (default `1`) |
 | `--lbfgs-max-iter` | PyTorch LBFGS `max_iter` per outer step (default `1`) |
+| `--epochs` | L-BFGS outer steps / `num_epochs_lbfgs` (default `1000`) |
 
 Report 5 follow-on experiments (vs maximin C):
 
@@ -139,6 +140,7 @@ Report 5 follow-on experiments (vs maximin C):
 | `exp_H_capacity_float64` | capacity A + `--dtype float64` + `--early-stop-patience 150` |
 | `exp_I_maximin_N500_float64_lr01` | maximin F + `--lr-lbfgs 0.1` + `--early-stop-patience 150` |
 | `exp_J_maximin_N500_float64_lr01_maxiter20` | experiment I + `--lbfgs-max-iter 20` |
+| `exp_K_maximin_N200_lr05_epochs5000` | experiment J except N=200, `float32`, `--lr-lbfgs 0.5`, `--epochs 5000`, `max_iter=1` (default) |
 
 Example (single experiment):
 

@@ -22,12 +22,11 @@
   "dtype": "float64",
   "num_epochs_lbfgs_requested": 1000,
   "early_stop_patience": 150,
-  "wall_clock_s": 60.794,
+  "lr_lbfgs": 1,
+  "lbfgs_max_iter": 1,
+  "wall_clock_s": 298.43,
   "out_dir": "results\\exp_H_capacity_float64",
-  "num_epochs_lbfgs_actual": 152,
-  "early_stopped": true,
-  "best_total_loss": 0.9231877141238243,
   "mean_rel_l2": 0.9432163875257663,
   "max_rel_l2": 0.982974529783097,
-  "min_rel_l2": 0.8261148598774815
+  "min_rel_l2": 0.8261148598774813
 }

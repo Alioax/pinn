@@ -9,8 +9,6 @@
 # Workflow: edit this list on your laptop, commit & push, then run
 # run.bat on the remote. The run stops at the first script that fails.
 #
-# Report 5 experiment I: maximin N=500 float64 (same as F) + lr=0.1 + early stopping.
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design maximin --n-train 500 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --out-dir results/exp_I_maximin_N500_float64_lr01 --skip-validation-plots
-#
-# Report 5 experiment J: same as I + LBFGS max_iter=20 per outer step.
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design maximin --n-train 500 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --out-dir results/exp_J_maximin_N500_float64_lr01_maxiter20 --skip-validation-plots
+# Report 5 experiment K: same as J (maximin, default arch, early-stop 150) except
+# N=200, float32, lr=0.5, epochs=5000, max_iter=1 (default).
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design maximin --n-train 200 --early-stop-patience 150 --lr-lbfgs 0.5 --epochs 5000 --out-dir results/exp_K_maximin_N200_lr05_epochs5000 --skip-validation-plots

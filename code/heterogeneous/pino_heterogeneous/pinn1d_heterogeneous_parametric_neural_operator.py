@@ -1128,6 +1128,13 @@ def parse_cli() -> argparse.Namespace:
         metavar="N",
         help="PyTorch LBFGS max_iter per outer step (default 1).",
     )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=None,
+        metavar="N",
+        help="L-BFGS outer steps (num_epochs_lbfgs, default 1000).",
+    )
     return parser.parse_args()
 
 
@@ -1174,6 +1181,7 @@ def apply_cli(args: argparse.Namespace) -> None:
     global train_design, n_train_requested, n_corner_anchors, skip_validation_plots
     global batch_mode, reload_lhc_train_cases, run_training, validate_only
     global torch_dtype, trunk_mode, early_stop_patience, lr_lbfgs, lbfgs_max_iter
+    global num_epochs_lbfgs
 
     if args.reload_train_cases:
         reload_lhc_train_cases = True
@@ -1231,6 +1239,9 @@ def apply_cli(args: argparse.Namespace) -> None:
 
     if args.lbfgs_max_iter is not None:
         lbfgs_max_iter = args.lbfgs_max_iter
+
+    if args.epochs is not None:
+        num_epochs_lbfgs = args.epochs
 
     if batch_mode:
         U_TRAIN_CASES_PATH = RESULTS_DIR / "train_u_cases.csv"
