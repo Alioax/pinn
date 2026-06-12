@@ -1,0 +1,35 @@
+{
+  "design": "maximin",
+  "n_train": 500,
+  "n_train_actual": 500,
+  "n_corner_anchors": null,
+  "arch_preset": "default",
+  "trunk_mode": "single",
+  "branch_architecture": [
+    4,
+    16,
+    16,
+    32
+  ],
+  "trunk_architecture": [
+    2,
+    32,
+    32,
+    32,
+    32
+  ],
+  "seed": 1234567,
+  "dtype": "float64",
+  "num_epochs_lbfgs_requested": 1000,
+  "early_stop_patience": 150,
+  "lr_lbfgs": 0.1,
+  "lbfgs_max_iter": 20,
+  "wall_clock_s": 36841.232,
+  "out_dir": "results\\exp_J_maximin_N500_float64_lr01_maxiter20",
+  "num_epochs_lbfgs_actual": 1000,
+  "early_stopped": false,
+  "best_total_loss": 0.012412566057768292,
+  "mean_rel_l2": 0.026084701052596113,
+  "max_rel_l2": 0.04913812919103007,
+  "min_rel_l2": 0.015868599763393033
+}
