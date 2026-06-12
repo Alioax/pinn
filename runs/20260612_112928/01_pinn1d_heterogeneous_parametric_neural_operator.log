@@ -1,0 +1,106 @@
+# code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design maximin --n-train 200 --early-stop-patience 150 --lr-lbfgs 0.5 --epochs 5000 --out-dir results/exp_K_maximin_N200_lr05_epochs5000 --skip-validation-plots
+# started 2026-06-12 11:29:43
+# cwd C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous
+
+Using GPU: NVIDIA GeForce RTX 3090 (cuda:0, dtype=torch.float32)
+PE (computed) = 0.010368
+design=maximin  n_train_requested=200  n_corner_anchors=16  arch=default  trunk_mode=single  batch_mode=True
+branch=[4, 16, 16, 32]  trunk=[2, 32, 32, 32, 32]
+results_dir=C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_K_maximin_N200_lr05_epochs5000
+Training: 200 maximin samples in [0.01, 0.05] m/d
+  saved/loaded: C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_K_maximin_N200_lr05_epochs5000\train_u_cases.csv
+  branch CFL range [0.120711, 0.599883]
+PDE mesh: bulk 50x50x200 + interface bands (36 x* / band, +/-0.025 around (0.2, 0.4, 0.6))
+COMSOL validation: 81 fixed grid cases from comsol_4zones.txt -> C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_K_maximin_N200_lr05_epochs5000
+run_training=True  run_comsol_validation=True  validate_only=False  skip_validation_plots=True
+L-BFGS early stopping: patience=150 (max steps=5000)
+L-BFGS: lr=0.5  max_iter=1  outer_steps=5000
+PDE collocation points: 860,000 (bulk 500,000, interface 360,000)
+Collocation mesh plot (pre-train): C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_K_maximin_N200_lr05_epochs5000\pino_heterogeneous_collocation_points.png
+LBFGS (
+Parameter Group 0
+    history_size: 50
+    line_search_fn: strong_wolfe
+    lr: 0.5
+    max_eval: 1
+    max_iter: 1
+    tolerance_change: 1e-09
+    tolerance_grad: 1e-07
+)
+Early stopping: patience=150 L-BFGS steps (no total-loss improvement, rtol=1e-08)
+
+L-BFGS:   0%|          | 0/5000 [? > 00:00]
+L-BFGS:   0%|          | 1/5000 [44:23 > 00:00]
+L-BFGS:   0%|          | 2/5000 [28:29 > 00:00]
+L-BFGS:   0%|          | 3/5000 [23:20 > 00:00]
+L-BFGS:   0%|          | 4/5000 [20:59 > 00:01]
+L-BFGS:   0%|          | 5/5000 [19:36 > 00:01]
+L-BFGS:   0%|          | 6/5000 [18:37 > 00:01]
+L-BFGS:   0%|          | 7/5000 [18:19 > 00:01]
+L-BFGS:   0%|          | 8/5000 [17:58 > 00:01]
+L-BFGS:   0%|          | 9/5000 [17:46 > 00:02]
+L-BFGS:   0%|          | 10/5000 [17:52 > 00:02]
+L-BFGS:   0%|          | 11/5000 [17:36 > 00:02]
+L-BFGS:   0%|          | 12/5000 [17:24 > 00:02]
+L-BFGS:   0%|          | 13/5000 [17:23 > 00:03]
+L-BFGS:   0%|          | 14/5000 [17:26 > 00:03]
+L-BFGS:   0%|          | 15/5000 [17:36 > 00:03]
+L-BFGS:   0%|          | 16/5000 [17:38 > 00:03]
+L-BFGS:   0%|          | 17/5000 [17:36 > 00:03]
+L-BFGS:   0%|          | 18/5000 [17:38 > 00:04]
+L-BFGS:   0%|          | 19/5000 [17:36 > 00:04]
+L-BFGS:   0%|          | 20/5000 [17:39 > 00:04]
+L-BFGS:   0%|          | 21/5000 [17:36 > 00:04]
+L-BFGS:   0%|          | 22/5000 [17:34 > 00:04]
+L-BFGS:   0%|          | 23/5000 [17:31 > 00:05]
+L-BFGS:   0%|          | 24/5000 [17:33 > 00:05]
+L-BFGS:   0%|          | 25/5000 [17:36 > 00:05]
+L-BFGS:   1%|          | 26/5000 [17:39 > 00:05]
+L-BFGS:   1%|          | 27/5000 [17:41 > 00:06]
+L-BFGS:   1%|          | 28/5000 [17:44 > 00:06]
+L-BFGS:   1%|          | 29/5000 [17:51 > 00:06]
+L-BFGS:   1%|          | 30/5000 [17:54 > 00:06]
+L-BFGS:   1%|          | 31/5000 [17:53 > 00:06]
+L-BFGS:   1%|          | 32/5000 [17:52 > 00:07]
+L-BFGS:   1%|          | 33/5000 [17:53 > 00:07]
+L-BFGS:   1%|          | 34/5000 [17:48 > 00:07]
+L-BFGS:   1%|          | 35/5000 [17:50 > 00:07]
+L-BFGS:   1%|          | 36/5000 [17:51 > 00:07]
+L-BFGS:   1%|          | 37/5000 [17:49 > 00:08]
+L-BFGS:   1%|          | 38/5000 [17:49 > 00:08]
+L-BFGS:   1%|          | 39/5000 [17:49 > 00:08]
+L-BFGS:   1%|          | 40/5000 [17:48 > 00:08]
+L-BFGS:   1%|          | 41/5000 [17:54 > 00:09]
+L-BFGS:   1%|          | 42/5000 [17:52 > 00:09]
+L-BFGS:   1%|          | 43/5000 [18:02 > 00:09]
+L-BFGS:   1%|          | 44/5000 [17:57 > 00:09]
+L-BFGS:   1%|          | 45/5000 [17:54 > 00:09]
+L-BFGS:   1%|          | 46/5000 [17:57 > 00:10]
+L-BFGS:   1%|          | 47/5000 [18:03 > 00:10]
+L-BFGS:   1%|          | 48/5000 [18:03 > 00:10]
+L-BFGS:   1%|          | 49/5000 [18:00 > 00:10]
+L-BFGS:   1%|          | 50/5000 [17:58 > 00:10]
+L-BFGS:   1%|          | 51/5000 [18:01 > 00:11]
+L-BFGS:   1%|          | 52/5000 [18:07 > 00:11]
+L-BFGS:   1%|          | 53/5000 [17:51 > 00:11]
+L-BFGS:   1%|          | 54/5000 [17:53 > 00:11]
+L-BFGS:   1%|          | 55/5000 [17:56 > 00:12]
+L-BFGS:   1%|          | 56/5000 [18:00 > 00:12]
+L-BFGS:   1%|          | 57/5000 [17:57 > 00:12]
+L-BFGS:   1%|          | 58/5000 [18:04 > 00:12]
+L-BFGS:   1%|          | 59/5000 [18:05 > 00:12]
+L-BFGS:   1%|          | 60/5000 [17:52 > 00:13]
+L-BFGS:   1%|          | 61/5000 [17:50 > 00:13]
+L-BFGS:   1%|          | 62/5000 [17:51 > 00:13]
+L-BFGS:   1%|▏         | 63/5000 [17:58 > 00:13]
+L-BFGS:   1%|▏         | 64/5000 [18:00 > 00:14]
+L-BFGS:   1%|▏         | 65/5000 [18:01 > 00:14]
+L-BFGS:   1%|▏         | 66/5000 [18:02 > 00:14]
+L-BFGS:   1%|▏         | 67/5000 [17:59 > 00:14]
+L-BFGS:   1%|▏         | 68/5000 [18:02 > 00:14]
+L-BFGS:   1%|▏         | 69/5000 [18:01 > 00:15]
+L-BFGS:   1%|▏         | 70/5000 [18:06 > 00:15]
+L-BFGS:   1%|▏         | 71/5000 [18:05 > 00:15]
+L-BFGS:   1%|▏         | 72/5000 [18:02 > 00:15]
+L-BFGS:   1%|▏         | 73/5000 [17:54 > 00:16]
+L-BFGS:   1%|▏         | 74/5000 [17:43 > 00:16]
