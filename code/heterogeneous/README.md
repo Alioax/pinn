@@ -1,12 +1,19 @@
-# Heterogeneous medium — physics-informed neural operator (Report 5)
+# Heterogeneous medium — PINO and parametric PINN (Report 5)
 
-Four zones on \(x \in [0, L]\) with lengths **20 + 20 + 20 + 40 m** (COMSOL geometry) and zone velocities \(u_1,\ldots,u_4\) (m/d). The PINO learns
+Four zones on \(x \in [0, L]\) with lengths **20 + 20 + 20 + 40 m** (COMSOL geometry) and zone velocities \(u_1,\ldots,u_4\) (m/d). Both surrogates learn
 
 \[
 (u_1, u_2, u_3, u_4) \mapsto C^*(x^*, t^*)
 \]
 
 from the dimensionless advection–diffusion equation with **piecewise** \(\mathrm{CFL}(x^*)\). Training is **physics-informed only**; COMSOL data are used for validation plots.
+
+| Model | Folder | Architecture |
+|-------|--------|--------------|
+| **PINO** (DeepONet) | `pino_heterogeneous/` | Branch `[4,16,16,32]` + trunk `[2,32,32,32,32]` → \(\sigma(\mathbf{b}^\top\mathbf{t})\) |
+| **Parametric PINN** | `parametric_heterogeneous_pinn/` | Single MLP `[6,36,36,36,36,1]` on \((x^*,t^*,\mathrm{CFL}_1,\ldots,\mathrm{CFL}_4)\) |
+
+The parametric PINN is the operator-comparison baseline: same physics, collocation, training media, and optimizer settings, but one network instead of branch/trunk.
 
 ## Physics
 
@@ -26,12 +33,19 @@ BCs: \(C^*(x^*,0)=0\), \(C^*(0,t^*)=1\), \(C^*(1,t^*)=0\).
 
 Earlier PINO runs (including every experiment below) used **incorrect equal-length zones** (\(25\) m each, interfaces at \(x^*=0.25, 0.5, 0.75\)). COMSOL and the intended problem use **20–20–20–40 m** zones. `utils.zone_velocity.py` and the training script now use the correct piecewise \(\mathrm{CFL}(x^*)\) and interface locations. **Re-train and re-validate** before comparing new numbers to the table below; prior validation \(L_2\) summaries are not meaningful for the true geometry.
 
-## Model (current baseline)
+## Model (PINO baseline)
 
-- **Branch:** zone CFL \((\mathrm{CFL}_1,\ldots,\mathrm{CFL}_4)\) → MLP `[4, 12, 12, 12, 12]`
-- **Trunk:** \((x^*, t^*)\) → MLP `[2, 12, 12, 12]`
+- **Branch:** zone CFL \((\mathrm{CFL}_1,\ldots,\mathrm{CFL}_4)\) → MLP `[4, 16, 16, 32]`
+- **Trunk:** \((x^*, t^*)\) → MLP `[2, 32, 32, 32, 32]`
 - Output: \(\sigma(\mathbf{b}^\top \mathbf{t})\) (single trunk; globally \(C^\infty\) in \((x^*, t^*)\))
 - **PDE:** piecewise \(\mathrm{CFL}(x^*)\) from branch via `utils.zone_velocity`
+
+## Model (parametric PINN comparison)
+
+- **Input:** \((x^*, t^*, \mathrm{CFL}_1,\ldots,\mathrm{CFL}_4)\) concatenated → MLP `[6, 36, 36, 36, 36, 1]` (~4,285 params)
+- Output: Sigmoid (concentration in \([0,1]\))
+- **PDE:** same local piecewise \(\mathrm{CFL}(x^*)\) in the residual (four CFL inputs are network features only)
+- **Defaults:** match operator run J — maximin \(N=500\), `float64`, `lr=0.1`, `max_iter=20`, early-stop 150
 
 ## Validation status (COMSOL, 81 media) — pre-geometry-fix baseline
 
@@ -85,14 +99,21 @@ Enable with `--trunk-mode zone` (see `exp_G_maximin_N500_zone_trunks`).
 
 Optimizer: L-BFGS (`num_epochs_lbfgs` in script), `float64`. PDE loss: uniform `mean(residual²)` over all collocation points.
 
-## Quick run (train + validate all 81 COMSOL media)
+## Quick run (PINO)
 
 ```bash
 cd code/heterogeneous/pino_heterogeneous
 python pinn1d_heterogeneous_parametric_neural_operator.py
 ```
 
-Edit the configuration block at the top of that script (`num_epochs_lbfgs`, `mesh_nx_pde`, `run_training`, `run_comsol_validation`, etc.), then run once.
+## Quick run (parametric PINN)
+
+```bash
+cd code/heterogeneous/parametric_heterogeneous_pinn
+python pinn1d_heterogeneous_parametric_pinn.py
+```
+
+Edit the configuration block at the top of each script (`num_epochs_lbfgs`, `mesh_nx_pde`, `run_training`, `run_comsol_validation`, etc.), then run once.
 
 ### Outputs under `pino_heterogeneous/results/`
 
@@ -104,7 +125,17 @@ Edit the configuration block at the top of that script (`num_epochs_lbfgs`, `mes
 | `pino_heterogeneous_concentration.png` | Sample operator profiles |
 | `comsol_validation/` | **81** PINO vs COMSOL plots + `comsol_validation_summary.csv` |
 
-Validation-only (no retrain): set `run_training = False` and `run_comsol_validation = True` in the script.
+Validation-only (no retrain): set `run_training = False` and `run_comsol_validation = True` in the script, or pass `--validate-only`.
+
+### Outputs under `parametric_heterogeneous_pinn/results/`
+
+| File / folder | Content |
+|---------------|---------|
+| `parametric_heterogeneous_pinn_model.pt` | Checkpoint |
+| `parametric_heterogeneous_pinn_loss.png` | Training loss |
+| `parametric_heterogeneous_pinn_collocation_points.png` | Collocation mesh |
+| `parametric_heterogeneous_pinn_concentration.png` | Sample PINN profiles |
+| `comsol_validation/` | **81** PINN vs COMSOL plots + `comsol_validation_summary.csv` |
 
 [`data/comsol_4zones.txt`](data/comsol_4zones.txt) is already dimensionless \(C^* \in [0,1]\) (do not rescale by Report-4 \(C_0=5\)).
 
@@ -145,7 +176,13 @@ Report 5 follow-on experiments (vs maximin C):
 | `exp_M_maximin_N200_float64_lr01_epochs5000` | experiment J except N=200, `--epochs 5000`, `max_iter=1` (default) |
 | `exp_N_maximin_N250_float64_lr01_maxiter25_epochs500` | efficiency probe vs J: maximin N=250, `--epochs 500`, `--lbfgs-max-iter 25`, `float64`, `lr=0.1`, early-stop 150 |
 
-Example (single experiment):
+**Parametric PINN comparison** (same training protocol as run J; results under `parametric_heterogeneous_pinn/results/`):
+
+| Folder | Notes |
+|--------|-------|
+| `exp_J_maximin_N500_float64_lr01_maxiter20_pinn` | maximin N=500, `float64`, `lr=0.1`, `max_iter=20` — compare `mean_rel_l2` to operator `exp_J_*` |
+
+Example (PINO):
 
 ```bash
 cd code/heterogeneous/pino_heterogeneous
@@ -155,7 +192,29 @@ python pinn1d_heterogeneous_parametric_neural_operator.py \
   --skip-validation-plots
 ```
 
-**Remote workflow:** queue all four runs in [`jobs.txt`](../../jobs.txt) at the repo root, commit & push from your laptop, then run `run.bat` on the remote GPU. The runner pulls, executes jobs fail-fast, and pushes one commit with logs under `runs/<timestamp>/` plus artifacts under `pino_heterogeneous/results/exp_*`.
+Example (parametric PINN, operator run J settings):
+
+```bash
+cd code/heterogeneous/parametric_heterogeneous_pinn
+python pinn1d_heterogeneous_parametric_pinn.py \
+  --design maximin --n-train 500 --dtype float64 \
+  --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 \
+  --out-dir results/exp_J_maximin_N500_float64_lr01_maxiter20_pinn \
+  --skip-validation-plots
+```
+
+Parametric PINN CLI (no `--arch` / `--trunk-mode`):
+
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--design` | `maximin` (batch) | Same designs as PINO |
+| `--dtype` | `float64` | |
+| `--lr-lbfgs` | `0.1` | |
+| `--lbfgs-max-iter` | `20` | |
+| `--early-stop-patience` | `150` | |
+| `--epochs` | `1000` | |
+
+**Remote workflow:** queue runs in [`jobs.txt`](../../jobs.txt) at the repo root, commit & push from your laptop, then run `run.bat` on the remote GPU. The runner pulls, executes jobs fail-fast, and pushes one commit with logs under `runs/<timestamp>/` plus artifacts beside each script under `results/exp_*`.
 
 **Per-run outputs** (`results/exp_<name>/`):
 
@@ -192,6 +251,8 @@ Plots land in `results/exp_*/comsol_validation/` (81 PNGs + `comsol_validation_s
 | `utils/zone_velocity.py` | Piecewise \(\mathrm{CFL}(x^*)\) |
 | `utils/lhc_sampling.py` | LHC training design + CSV I/O |
 | `utils/comsol_4zones.py` | COMSOL export parser |
-| `pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py` | **Train + COMSOL validation** |
+| `pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py` | PINO train + COMSOL validation |
 | `pino_heterogeneous/deeponet.py` | DeepONet module |
+| `parametric_heterogeneous_pinn/pinn1d_heterogeneous_parametric_pinn.py` | Parametric PINN train + COMSOL validation |
+| `parametric_heterogeneous_pinn/parametric_pinn.py` | 6-input MLP module |
 | `data/comsol_4zones.txt` | Reference solutions (81 velocity tuples) |

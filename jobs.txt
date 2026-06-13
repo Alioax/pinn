@@ -9,6 +9,5 @@
 # Workflow: edit this list on your laptop, commit & push, then run
 # run.bat on the remote. The run stops at the first script that fails.
 #
-# Report 5 experiment N: efficiency probe vs J — maximin N=250, float64, lr=0.1,
-# epochs=500, max_iter=25, early-stop patience=150 (~31% of J's closure budget).
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design maximin --n-train 250 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 25 --epochs 500 --out-dir results/exp_N_maximin_N250_float64_lr01_maxiter25_epochs500 --skip-validation-plots
+# Parametric PINN vs operator run J — maximin N=500, float64, lr=0.1, max_iter=20
+code/heterogeneous/parametric_heterogeneous_pinn/pinn1d_heterogeneous_parametric_pinn.py --design maximin --n-train 500 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_J_maximin_N500_float64_lr01_maxiter20_pinn --skip-validation-plots

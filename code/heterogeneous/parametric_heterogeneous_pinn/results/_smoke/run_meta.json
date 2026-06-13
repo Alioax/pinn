@@ -1,0 +1,29 @@
+{
+  "model_type": "parametric_pinn",
+  "pinn_architecture": [
+    6,
+    36,
+    36,
+    36,
+    36,
+    1
+  ],
+  "design": "capacity",
+  "n_train": 81,
+  "n_train_actual": 81,
+  "n_corner_anchors": null,
+  "seed": 1234567,
+  "dtype": "float64",
+  "num_epochs_lbfgs_requested": 2,
+  "early_stop_patience": 0,
+  "lr_lbfgs": 0.1,
+  "lbfgs_max_iter": 20,
+  "wall_clock_s": 191.816,
+  "out_dir": "results\\_smoke",
+  "num_epochs_lbfgs_actual": 2,
+  "early_stopped": false,
+  "best_total_loss": 0.06898225419140695,
+  "mean_rel_l2": 0.18034857995991502,
+  "max_rel_l2": 0.36165527110372164,
+  "min_rel_l2": 0.10697325677574247
+}
