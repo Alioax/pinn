@@ -176,6 +176,14 @@ Report 5 follow-on experiments (vs maximin C):
 | `exp_M_maximin_N200_float64_lr01_epochs5000` | experiment J except N=200, `--epochs 5000`, `max_iter=1` (default) |
 | `exp_N_maximin_N250_float64_lr01_maxiter25_epochs500` | efficiency probe vs J: maximin N=250, `--epochs 500`, `--lbfgs-max-iter 25`, `float64`, `lr=0.1`, early-stop 150 |
 
+**PINO_2 (GRF training, zoned COMSOL validation)** — paper headline: train on smooth Gaussian random velocity fields (physics-only), validate on the existing 81 four-zone COMSOL cases by sampling each zoned field at K fixed sensors into the branch.
+
+| Folder | Notes |
+|--------|-------|
+| `exp_O_grf_K32_N500_float64_lr01_maxiter20` | `--design grf`, K=32 sensors (+ interface x*), N=500 GRF fields, `float64`, same L-BFGS settings as `exp_J` (`lr=0.1`, `max_iter=20`, early-stop 150). Compare `mean_rel_l2` to PINO_1 `exp_J` (~2.61%) and parametric PINN `exp_J_*_pinn` (~1.80%). |
+
+GRF CLI flags (with `--design grf`): `--n-sensors` (default 32), `--grf-corr-length` (default 0.2 in x*), `--grf-grid-n` (default 201). Training cache: `train_grf_cases.npz`. Interface PDE bands are disabled in GRF mode. Branch amortization in `deeponet.forward()` is a follow-up for timing comparison, not required for accuracy.
+
 **Parametric PINN comparison** (same training protocol as run J; results under `parametric_heterogeneous_pinn/results/`):
 
 | Folder | Notes |
@@ -200,6 +208,18 @@ python pinn1d_heterogeneous_parametric_pinn.py \
   --design maximin --n-train 500 --dtype float64 \
   --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 \
   --out-dir results/exp_J_maximin_N500_float64_lr01_maxiter20_pinn \
+  --skip-validation-plots
+```
+
+Example (PINO_2 GRF, remote batch settings):
+
+```bash
+cd code/heterogeneous/pino_heterogeneous
+python pinn1d_heterogeneous_parametric_neural_operator.py \
+  --design grf --n-train 500 --n-sensors 32 --grf-corr-length 0.2 \
+  --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 \
+  --epochs 1000 \
+  --out-dir results/exp_O_grf_K32_N500_float64_lr01_maxiter20 \
   --skip-validation-plots
 ```
 

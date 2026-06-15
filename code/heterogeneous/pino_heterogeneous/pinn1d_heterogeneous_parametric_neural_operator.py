@@ -33,6 +33,16 @@ for _p in (_HETERO_ROOT, _PINO_DIR):
 
 from deeponet import DeepONetParametric, build_deeponet  # noqa: E402
 from utils.comsol_4zones import list_parameter_combos, load_case  # noqa: E402
+from utils.grf_sampling import (  # noqa: E402
+    GRFTrainingBatch,
+    branch_cfl_from_grf_sensor_u,
+    branch_cfl_from_zone_case,
+    default_sensor_xstar,
+    interpolate_u_xstar,
+    load_or_generate_grf_train_cases,
+    load_grf_cases_npz,
+    zone_u_at_xstar,
+)
 from utils.lhc_sampling import (  # noqa: E402
     TrainDesign,
     comsol_validation_u_grid,
@@ -140,6 +150,13 @@ arch_preset = "default"
 trunk_mode = "single"
 skip_validation_plots = False
 batch_mode = False
+
+# GRF (PINO_2) mode — set by --design grf
+media_mode: str = "zone"
+n_sensors_requested = 32
+grf_corr_length = 0.2
+grf_grid_n = 201
+sensor_xstar: np.ndarray | None = None
 
 # =============================================================================
 # Plot style
@@ -261,6 +278,18 @@ def comsol_c_star_on_x_star(
     return np.interp(x_star, x_star_comsol, c_star)
 
 
+def branch_cfl_vector_for_validation(
+    u_case: tuple[float, float, float, float],
+) -> np.ndarray:
+    """Branch CFL features for COMSOL validation (zone or GRF sensor encoding)."""
+    if media_mode == "grf":
+        if sensor_xstar is None:
+            raise RuntimeError("sensor_xstar not set for GRF validation")
+        return branch_cfl_from_zone_case(u_case, sensor_xstar, l_m=L, t_max_d=T_MAX)
+    physical = np.array([list(u_case)], dtype=np.float64).reshape(1, 4)
+    return branch_cfl_from_u(physical).flatten()
+
+
 def branch_tensor_from_u_case(
     u_case: tuple[float, float, float, float],
     n: int,
@@ -268,8 +297,7 @@ def branch_tensor_from_u_case(
     device: torch.device,
     dtype: torch.dtype,
 ) -> torch.Tensor:
-    physical = np.array([list(u_case)], dtype=np.float64).reshape(1, 4)
-    cfl_branch = branch_cfl_from_u(physical)
+    cfl_branch = branch_cfl_vector_for_validation(u_case).reshape(1, -1)
     return torch.tensor(
         np.repeat(cfl_branch, n, axis=0), dtype=dtype, device=device
     )
@@ -317,16 +345,21 @@ def _pde_residual_1d(
     )
     t_t = torch.full((n_x, 1), t_star, dtype=dtype, device=device, requires_grad=True)
     branch = branch_tensor_from_u_case(u_case, n_x, device=device, dtype=dtype)
-    u_phys = torch.tensor(
-        np.tile(np.array(u_case, dtype=np.float64), (n_x, 1)),
-        dtype=dtype,
-        device=device,
-    )
     c = model(x_t, t_t, branch)
     dC_dt = gradients(c, t_t)
     dC_dx = gradients(c, x_t)
     d2C_dx2 = gradients(dC_dx, x_t)
-    cfl_local = piecewise_cfl_from_branch(x_t, u_phys, l_m=L, t_max_d=T_MAX)
+    if media_mode == "grf":
+        u_np = zone_u_at_xstar(x_star, u_case, l_m=L)
+        u_phys = torch.tensor(u_np.reshape(-1, 1), dtype=dtype, device=device)
+        cfl_local = cfl_from_u(u_phys, l_m=L, t_max_d=T_MAX)
+    else:
+        u_phys = torch.tensor(
+            np.tile(np.array(u_case, dtype=np.float64), (n_x, 1)),
+            dtype=dtype,
+            device=device,
+        )
+        cfl_local = piecewise_cfl_from_branch(x_t, u_phys, l_m=L, t_max_d=T_MAX)
     residual = dC_dt + cfl_local * dC_dx - PE * d2C_dx2
     return residual.detach().cpu().numpy().flatten()
 
@@ -731,6 +764,111 @@ def build_collocation_tensors(
     return tensors, plot_data
 
 
+def _pde_collocation_from_grf_cases(
+    x_1d: np.ndarray,
+    t_1d: np.ndarray,
+    batch: GRFTrainingBatch,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Build PDE collocation from 1D x*, t* grids and GRF training batch."""
+    n_u = batch.sensor_u.shape[0]
+    gx, gt, gu = np.meshgrid(x_1d, t_1d, np.arange(n_u, dtype=np.int64), indexing="ij")
+    case_idx = gu.reshape(-1)
+    x_flat = gx.reshape(-1)
+    t_flat = gt.reshape(-1)
+    grid_rows = batch.grid_u[case_idx]
+    u_interp = np.empty(x_flat.size, dtype=np.float64)
+    for i, (xi, row) in enumerate(zip(x_flat, grid_rows, strict=True)):
+        u_interp[i] = interpolate_u_xstar(xi, batch.grid_x, row)
+    return x_flat, t_flat, case_idx, u_interp.reshape(-1, 1)
+
+
+def build_grf_collocation_tensors(
+    device: torch.device,
+    dtype: torch.dtype,
+    batch: GRFTrainingBatch,
+):
+    """Collocation tensors for GRF training (bulk PDE mesh only, no interface bands)."""
+    tf = float(T_MAX / T_MAX)
+    x_1d = np.linspace(0.0, 1.0, mesh_nx_pde)
+    t_1d = np.linspace(0.0, tf, mesh_nt_pde)
+
+    x_star_pde_np, t_star_pde_np, case_idx_pde, u_pde_np = _pde_collocation_from_grf_cases(
+        x_1d, t_1d, batch
+    )
+    sensor_pde_np = batch.sensor_u[case_idx_pde]
+
+    zone_pde_np = zone_index_xstar_np(x_star_pde_np, l_m=L)
+    pde_colors = [f"C{int(i) % n_cycle_colors}" for i in zone_pde_np]
+
+    n_u = batch.sensor_u.shape[0]
+    x_ic_1d = np.linspace(0.0, 1.0, mesh_ic_nx)
+    gxi, gui = np.meshgrid(x_ic_1d, np.arange(n_u, dtype=np.int64), indexing="ij")
+    x_star_ic_np = gxi.reshape(-1)
+    t_star_ic_np = np.zeros_like(x_star_ic_np)
+    case_ic_np = gui.reshape(-1)
+    sensor_ic_np = batch.sensor_u[case_ic_np]
+
+    t_bc_1d = np.linspace(0.0, tf, mesh_bc_nt)
+    gtb, gub = np.meshgrid(t_bc_1d, np.arange(n_u, dtype=np.int64), indexing="ij")
+    t_star_inlet_np = gtb.reshape(-1)
+    case_bc_np = gub.reshape(-1)
+    sensor_bc_np = batch.sensor_u[case_bc_np]
+    x_star_inlet_np = np.zeros_like(t_star_inlet_np)
+    x_star_outlet_np = np.ones_like(t_star_inlet_np)
+    t_star_outlet_np = t_star_inlet_np.copy()
+
+    i_ref = 0
+    slice_mask = case_idx_pde == i_ref
+    if not np.any(slice_mask):
+        slice_mask = np.ones_like(x_star_pde_np, dtype=bool)
+    u_ref_sensors = batch.sensor_u[i_ref]
+    k_show = min(4, u_ref_sensors.size)
+    u_ref_display = tuple(float(v) for v in u_ref_sensors[:k_show])
+
+    tensors: dict[str, torch.Tensor] = {
+        "x_pde": torch.tensor(
+            x_star_pde_np.reshape(-1, 1), dtype=dtype, device=device, requires_grad=True
+        ),
+        "t_pde": torch.tensor(
+            t_star_pde_np.reshape(-1, 1), dtype=dtype, device=device, requires_grad=True
+        ),
+        "branch_pde": torch.tensor(
+            branch_cfl_from_grf_sensor_u(sensor_pde_np), dtype=dtype, device=device
+        ),
+        "u_pde": torch.tensor(u_pde_np, dtype=dtype, device=device),
+        "x_ic": torch.tensor(x_star_ic_np.reshape(-1, 1), dtype=dtype, device=device),
+        "t_ic": torch.tensor(t_star_ic_np.reshape(-1, 1), dtype=dtype, device=device),
+        "branch_ic": torch.tensor(
+            branch_cfl_from_grf_sensor_u(sensor_ic_np), dtype=dtype, device=device
+        ),
+        "x_in": torch.tensor(x_star_inlet_np.reshape(-1, 1), dtype=dtype, device=device),
+        "t_in": torch.tensor(t_star_inlet_np.reshape(-1, 1), dtype=dtype, device=device),
+        "branch_in": torch.tensor(
+            branch_cfl_from_grf_sensor_u(sensor_bc_np), dtype=dtype, device=device
+        ),
+        "x_out": torch.tensor(x_star_outlet_np.reshape(-1, 1), dtype=dtype, device=device),
+        "t_out": torch.tensor(t_star_outlet_np.reshape(-1, 1), dtype=dtype, device=device),
+        "branch_out": torch.tensor(
+            branch_cfl_from_grf_sensor_u(sensor_bc_np), dtype=dtype, device=device
+        ),
+    }
+
+    plot_data = {
+        "x_star_pde_np": x_star_pde_np,
+        "t_star_pde_np": t_star_pde_np,
+        "u1_pde_np": sensor_pde_np[:, 0],
+        "pde_colors": pde_colors,
+        "slice_mask": slice_mask,
+        "u_ref_case": u_ref_display,
+        "is_interface_pde_np": np.zeros(x_star_pde_np.size, dtype=bool),
+        "n_pde_bulk": x_star_pde_np.size,
+        "n_pde_interface": 0,
+        "n_pde": x_star_pde_np.size,
+        "grf_mode": True,
+    }
+    return tensors, plot_data
+
+
 def compute_interface_losses(
     model: nn.Module,
     tensors: dict[str, torch.Tensor],
@@ -763,6 +901,7 @@ def compute_physics_loss(
     tensors: dict[str, torch.Tensor],
     *,
     use_zone_pde: bool = False,
+    use_grf_pde: bool = False,
     use_interface_losses: bool = False,
 ) -> tuple[torch.Tensor, tuple[float, ...]]:
     c_pde = model(tensors["x_pde"], tensors["t_pde"], tensors["branch_pde"])
@@ -771,6 +910,8 @@ def compute_physics_loss(
     d2C_dx2 = gradients(dC_dx, tensors["x_pde"])
     if use_zone_pde:
         cfl_local = zone_local_cfl_from_u(tensors["x_pde"], tensors["u_pde"])
+    elif use_grf_pde:
+        cfl_local = cfl_from_u(tensors["u_pde"], l_m=L, t_max_d=T_MAX)
     else:
         cfl_local = piecewise_cfl_from_branch(
             tensors["x_pde"], tensors["u_pde"], l_m=L, t_max_d=T_MAX
@@ -827,6 +968,7 @@ def train_model(
     tensors: dict[str, torch.Tensor],
     *,
     use_zone_pde: bool = False,
+    use_grf_pde: bool = False,
     use_interface_losses: bool = False,
 ) -> tuple[list[list[float]], dict[str, object]]:
     optimizer = torch.optim.LBFGS(
@@ -857,6 +999,7 @@ def train_model(
             model,
             tensors,
             use_zone_pde=use_zone_pde,
+            use_grf_pde=use_grf_pde,
             use_interface_losses=use_interface_losses,
         )
         total_loss.backward()
@@ -917,10 +1060,17 @@ def plot_collocation_points(plot_data: dict, *, n_train_media: int) -> Path:
         alpha=0.6,
     )
     u_ref = plot_data["u_ref_case"]
-    axes2[0].set_title(
-        rf"PDE: $x^*$ vs $t^*$ (one LHC medium), "
-        rf"$u=({u_ref[0]:g},{u_ref[1]:g},{u_ref[2]:g},{u_ref[3]:g})$ m/d"
-    )
+    if plot_data.get("grf_mode"):
+        ref_title = (
+            rf"PDE: $x^*$ vs $t^*$ (GRF case 0), "
+            rf"sensor $u_1..u_{len(u_ref)}$=({', '.join(f'{v:g}' for v in u_ref)}) m/d"
+        )
+    else:
+        ref_title = (
+            rf"PDE: $x^*$ vs $t^*$ (one LHC medium), "
+            rf"$u=({u_ref[0]:g},{u_ref[1]:g},{u_ref[2]:g},{u_ref[3]:g})$ m/d"
+        )
+    axes2[0].set_title(ref_title)
     axes2[0].set_xlabel(r"$x^*$")
     axes2[0].set_ylabel(r"$t^* = t/T_{\max}$")
     _apply_xstar_ticks_x(axes2[0], pad=collocation_xstar_axis_pad)
@@ -1050,9 +1200,9 @@ def parse_cli() -> argparse.Namespace:
     )
     parser.add_argument(
         "--design",
-        choices=["capacity", "lhc", "maximin", "anchored"],
+        choices=["capacity", "lhc", "maximin", "anchored", "grf"],
         default=None,
-        help="Training-parameter design (Report 5 batch mode).",
+        help="Training-parameter design (Report 5 batch mode); grf = PINO_2 GRF fields.",
     )
     parser.add_argument(
         "--n-train",
@@ -1135,6 +1285,25 @@ def parse_cli() -> argparse.Namespace:
         metavar="N",
         help="L-BFGS outer steps (num_epochs_lbfgs, default 1000).",
     )
+    parser.add_argument(
+        "--n-sensors",
+        type=int,
+        default=None,
+        metavar="K",
+        help="GRF branch sensor count (default 32; interface x* appended).",
+    )
+    parser.add_argument(
+        "--grf-corr-length",
+        type=float,
+        default=None,
+        help="GRF squared-exponential correlation length in x* (default 0.2).",
+    )
+    parser.add_argument(
+        "--grf-grid-n",
+        type=int,
+        default=None,
+        help="GRF velocity field grid points on [0,1] (default 201).",
+    )
     return parser.parse_args()
 
 
@@ -1143,7 +1312,23 @@ def _apply_arch_preset(name: str) -> None:
     if name not in ARCH_PRESETS:
         raise ValueError(f"Unknown arch preset: {name!r}")
     arch_preset = name
-    branch_architecture, trunk_architecture = ARCH_PRESETS[name]
+    preset_branch, trunk_architecture = ARCH_PRESETS[name]
+    if media_mode == "grf":
+        branch_architecture = [sensor_count, *preset_branch[1:]]
+    else:
+        branch_architecture = list(preset_branch)
+
+
+def _apply_grf_branch_arch(k: int, *, arch: str = "default") -> None:
+    """Set branch width to K sensor CFL features for GRF mode."""
+    global sensor_count, branch_architecture, arch_preset
+    sensor_count = k
+    if arch == "dense":
+        branch_architecture = [k, 64, 64, 128]
+        arch_preset = "dense"
+    else:
+        branch_architecture = [k, 16, 16, 32]
+        arch_preset = "default"
 
 
 def _load_run_meta_for_validate() -> bool:
@@ -1158,6 +1343,8 @@ def _load_run_meta_for_validate() -> bool:
         return False
     global branch_architecture, trunk_architecture, arch_preset, torch_dtype, trunk_mode
     global lr_lbfgs, lbfgs_max_iter, early_stop_patience
+    global media_mode, sensor_count, sensor_xstar, grf_corr_length, grf_grid_n
+    global n_sensors_requested
     branch_architecture = list(branch)
     trunk_architecture = list(trunk)
     arch_preset = str(meta.get("arch_preset", "custom"))
@@ -1173,6 +1360,13 @@ def _load_run_meta_for_validate() -> bool:
         lbfgs_max_iter = int(meta["lbfgs_max_iter"])
     if "early_stop_patience" in meta:
         early_stop_patience = int(meta["early_stop_patience"])
+    media_mode = str(meta.get("media_mode", "zone"))
+    if media_mode == "grf":
+        sensor_xstar = np.asarray(meta["sensor_xstar"], dtype=np.float64)
+        sensor_count = int(meta.get("n_sensors", sensor_xstar.size))
+        grf_corr_length = float(meta.get("grf_corr_length", 0.2))
+        grf_grid_n = int(meta.get("grf_grid_n", 201))
+        n_sensors_requested = int(meta.get("n_sensors_requested", sensor_count))
     return True
 
 
@@ -1181,7 +1375,8 @@ def apply_cli(args: argparse.Namespace) -> None:
     global train_design, n_train_requested, n_corner_anchors, skip_validation_plots
     global batch_mode, reload_lhc_train_cases, run_training, validate_only
     global torch_dtype, trunk_mode, early_stop_patience, lr_lbfgs, lbfgs_max_iter
-    global num_epochs_lbfgs
+    global num_epochs_lbfgs, media_mode, n_sensors_requested, grf_corr_length
+    global grf_grid_n, sensor_xstar, sensor_count, branch_architecture
 
     if args.reload_train_cases:
         reload_lhc_train_cases = True
@@ -1199,6 +1394,23 @@ def apply_cli(args: argparse.Namespace) -> None:
         train_design = args.design  # type: ignore[assignment]
         if train_design == "capacity":
             n_train_requested = 81
+        elif train_design == "grf":
+            media_mode = "grf"
+            if args.n_train is not None:
+                n_train_requested = args.n_train
+            else:
+                n_train_requested = 500
+            if args.n_sensors is not None:
+                n_sensors_requested = args.n_sensors
+            if args.grf_corr_length is not None:
+                grf_corr_length = args.grf_corr_length
+            if args.grf_grid_n is not None:
+                grf_grid_n = args.grf_grid_n
+            sensor_xstar = default_sensor_xstar(n_sensors_requested, include_interfaces=True)
+            _apply_grf_branch_arch(
+                sensor_xstar.size,
+                arch=args.arch if args.arch is not None else "default",
+            )
         elif args.n_train is not None:
             n_train_requested = args.n_train
         else:
@@ -1223,7 +1435,14 @@ def apply_cli(args: argparse.Namespace) -> None:
         _load_run_meta_for_validate()
 
     if args.arch is not None:
-        _apply_arch_preset(args.arch)
+        if media_mode == "grf" and args.design != "grf":
+            # validate-only restore may have set GRF arch from meta
+            _apply_grf_branch_arch(sensor_count, arch=args.arch)
+        elif media_mode != "grf":
+            _apply_arch_preset(args.arch)
+
+    if args.trunk_mode == "zone" and media_mode == "grf":
+        raise ValueError("--trunk-mode zone is not supported with --design grf")
 
     if args.dtype is not None:
         torch_dtype = torch.float64 if args.dtype == "float64" else torch.float32
@@ -1244,7 +1463,10 @@ def apply_cli(args: argparse.Namespace) -> None:
         num_epochs_lbfgs = args.epochs
 
     if batch_mode:
-        U_TRAIN_CASES_PATH = RESULTS_DIR / "train_u_cases.csv"
+        if media_mode == "grf":
+            U_TRAIN_CASES_PATH = RESULTS_DIR / "train_grf_cases.npz"
+        else:
+            U_TRAIN_CASES_PATH = RESULTS_DIR / "train_u_cases.csv"
         if skip_validation_plots:
             COMSOL_VALIDATION_DIR = RESULTS_DIR
         else:
@@ -1263,6 +1485,7 @@ def write_run_meta(
 ) -> Path:
     meta: dict[str, object] = {
         "design": train_design,
+        "media_mode": media_mode,
         "n_train": n_train_requested,
         "n_train_actual": n_train_actual,
         "n_corner_anchors": n_corner_anchors if train_design == "anchored" else None,
@@ -1279,6 +1502,12 @@ def write_run_meta(
         "wall_clock_s": round(wall_clock_s, 3),
         "out_dir": str(RESULTS_DIR.relative_to(_PINO_DIR)),
     }
+    if media_mode == "grf" and sensor_xstar is not None:
+        meta["n_sensors"] = int(sensor_xstar.size)
+        meta["n_sensors_requested"] = n_sensors_requested
+        meta["sensor_xstar"] = sensor_xstar.tolist()
+        meta["grf_corr_length"] = grf_corr_length
+        meta["grf_grid_n"] = grf_grid_n
     if training_summary:
         meta.update(training_summary)
     if validation_rows:
@@ -1316,15 +1545,46 @@ def main() -> None:
 
     print(f"PE (computed) = {PE:.12g}")
     print(
-        f"design={train_design}  n_train_requested={n_train_requested}  "
+        f"design={train_design}  media_mode={media_mode}  "
+        f"n_train_requested={n_train_requested}  "
         f"n_corner_anchors={n_corner_anchors}  arch={arch_preset}  "
         f"trunk_mode={trunk_mode}  batch_mode={batch_mode}"
     )
     print(f"branch={branch_architecture}  trunk={trunk_architecture}")
     print(f"results_dir={RESULTS_DIR}")
     n_u = 0
+    grf_batch: GRFTrainingBatch | None = None
     if validate_only:
         print(f"validate_only: loading checkpoint from {MODEL_PATH}")
+    elif media_mode == "grf":
+        if sensor_xstar is None:
+            raise RuntimeError("GRF mode requires sensor_xstar")
+        grf_batch = load_or_generate_grf_train_cases(
+            U_TRAIN_CASES_PATH,
+            n_train_requested,
+            sensor_xstar,
+            u_lo=U_LO,
+            u_hi=U_HI,
+            corr_length=grf_corr_length,
+            grid_n=grf_grid_n,
+            seed=seed,
+            reload=reload_lhc_train_cases,
+            l_m=L,
+            t_max_d=T_MAX,
+        )
+        n_u = grf_batch.sensor_u.shape[0]
+        cfl_train = branch_cfl_from_grf_sensor_u(grf_batch.sensor_u)
+        train_desc = (
+            f"{n_u} GRF smooth fields (K={sensor_xstar.size} sensors, "
+            f"ell={grf_corr_length:g}, grid_n={grf_grid_n})"
+        )
+        print(f"Training: {train_desc}")
+        print(f"  saved/loaded: {U_TRAIN_CASES_PATH}")
+        print(f"  branch CFL range [{cfl_train.min():g}, {cfl_train.max():g}]")
+        print(
+            f"PDE mesh: bulk {mesh_nx_pde}x{mesh_nt_pde}x{n_u} "
+            f"(no interface bands in GRF mode)"
+        )
     else:
         u_train = load_or_generate_train_u_cases()
         cfl_train = branch_cfl_from_u(u_train)
@@ -1372,16 +1632,27 @@ def main() -> None:
     ).to(device)
 
     if run_training:
-        tensors, plot_data = build_collocation_tensors(
-            device, dtype, u_train, include_interface=use_zone_trunks
-        )
+        if media_mode == "grf":
+            if grf_batch is None:
+                raise RuntimeError("GRF batch missing for training")
+            tensors, plot_data = build_grf_collocation_tensors(device, dtype, grf_batch)
+            use_zone_pde = False
+            use_grf_pde = True
+            use_interface_losses = False
+        else:
+            tensors, plot_data = build_collocation_tensors(
+                device, dtype, u_train, include_interface=use_zone_trunks
+            )
+            use_zone_pde = use_zone_trunks
+            use_grf_pde = False
+            use_interface_losses = use_zone_trunks
         print(
             f"PDE collocation points: {plot_data['n_pde']:,} "
             f"(bulk {plot_data['n_pde_bulk']:,}, interface {plot_data['n_pde_interface']:,})"
         )
         coll_path = plot_collocation_points(plot_data, n_train_media=n_u)
         print(f"Collocation mesh plot (pre-train): {coll_path}")
-        if use_zone_trunks:
+        if use_interface_losses:
             n_if_pts = tensors["x_if_l"].shape[0]
             print(
                 f"Zone trunks: per-zone PDE CFL + interface losses "
@@ -1391,8 +1662,9 @@ def main() -> None:
             model,
             device,
             tensors,
-            use_zone_pde=use_zone_trunks,
-            use_interface_losses=use_zone_trunks,
+            use_zone_pde=use_zone_pde,
+            use_grf_pde=use_grf_pde,
+            use_interface_losses=use_interface_losses,
         )
         conc_path, loss_path = plot_training_figures(model, device, dtype, history)
         if save_model:
@@ -1416,8 +1688,11 @@ def main() -> None:
             save_plots=not skip_validation_plots,
         )
 
-    if validate_only and n_u == 0 and U_TRAIN_CASES_PATH.is_file():
-        n_u = int(load_u_cases_csv(U_TRAIN_CASES_PATH).shape[0])
+    if validate_only and n_u == 0:
+        if media_mode == "grf" and U_TRAIN_CASES_PATH.is_file():
+            n_u = int(load_grf_cases_npz(U_TRAIN_CASES_PATH).sensor_u.shape[0])
+        elif U_TRAIN_CASES_PATH.is_file() and U_TRAIN_CASES_PATH.suffix == ".csv":
+            n_u = int(load_u_cases_csv(U_TRAIN_CASES_PATH).shape[0])
 
     if validation_rows is not None or not validate_only:
         meta_path = write_run_meta(

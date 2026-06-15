@@ -9,5 +9,5 @@
 # Workflow: edit this list on your laptop, commit & push, then run
 # run.bat on the remote. The run stops at the first script that fails.
 #
-# Parametric PINN vs operator run J — maximin N=500, float64, lr=0.1, max_iter=20
-code/heterogeneous/parametric_heterogeneous_pinn/pinn1d_heterogeneous_parametric_pinn.py --design maximin --n-train 500 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_J_maximin_N500_float64_lr01_maxiter20_pinn --skip-validation-plots
+# PINO_2 (GRF) — train on 500 smooth fields, validate on 81 zoned COMSOL cases
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-train 500 --n-sensors 32 --grf-corr-length 0.2 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_O_grf_K32_N500_float64_lr01_maxiter20 --skip-validation-plots

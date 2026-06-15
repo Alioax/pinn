@@ -1,0 +1,69 @@
+{
+  "checkpoint_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_E_capacity_dense",
+  "run_meta": {
+    "design": "capacity",
+    "n_train": 81,
+    "n_train_actual": 81,
+    "n_corner_anchors": null,
+    "arch_preset": "dense",
+    "branch_architecture": [
+      4,
+      64,
+      64,
+      128
+    ],
+    "trunk_architecture": [
+      2,
+      64,
+      64,
+      64,
+      64,
+      128
+    ],
+    "seed": 1234567,
+    "dtype": "float32",
+    "wall_clock_s": 132.137,
+    "out_dir": "results\\exp_E_capacity_dense",
+    "mean_rel_l2": 0.12167633970751628,
+    "max_rel_l2": 0.18748234340913864,
+    "min_rel_l2": 0.0890191435800223
+  },
+  "comsol_data": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\data\\comsol_4zones.txt",
+  "wall_clock_s": 4.283057199999348,
+  "cases": [
+    {
+      "u_case": [
+        0.01,
+        0.05,
+        0.01,
+        0.01
+      ],
+      "grid": {
+        "nx": 500,
+        "nt": 201
+      },
+      "pde_residual_autograd_before": {
+        "mean_abs": 0.0894983371349196,
+        "max_abs": 1.7589164972305298,
+        "rms": 0.18766650207376992
+      },
+      "pde_residual_fd_after": {
+        "mean_abs": 0.0013868094986379947,
+        "max_abs": 0.07723931724746458,
+        "rms": 0.0034044101188932434
+      },
+      "pde_residual_fd_after_slices_mean_abs": 0.002757985042516088,
+      "comsol_mean_rel_l2_before": 0.19100813652669607,
+      "comsol_mean_rel_l2_after": 0.127887877477537,
+      "comsol_rel_l2_improvement": 0.06312025904915908,
+      "solve": {
+        "solve_wall_s": 0.03323339999951713,
+        "discrete_residual_mean_abs": 3.414005999556923e-15,
+        "discrete_residual_max_abs": 1.3200551762793111e-13,
+        "discrete_residual_rms": 9.634007504606129e-15
+      },
+      "plot": "C:\\Research\\PINN\\Code Base\\code\\exploratory\\defect_correction_pino\\results\\default_worst_case\\compare_correction_0p01_0p05_0p01_0p01.png"
+    }
+  ],
+  "notes": "Correction solves L[delta]=-r via implicit FDM (physical only). COMSOL used for evaluation plots/metrics only. Smooth delta may under-correct slope kinks at zone interfaces."
+}
