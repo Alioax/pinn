@@ -79,6 +79,13 @@ def build_deeponet(
     trunk_arch: list[int],
     activation: type[nn.Module],
 ) -> nn.Module:
+    latent = branch_arch[-1]
+    if trunk_arch[-1] != latent:
+        raise ValueError(
+            f"Branch and trunk latent dims must match for the dot product: "
+            f"branch output {latent} != trunk output {trunk_arch[-1]} "
+            f"(branch={branch_arch}, trunk={trunk_arch})"
+        )
     if trunk_mode == "single":
         return DeepONetParametric(branch_arch, trunk_arch, activation)
     if trunk_mode == "zone":

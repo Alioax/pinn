@@ -1320,15 +1320,10 @@ def _apply_arch_preset(name: str) -> None:
 
 
 def _apply_grf_branch_arch(k: int, *, arch: str = "default") -> None:
-    """Set branch width to K sensor CFL features for GRF mode."""
-    global sensor_count, branch_architecture, arch_preset
+    """Set branch input width to K sensor CFL features; keep trunk latent dim in sync."""
+    global sensor_count
     sensor_count = k
-    if arch == "dense":
-        branch_architecture = [k, 64, 64, 128]
-        arch_preset = "dense"
-    else:
-        branch_architecture = [k, 16, 16, 32]
-        arch_preset = "default"
+    _apply_arch_preset(arch)
 
 
 def _load_run_meta_for_validate() -> bool:
