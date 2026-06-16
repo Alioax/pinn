@@ -252,7 +252,7 @@ REPORT5_EXPERIMENTS: list[tuple[str, str, list[str]]] = [
             "--epochs",
             "1000",
             "--out-dir",
-            "results/exp_A_grf_K32_N500_float64_lr01_maxiter20",
+            "../parametric_heterogeneous_pinn/results/exp_A_grf_K32_N500_float64_lr01_maxiter20",
         ],
     ),
     (
@@ -278,7 +278,7 @@ REPORT5_EXPERIMENTS: list[tuple[str, str, list[str]]] = [
             "--epochs",
             "1000",
             "--out-dir",
-            "results/exp_B_grf_K64_N500_float64_lr01_maxiter20",
+            "../parametric_heterogeneous_pinn/results/exp_B_grf_K64_N500_float64_lr01_maxiter20",
         ],
     ),
 ]
@@ -301,6 +301,13 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _resolve_out_dir(name: str, cli_args: list[str]) -> Path:
+    if "--out-dir" in cli_args:
+        idx = cli_args.index("--out-dir")
+        return (_PINO_DIR / cli_args[idx + 1]).resolve()
+    return _PINO_DIR / "results" / name
+
+
 def main() -> int:
     args = parse_args()
     selected = set(args.experiments) if args.experiments else None
@@ -310,7 +317,7 @@ def main() -> int:
         if selected is not None and name not in selected:
             continue
 
-        out_dir = _PINO_DIR / "results" / name
+        out_dir = _resolve_out_dir(name, cli_args)
         checkpoint = out_dir / "pino_heterogeneous_model.pt"
         if not checkpoint.is_file():
             print(f"SKIP {name}: no checkpoint at {checkpoint}")

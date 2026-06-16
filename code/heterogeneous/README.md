@@ -176,12 +176,12 @@ Report 5 follow-on experiments (vs maximin C):
 | `exp_M_maximin_N200_float64_lr01_epochs5000` | experiment J except N=200, `--epochs 5000`, `max_iter=1` (default) |
 | `exp_N_maximin_N250_float64_lr01_maxiter25_epochs500` | efficiency probe vs J: maximin N=250, `--epochs 500`, `--lbfgs-max-iter 25`, `float64`, `lr=0.1`, early-stop 150 |
 
-**PINO_2 (GRF training, zoned COMSOL validation)** — paper headline: train on smooth Gaussian random velocity fields (physics-only), validate on the existing 81 four-zone COMSOL cases by sampling each zoned field at K fixed sensors into the branch.
+**PINO_2 (GRF training, zoned COMSOL validation)** — paper headline: train on smooth Gaussian random velocity fields (physics-only), validate on the existing 81 four-zone COMSOL cases by sampling each zoned field at K fixed sensors into the branch. **Results are stored under** `parametric_heterogeneous_pinn/results/` (trained via the PINO GRF harness; checkpoints remain DeepONet).
 
 | Folder | Notes |
 |--------|-------|
-| `exp_A_grf_K32_N500_float64_lr01_maxiter20` | `--design grf`, K=32 sensors (+ interface x*), N=500 GRF fields, `float64`, same L-BFGS settings as `exp_J` (`lr=0.1`, `max_iter=20`, early-stop 150). Compare `mean_rel_l2` to PINO_1 `exp_J` (~2.61%) and parametric PINN `exp_J_*_pinn` (~1.80%). |
-| `exp_B_grf_K64_N500_float64_lr01_maxiter20` | Same as exp_A but `--n-sensors 64` (2× branch width; denser sensor grid for smooth→sharp validation). |
+| `parametric_heterogeneous_pinn/results/exp_A_grf_K32_N500_float64_lr01_maxiter20` | `--design grf`, K=32 sensors (+ interface x*), N=500 GRF fields, `float64`, same L-BFGS settings as `exp_J` (`lr=0.1`, `max_iter=20`, early-stop 150). Compare `mean_rel_l2` to PINO_1 `exp_J` (~2.61%) and parametric PINN `exp_J_*_pinn` (~1.80%). |
+| `parametric_heterogeneous_pinn/results/exp_B_grf_K64_N500_float64_lr01_maxiter20` | Same as exp_A but `--n-sensors 64` (2× branch width; denser sensor grid for smooth→sharp validation). |
 
 GRF CLI flags (with `--design grf`): `--n-sensors` (default 32), `--grf-corr-length` (default 0.2 in x*), `--grf-grid-n` (default 201). Training cache: `train_grf_cases.npz`. Interface PDE bands are disabled in GRF mode. Branch amortization in `deeponet.forward()` is a follow-up for timing comparison, not required for accuracy.
 
@@ -220,7 +220,7 @@ python pinn1d_heterogeneous_parametric_neural_operator.py \
   --design grf --n-train 500 --n-sensors 32 --grf-corr-length 0.2 \
   --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 \
   --epochs 1000 \
-  --out-dir results/exp_A_grf_K32_N500_float64_lr01_maxiter20 \
+  --out-dir ../parametric_heterogeneous_pinn/results/exp_A_grf_K32_N500_float64_lr01_maxiter20 \
   --skip-validation-plots
 ```
 
