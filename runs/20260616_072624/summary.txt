@@ -1,0 +1,7 @@
+run 20260616_072624
+jobs file: jobs.txt
+result: FAILED at code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py
+0/3 script(s) succeeded
+
+  #        status   elapsed  script
+01  FAILED(rc=1)   0:00:12  code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py
