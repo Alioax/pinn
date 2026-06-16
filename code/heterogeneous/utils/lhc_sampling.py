@@ -121,6 +121,65 @@ def generate_lhc_u_samples(
     )
 
 
+def _scale_unit_lhc_box(
+    draw: np.ndarray,
+    lo: np.ndarray,
+    hi: np.ndarray,
+) -> np.ndarray:
+    """Affine map unit LHC rows to ``[lo, hi]`` elementwise."""
+    lo = np.asarray(lo, dtype=np.float64)
+    hi = np.asarray(hi, dtype=np.float64)
+    if lo.shape != hi.shape:
+        raise ValueError("lo and hi must have the same shape")
+    if draw.shape[1] != lo.size:
+        raise ValueError(
+            f"LHC draw has d={draw.shape[1]} but lo/hi have size {lo.size}"
+        )
+    return qmc.scale(draw, lo, hi)
+
+
+def generate_maximin_lhc_box_samples(
+    n: int,
+    lo: np.ndarray,
+    hi: np.ndarray,
+    *,
+    seed: int,
+    n_candidates: int = 200,
+) -> np.ndarray:
+    """
+    Select among ``n_candidates`` LHC draws in a box the one with largest
+    minimum pairwise distance (maximin / space-filling criterion).
+    """
+    if n <= 0:
+        raise ValueError("n must be positive")
+    lo = np.asarray(lo, dtype=np.float64)
+    hi = np.asarray(hi, dtype=np.float64)
+    if lo.shape != hi.shape:
+        raise ValueError("lo and hi must have the same shape")
+    if np.any(hi <= lo):
+        raise ValueError("each hi component must exceed lo")
+
+    d = lo.size
+    batch = max(n * 4, n + 64)
+    best_samples: np.ndarray | None = None
+    best_score = -1.0
+
+    for k in range(n_candidates):
+        sampler = qmc.LatinHypercube(d=d, seed=seed + k)
+        draw = _scale_unit_lhc_box(sampler.random(n=batch), lo, hi)
+        samples = draw[:n].copy()
+        score = _min_pairwise_distance(samples)
+        if score > best_score:
+            best_score = score
+            best_samples = samples
+
+    if best_samples is None:
+        raise RuntimeError(
+            f"Could not collect {n} maximin LHC box samples after {n_candidates} candidates."
+        )
+    return best_samples
+
+
 def generate_maximin_lhc_u_samples(
     n: int,
     u_lo: float,
@@ -140,6 +199,13 @@ def generate_maximin_lhc_u_samples(
         raise ValueError("n must be positive")
     if u_hi <= u_lo:
         raise ValueError("u_hi must exceed u_lo")
+
+    if exclude_near is None or exclude_near.size == 0:
+        lo = np.full(4, u_lo, dtype=np.float64)
+        hi = np.full(4, u_hi, dtype=np.float64)
+        return generate_maximin_lhc_box_samples(
+            n, lo, hi, seed=seed, n_candidates=n_candidates
+        )
 
     batch = max(n * 4, n + 64)
     best_samples: np.ndarray | None = None

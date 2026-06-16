@@ -35,6 +35,9 @@ from deeponet import DeepONetParametric, build_deeponet  # noqa: E402
 from utils.comsol_4zones import list_parameter_combos, load_case  # noqa: E402
 from utils.grf_sampling import (  # noqa: E402
     GRFTrainingBatch,
+    GRF_CORR_LENGTHS_DEFAULT,
+    MixedTrainConfig,
+    PIECEWISE_ZONE_COUNTS_DEFAULT,
     branch_cfl_from_grf_sensor_u,
     branch_cfl_from_zone_case,
     default_sensor_xstar,
@@ -82,6 +85,7 @@ sensor_count = 4
 ARCH_PRESETS: dict[str, tuple[list[int], list[int]]] = {
     "default": ([sensor_count, 16, 16, 32], [2, 32, 32, 32, 32]),
     "dense": ([sensor_count, 64, 64, 128], [2, 64, 64, 64, 64, 128]),
+    "w64": ([sensor_count, 64, 64, 64], [2, 64, 64, 64, 64]),
 }
 branch_architecture = ARCH_PRESETS["default"][0]
 trunk_architecture = ARCH_PRESETS["default"][1]
@@ -153,8 +157,11 @@ batch_mode = False
 
 # GRF (PINO_2) mode — set by --design grf
 media_mode: str = "zone"
-n_sensors_requested = 32
-grf_corr_length = 0.2
+n_sensors_requested = 100
+n_grf_requested = 300
+n_piecewise_per_zones = 50
+piecewise_zone_counts = PIECEWISE_ZONE_COUNTS_DEFAULT
+grf_corr_lengths = GRF_CORR_LENGTHS_DEFAULT
 grf_grid_n = 201
 sensor_xstar: np.ndarray | None = None
 
@@ -1233,9 +1240,13 @@ def parse_cli() -> argparse.Namespace:
     )
     parser.add_argument(
         "--arch",
-        choices=["default", "dense"],
+        choices=["default", "dense", "w64"],
         default=None,
-        help="Network width preset (default: [4,16,16,32]/[2,32,32,32,32]; dense: [4,64,64,128]/[2,64,64,64,64,128]).",
+        help=(
+            "Network width preset (default: [K,16,16,32]/[2,32,32,32,32]; "
+            "dense: [K,64,64,128]/[2,64,64,64,64,128]; "
+            "w64: [K,64,64,64]/[2,64,64,64,64])."
+        ),
     )
     parser.add_argument(
         "--n-corner-anchors",
@@ -1290,13 +1301,40 @@ def parse_cli() -> argparse.Namespace:
         type=int,
         default=None,
         metavar="K",
-        help="GRF branch sensor count (default 32; interface x* appended).",
+        help="GRF branch sensor count on uniform x* grid [0,1] (default 100).",
+    )
+    parser.add_argument(
+        "--n-grf",
+        type=int,
+        default=None,
+        metavar="N",
+        help="GRF smooth-field training cases (default 300; piecewise fills remainder).",
+    )
+    parser.add_argument(
+        "--n-piecewise-per-zones",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "Piecewise cases per zone count in {2,3,4,5} "
+            "(default 50 -> 200 piecewise + 300 GRF = 500 total)."
+        ),
     )
     parser.add_argument(
         "--grf-corr-length",
         type=float,
         default=None,
-        help="GRF squared-exponential correlation length in x* (default 0.2).",
+        help="Single GRF correlation length in x* (overrides --grf-corr-lengths).",
+    )
+    parser.add_argument(
+        "--grf-corr-lengths",
+        type=str,
+        default=None,
+        metavar="ELL_LIST",
+        help=(
+            "Comma-separated GRF correlation lengths in x*; n_grf is split evenly "
+            f"(default {','.join(str(v) for v in GRF_CORR_LENGTHS_DEFAULT)})."
+        ),
     )
     parser.add_argument(
         "--grf-grid-n",
@@ -1305,6 +1343,15 @@ def parse_cli() -> argparse.Namespace:
         help="GRF velocity field grid points on [0,1] (default 201).",
     )
     return parser.parse_args()
+
+
+def _parse_grf_corr_lengths(text: str) -> tuple[float, ...]:
+    values = tuple(float(s.strip()) for s in text.split(",") if s.strip())
+    if not values:
+        raise ValueError("grf-corr-lengths must list at least one positive value")
+    if any(v <= 0 for v in values):
+        raise ValueError("each grf correlation length must be positive")
+    return values
 
 
 def _apply_arch_preset(name: str) -> None:
@@ -1338,8 +1385,8 @@ def _load_run_meta_for_validate() -> bool:
         return False
     global branch_architecture, trunk_architecture, arch_preset, torch_dtype, trunk_mode
     global lr_lbfgs, lbfgs_max_iter, early_stop_patience
-    global media_mode, sensor_count, sensor_xstar, grf_corr_length, grf_grid_n
-    global n_sensors_requested
+    global media_mode, sensor_count, sensor_xstar, grf_corr_lengths, grf_grid_n
+    global n_sensors_requested, n_grf_requested, n_piecewise_per_zones
     branch_architecture = list(branch)
     trunk_architecture = list(trunk)
     arch_preset = str(meta.get("arch_preset", "custom"))
@@ -1359,9 +1406,17 @@ def _load_run_meta_for_validate() -> bool:
     if media_mode == "grf":
         sensor_xstar = np.asarray(meta["sensor_xstar"], dtype=np.float64)
         sensor_count = int(meta.get("n_sensors", sensor_xstar.size))
-        grf_corr_length = float(meta.get("grf_corr_length", 0.2))
+        if isinstance(meta.get("grf_corr_lengths"), list):
+            grf_corr_lengths = tuple(float(v) for v in meta["grf_corr_lengths"])
+        elif "grf_corr_length" in meta:
+            grf_corr_lengths = (float(meta["grf_corr_length"]),)
+        else:
+            grf_corr_lengths = GRF_CORR_LENGTHS_DEFAULT
         grf_grid_n = int(meta.get("grf_grid_n", 201))
         n_sensors_requested = int(meta.get("n_sensors_requested", sensor_count))
+        if "n_grf" in meta:
+            n_grf_requested = int(meta["n_grf"])
+            n_piecewise_per_zones = int(meta.get("n_piecewise_per_zones", 50))
     return True
 
 
@@ -1370,8 +1425,9 @@ def apply_cli(args: argparse.Namespace) -> None:
     global train_design, n_train_requested, n_corner_anchors, skip_validation_plots
     global batch_mode, reload_lhc_train_cases, run_training, validate_only
     global torch_dtype, trunk_mode, early_stop_patience, lr_lbfgs, lbfgs_max_iter
-    global num_epochs_lbfgs, media_mode, n_sensors_requested, grf_corr_length
+    global num_epochs_lbfgs, media_mode, n_sensors_requested, grf_corr_lengths
     global grf_grid_n, sensor_xstar, sensor_count, branch_architecture
+    global n_grf_requested, n_piecewise_per_zones, n_train_requested
 
     if args.reload_train_cases:
         reload_lhc_train_cases = True
@@ -1391,17 +1447,28 @@ def apply_cli(args: argparse.Namespace) -> None:
             n_train_requested = 81
         elif train_design == "grf":
             media_mode = "grf"
+            if args.n_sensors is not None:
+                n_sensors_requested = args.n_sensors
+            if args.n_grf is not None:
+                n_grf_requested = args.n_grf
+            if args.n_piecewise_per_zones is not None:
+                n_piecewise_per_zones = args.n_piecewise_per_zones
             if args.n_train is not None:
                 n_train_requested = args.n_train
             else:
-                n_train_requested = 500
-            if args.n_sensors is not None:
-                n_sensors_requested = args.n_sensors
+                n_train_requested = (
+                    n_grf_requested
+                    + len(piecewise_zone_counts) * n_piecewise_per_zones
+                )
             if args.grf_corr_length is not None:
-                grf_corr_length = args.grf_corr_length
+                grf_corr_lengths = (args.grf_corr_length,)
+            elif args.grf_corr_lengths is not None:
+                grf_corr_lengths = _parse_grf_corr_lengths(args.grf_corr_lengths)
             if args.grf_grid_n is not None:
                 grf_grid_n = args.grf_grid_n
-            sensor_xstar = default_sensor_xstar(n_sensors_requested, include_interfaces=True)
+            sensor_xstar = default_sensor_xstar(
+                n_sensors_requested, include_interfaces=False
+            )
             _apply_grf_branch_arch(
                 sensor_xstar.size,
                 arch=args.arch if args.arch is not None else "default",
@@ -1501,8 +1568,11 @@ def write_run_meta(
         meta["n_sensors"] = int(sensor_xstar.size)
         meta["n_sensors_requested"] = n_sensors_requested
         meta["sensor_xstar"] = sensor_xstar.tolist()
-        meta["grf_corr_length"] = grf_corr_length
+        meta["grf_corr_lengths"] = list(grf_corr_lengths)
         meta["grf_grid_n"] = grf_grid_n
+        meta["n_grf"] = n_grf_requested
+        meta["n_piecewise_per_zones"] = n_piecewise_per_zones
+        meta["piecewise_zone_counts"] = list(piecewise_zone_counts)
     if training_summary:
         meta.update(training_summary)
     if validation_rows:
@@ -1554,13 +1624,25 @@ def main() -> None:
     elif media_mode == "grf":
         if sensor_xstar is None:
             raise RuntimeError("GRF mode requires sensor_xstar")
+        mixed_config = MixedTrainConfig(
+            n_grf=n_grf_requested,
+            n_piecewise_per_zone_count=n_piecewise_per_zones,
+            piecewise_zone_counts=piecewise_zone_counts,
+            grf_corr_lengths=grf_corr_lengths,
+        )
+        if n_train_requested != mixed_config.n_total:
+            raise ValueError(
+                f"n_train_requested={n_train_requested} does not match mixed batch "
+                f"size {mixed_config.n_total} "
+                f"(n_grf={n_grf_requested}, "
+                f"n_piecewise={mixed_config.n_piecewise})"
+            )
         grf_batch = load_or_generate_grf_train_cases(
             U_TRAIN_CASES_PATH,
-            n_train_requested,
             sensor_xstar,
+            mixed_config=mixed_config,
             u_lo=U_LO,
             u_hi=U_HI,
-            corr_length=grf_corr_length,
             grid_n=grf_grid_n,
             seed=seed,
             reload=reload_lhc_train_cases,
@@ -1569,9 +1651,15 @@ def main() -> None:
         )
         n_u = grf_batch.sensor_u.shape[0]
         cfl_train = branch_cfl_from_grf_sensor_u(grf_batch.sensor_u)
+        grf_counts = mixed_config.grf_counts_per_length()
+        ell_desc = ", ".join(
+            f"{n}@{ell:g}" for ell, n in zip(grf_corr_lengths, grf_counts, strict=True)
+        )
         train_desc = (
-            f"{n_u} GRF smooth fields (K={sensor_xstar.size} sensors, "
-            f"ell={grf_corr_length:g}, grid_n={grf_grid_n})"
+            f"{mixed_config.n_grf} GRF ({ell_desc}) + {mixed_config.n_piecewise} piecewise "
+            f"({n_piecewise_per_zones} each for zones "
+            f"{list(piecewise_zone_counts)}) = {n_u} total; "
+            f"K={sensor_xstar.size} uniform sensors, grid_n={grf_grid_n}"
         )
         print(f"Training: {train_desc}")
         print(f"  saved/loaded: {U_TRAIN_CASES_PATH}")

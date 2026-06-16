@@ -1,0 +1,60 @@
+{
+  "design": "grf",
+  "media_mode": "grf",
+  "n_train": 11,
+  "n_train_actual": 11,
+  "n_corner_anchors": null,
+  "arch_preset": "default",
+  "trunk_mode": "single",
+  "branch_architecture": [
+    10,
+    16,
+    16,
+    32
+  ],
+  "trunk_architecture": [
+    2,
+    32,
+    32,
+    32,
+    32
+  ],
+  "seed": 1234567,
+  "dtype": "float64",
+  "num_epochs_lbfgs_requested": 1,
+  "early_stop_patience": 0,
+  "lr_lbfgs": 1,
+  "lbfgs_max_iter": 1,
+  "wall_clock_s": 19.482,
+  "out_dir": "results\\_smoke_grf_mixed",
+  "n_sensors": 10,
+  "n_sensors_requested": 10,
+  "sensor_xstar": [
+    0.0,
+    0.1111111111111111,
+    0.2222222222222222,
+    0.3333333333333333,
+    0.4444444444444444,
+    0.5555555555555556,
+    0.6666666666666666,
+    0.7777777777777777,
+    0.8888888888888888,
+    1.0
+  ],
+  "grf_corr_length": 0.2,
+  "grf_grid_n": 201,
+  "n_grf": 3,
+  "n_piecewise_per_zones": 2,
+  "piecewise_zone_counts": [
+    2,
+    3,
+    4,
+    5
+  ],
+  "num_epochs_lbfgs_actual": 1,
+  "early_stopped": false,
+  "best_total_loss": 0.4351380470374353,
+  "mean_rel_l2": 0.7820094355312642,
+  "max_rel_l2": 1.7929047645269491,
+  "min_rel_l2": 0.4935397197987216
+}

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Gaussian random field (GRF) velocity sampling for PINO_2 training."""
+"""Gaussian random field (GRF) and piecewise velocity sampling for PINO_2 training."""
 
 from __future__ import annotations
 
@@ -8,41 +8,77 @@ from pathlib import Path
 
 import numpy as np
 
+from utils.lhc_sampling import generate_maximin_lhc_box_samples
 from utils.zone_velocity import (
     L_DEFAULT,
     T_MAX_DEFAULT,
-    ZONE_INTERFACE_XSTAR,
     cfl_from_u_np,
     zone_index_xstar_np,
 )
 
 UCases = tuple[float, float, float, float]
 
+PIECEWISE_ZONE_COUNTS_DEFAULT: tuple[int, ...] = (2, 3, 4, 5)
+GRF_CORR_LENGTHS_DEFAULT: tuple[float, ...] = (0.05, 0.1)
+CASE_KIND_GRF = 0
+CASE_KIND_PIECEWISE = 1
+
+
+def _split_counts(n: int, n_parts: int) -> tuple[int, ...]:
+    """Split ``n`` as evenly as possible across ``n_parts`` buckets."""
+    if n_parts < 1:
+        raise ValueError("n_parts must be >= 1")
+    base, rem = divmod(n, n_parts)
+    return tuple(base + (1 if i < rem else 0) for i in range(n_parts))
+
+
+@dataclass(frozen=True)
+class MixedTrainConfig:
+    """GRF + piecewise training batch composition."""
+
+    n_grf: int = 300
+    n_piecewise_per_zone_count: int = 50
+    piecewise_zone_counts: tuple[int, ...] = PIECEWISE_ZONE_COUNTS_DEFAULT
+    grf_corr_lengths: tuple[float, ...] = GRF_CORR_LENGTHS_DEFAULT
+    iface_margin: float = 0.02
+
+    def grf_counts_per_length(self) -> tuple[int, ...]:
+        """GRF case counts per entry in :attr:`grf_corr_lengths`."""
+        if not self.grf_corr_lengths:
+            raise ValueError("grf_corr_lengths must be non-empty when n_grf > 0")
+        return _split_counts(self.n_grf, len(self.grf_corr_lengths))
+
+    @property
+    def n_piecewise(self) -> int:
+        return len(self.piecewise_zone_counts) * self.n_piecewise_per_zone_count
+
+    @property
+    def n_total(self) -> int:
+        return self.n_grf + self.n_piecewise
+
 
 @dataclass(frozen=True)
 class GRFTrainingBatch:
-    """GRF training media: sensor velocities + fine grid fields."""
+    """Training media: sensor velocities + fine grid fields."""
 
     sensor_u: np.ndarray  # (N, K) physical u at sensors (m/d)
     grid_u: np.ndarray  # (N, G) physical u on fine grid (m/d)
     grid_x: np.ndarray  # (G,) x* in [0, 1]
     sensor_x: np.ndarray  # (K,) x* sensor locations
+    case_kind: np.ndarray | None = None  # (N,) 0=GRF, 1=piecewise
+    case_n_zones: np.ndarray | None = None  # (N,) 0 for GRF else zone count
+    case_grf_corr_length: np.ndarray | None = None  # (N,) ell for GRF, 0 for piecewise
 
 
 def default_sensor_xstar(
     k: int,
     *,
-    include_interfaces: bool = True,
+    include_interfaces: bool = False,
 ) -> np.ndarray:
-    """Fixed sensor locations on [0, 1]; optionally add zone interface x*."""
+    """Uniform sensor locations on [0, 1]."""
     if k < 2:
         raise ValueError("k must be >= 2")
-    sensors = np.linspace(0.0, 1.0, k, dtype=np.float64)
-    if include_interfaces:
-        sensors = np.unique(
-            np.concatenate([sensors, np.array(ZONE_INTERFACE_XSTAR, dtype=np.float64)])
-        )
-    return sensors
+    return np.linspace(0.0, 1.0, k, dtype=np.float64)
 
 
 def _sigmoid(x: np.ndarray) -> np.ndarray:
@@ -61,6 +97,51 @@ def _squared_exponential_covariance(
     return np.exp(-0.5 * (diff / corr_length) ** 2)
 
 
+def interpolate_u_xstar(
+    x_star: np.ndarray,
+    grid_x: np.ndarray,
+    grid_u_row: np.ndarray,
+) -> np.ndarray:
+    """Linear interpolation of u(x*) from a grid row."""
+    x_star = np.asarray(x_star, dtype=np.float64)
+    grid_x = np.asarray(grid_x, dtype=np.float64)
+    grid_u_row = np.asarray(grid_u_row, dtype=np.float64)
+    return np.interp(x_star, grid_x, grid_u_row)
+
+
+def piecewise_u_at_xstar(
+    x_star: np.ndarray,
+    interfaces: np.ndarray,
+    zone_u: np.ndarray,
+) -> np.ndarray:
+    """Piecewise-constant velocity at each x* from sorted interfaces and zone u."""
+    x_star = np.asarray(x_star, dtype=np.float64)
+    interfaces = np.asarray(interfaces, dtype=np.float64)
+    zone_u = np.asarray(zone_u, dtype=np.float64)
+    n_zones = zone_u.size
+    if interfaces.size != n_zones - 1:
+        raise ValueError(
+            f"Expected {n_zones - 1} interfaces for {n_zones} zones, "
+            f"got {interfaces.size}"
+        )
+    bins = np.concatenate([[0.0], interfaces, [1.0 + 1e-12]])
+    idx = np.digitize(x_star, bins, right=False) - 1
+    return zone_u[np.clip(idx, 0, n_zones - 1)]
+
+
+def _fields_from_grid_rows(
+    grid_u: np.ndarray,
+    grid_x: np.ndarray,
+    sensor_x: np.ndarray,
+) -> np.ndarray:
+    n = grid_u.shape[0]
+    k = sensor_x.size
+    sensor_u = np.empty((n, k), dtype=np.float64)
+    for i in range(n):
+        sensor_u[i] = interpolate_u_xstar(sensor_x, grid_x, grid_u[i])
+    return sensor_u
+
+
 def draw_grf_velocity_fields(
     n: int,
     sensor_x: np.ndarray,
@@ -72,13 +153,13 @@ def draw_grf_velocity_fields(
     seed: int = 0,
     l_m: float = L_DEFAULT,
     t_max_d: float = T_MAX_DEFAULT,
-) -> GRFTrainingBatch:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Draw ``n`` smooth GRF velocity fields on a fine x* grid.
 
-    GP draw on grid, map to [u_lo, u_hi] via sigmoid, sample sensors by interpolation.
+    Returns ``(grid_u, sensor_u, grid_x)``.
     """
-    del l_m, t_max_d  # CFL conversion happens in branch helpers
+    del l_m, t_max_d
     if n < 1:
         raise ValueError("n must be >= 1")
     if grid_n < 3:
@@ -86,11 +167,9 @@ def draw_grf_velocity_fields(
 
     grid_x = np.linspace(0.0, 1.0, grid_n, dtype=np.float64)
     sensor_x = np.asarray(sensor_x, dtype=np.float64)
-    k = sensor_x.size
 
     rng = np.random.default_rng(seed)
     cov = _squared_exponential_covariance(grid_x, corr_length=corr_length)
-    # Jitter for numerical stability of Cholesky
     cov = cov + 1e-10 * np.eye(grid_n, dtype=np.float64)
     chol = np.linalg.cholesky(cov)
 
@@ -100,28 +179,140 @@ def draw_grf_velocity_fields(
         u = u_lo + (u_hi - u_lo) * _sigmoid(xi)
         grid_u[i] = np.clip(u, u_lo, u_hi)
 
-    sensor_u = np.empty((n, k), dtype=np.float64)
-    for i in range(n):
-        sensor_u[i] = interpolate_u_xstar(sensor_x, grid_x, grid_u[i])
+    sensor_u = _fields_from_grid_rows(grid_u, grid_x, sensor_x)
+    return grid_u, sensor_u, grid_x
 
+
+def draw_piecewise_velocity_fields(
+    n: int,
+    n_zones: int,
+    sensor_x: np.ndarray,
+    *,
+    u_lo: float = 0.01,
+    u_hi: float = 0.05,
+    iface_margin: float = 0.02,
+    grid_n: int = 201,
+    seed: int = 0,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Draw ``n`` piecewise-constant velocity fields with ``n_zones`` zones.
+
+    Interface locations and zone velocities are jointly sampled via maximin LHC.
+    """
+    if n < 1:
+        raise ValueError("n must be >= 1")
+    if n_zones < 2:
+        raise ValueError("n_zones must be >= 2")
+    if not (0.0 < iface_margin < 0.5):
+        raise ValueError("iface_margin must lie in (0, 0.5)")
+    if grid_n < 3:
+        raise ValueError("grid_n must be >= 3")
+
+    n_if = n_zones - 1
+    d = n_if + n_zones
+    lo = np.concatenate(
+        [
+            np.full(n_if, iface_margin, dtype=np.float64),
+            np.full(n_zones, u_lo, dtype=np.float64),
+        ]
+    )
+    hi = np.concatenate(
+        [
+            np.full(n_if, 1.0 - iface_margin, dtype=np.float64),
+            np.full(n_zones, u_hi, dtype=np.float64),
+        ]
+    )
+    params = generate_maximin_lhc_box_samples(n, lo, hi, seed=seed)
+    interfaces = np.sort(params[:, :n_if], axis=1)
+    zone_u = params[:, n_if:]
+
+    grid_x = np.linspace(0.0, 1.0, grid_n, dtype=np.float64)
+    sensor_x = np.asarray(sensor_x, dtype=np.float64)
+    grid_u = np.empty((n, grid_n), dtype=np.float64)
+    for i in range(n):
+        grid_u[i] = piecewise_u_at_xstar(grid_x, interfaces[i], zone_u[i])
+
+    sensor_u = _fields_from_grid_rows(grid_u, grid_x, sensor_x)
+    return grid_u, sensor_u, grid_x
+
+
+def draw_mixed_train_cases(
+    config: MixedTrainConfig,
+    sensor_x: np.ndarray,
+    *,
+    u_lo: float = 0.01,
+    u_hi: float = 0.05,
+    grid_n: int = 201,
+    seed: int = 0,
+) -> GRFTrainingBatch:
+    """Build a mixed GRF + piecewise training batch."""
+    sensor_x = np.asarray(sensor_x, dtype=np.float64)
+    n_total = config.n_total
+    grid_u = np.empty((n_total, grid_n), dtype=np.float64)
+    case_kind = np.empty(n_total, dtype=np.int8)
+    case_n_zones = np.empty(n_total, dtype=np.int8)
+    case_grf_corr_length = np.zeros(n_total, dtype=np.float64)
+
+    offset = 0
+    sensor_blocks: list[np.ndarray] = []
+    grid_x: np.ndarray | None = None
+
+    if config.n_grf > 0:
+        grf_counts = config.grf_counts_per_length()
+        for j, (ell, n_ell) in enumerate(zip(config.grf_corr_lengths, grf_counts, strict=True)):
+            if n_ell <= 0:
+                continue
+            g_grid, g_sensor, grid_x_draw = draw_grf_velocity_fields(
+                n_ell,
+                sensor_x,
+                u_lo=u_lo,
+                u_hi=u_hi,
+                corr_length=ell,
+                grid_n=grid_n,
+                seed=seed + 100 * (j + 1),
+            )
+            if grid_x is None:
+                grid_x = grid_x_draw
+            grid_u[offset : offset + n_ell] = g_grid
+            case_kind[offset : offset + n_ell] = CASE_KIND_GRF
+            case_n_zones[offset : offset + n_ell] = 0
+            case_grf_corr_length[offset : offset + n_ell] = ell
+            offset += n_ell
+            sensor_blocks.append(g_sensor)
+
+    if grid_x is None:
+        grid_x = np.linspace(0.0, 1.0, grid_n, dtype=np.float64)
+
+    for j, n_zones in enumerate(config.piecewise_zone_counts):
+        n_pw = config.n_piecewise_per_zone_count
+        if n_pw <= 0:
+            continue
+        pw_grid, pw_sensor, _ = draw_piecewise_velocity_fields(
+            n_pw,
+            n_zones,
+            sensor_x,
+            u_lo=u_lo,
+            u_hi=u_hi,
+            iface_margin=config.iface_margin,
+            grid_n=grid_n,
+            seed=seed + 1000 * (j + 1) + n_zones,
+        )
+        grid_u[offset : offset + n_pw] = pw_grid
+        case_kind[offset : offset + n_pw] = CASE_KIND_PIECEWISE
+        case_n_zones[offset : offset + n_pw] = n_zones
+        offset += n_pw
+        sensor_blocks.append(pw_sensor)
+
+    sensor_u = np.concatenate(sensor_blocks, axis=0)
     return GRFTrainingBatch(
         sensor_u=sensor_u,
         grid_u=grid_u,
         grid_x=grid_x,
         sensor_x=sensor_x,
+        case_kind=case_kind,
+        case_n_zones=case_n_zones,
+        case_grf_corr_length=case_grf_corr_length,
     )
-
-
-def interpolate_u_xstar(
-    x_star: np.ndarray,
-    grid_x: np.ndarray,
-    grid_u_row: np.ndarray,
-) -> np.ndarray:
-    """Linear interpolation of u(x*) from a GRF grid row."""
-    x_star = np.asarray(x_star, dtype=np.float64)
-    grid_x = np.asarray(grid_x, dtype=np.float64)
-    grid_u_row = np.asarray(grid_u_row, dtype=np.float64)
-    return np.interp(x_star, grid_x, grid_u_row)
 
 
 def branch_cfl_from_grf_sensor_u(
@@ -166,55 +357,106 @@ def branch_cfl_from_zone_case(
     return branch_cfl_from_grf_sensor_u(sensor_u, l_m=l_m, t_max_d=t_max_d)
 
 
+def _mixed_config_matches_batch(
+    batch: GRFTrainingBatch,
+    config: MixedTrainConfig,
+) -> bool:
+    if batch.case_kind is None or batch.case_n_zones is None:
+        return False
+    if batch.case_grf_corr_length is None:
+        return False
+    if batch.sensor_u.shape[0] != config.n_total:
+        return False
+    n_grf = int(np.sum(batch.case_kind == CASE_KIND_GRF))
+    if n_grf != config.n_grf:
+        return False
+    grf_counts = config.grf_counts_per_length()
+    for ell, n_expected in zip(config.grf_corr_lengths, grf_counts, strict=True):
+        n_have = int(
+            np.sum(
+                (batch.case_kind == CASE_KIND_GRF)
+                & np.isclose(batch.case_grf_corr_length, ell, rtol=0.0, atol=1e-12)
+            )
+        )
+        if n_have != n_expected:
+            return False
+    for n_zones in config.piecewise_zone_counts:
+        n_pw = int(np.sum(batch.case_n_zones == n_zones))
+        if n_pw != config.n_piecewise_per_zone_count:
+            return False
+    return True
+
+
 def load_grf_cases_npz(path: Path) -> GRFTrainingBatch:
-    """Load cached GRF training batch from ``train_grf_cases.npz``."""
+    """Load cached training batch from ``train_grf_cases.npz``."""
     path = Path(path)
     if not path.is_file():
         raise FileNotFoundError(f"Missing GRF cache: {path}")
     data = np.load(path)
+    case_kind = data["case_kind"] if "case_kind" in data else None
+    case_n_zones = data["case_n_zones"] if "case_n_zones" in data else None
+    case_grf_corr_length = (
+        data["case_grf_corr_length"] if "case_grf_corr_length" in data else None
+    )
     return GRFTrainingBatch(
         sensor_u=np.asarray(data["sensor_u"], dtype=np.float64),
         grid_u=np.asarray(data["grid_u"], dtype=np.float64),
         grid_x=np.asarray(data["grid_x"], dtype=np.float64),
         sensor_x=np.asarray(data["sensor_x"], dtype=np.float64),
+        case_kind=None if case_kind is None else np.asarray(case_kind, dtype=np.int8),
+        case_n_zones=None
+        if case_n_zones is None
+        else np.asarray(case_n_zones, dtype=np.int8),
+        case_grf_corr_length=None
+        if case_grf_corr_length is None
+        else np.asarray(case_grf_corr_length, dtype=np.float64),
     )
 
 
 def save_grf_cases_npz(path: Path, batch: GRFTrainingBatch) -> Path:
-    """Persist GRF training batch."""
+    """Persist training batch."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(
-        path,
-        sensor_u=batch.sensor_u,
-        grid_u=batch.grid_u,
-        grid_x=batch.grid_x,
-        sensor_x=batch.sensor_x,
-    )
+    payload = {
+        "sensor_u": batch.sensor_u,
+        "grid_u": batch.grid_u,
+        "grid_x": batch.grid_x,
+        "sensor_x": batch.sensor_x,
+    }
+    if batch.case_kind is not None:
+        payload["case_kind"] = batch.case_kind
+    if batch.case_n_zones is not None:
+        payload["case_n_zones"] = batch.case_n_zones
+    if batch.case_grf_corr_length is not None:
+        payload["case_grf_corr_length"] = batch.case_grf_corr_length
+    np.savez(path, **payload)
     return path
 
 
 def load_or_generate_grf_train_cases(
     npz_path: Path,
-    n_train: int,
     sensor_x: np.ndarray,
     *,
+    mixed_config: MixedTrainConfig,
     u_lo: float,
     u_hi: float,
-    corr_length: float,
     grid_n: int,
     seed: int,
     reload: bool = False,
     l_m: float = L_DEFAULT,
     t_max_d: float = T_MAX_DEFAULT,
 ) -> GRFTrainingBatch:
-    """Load ``train_grf_cases.npz`` or draw a new GRF batch."""
+    """Load ``train_grf_cases.npz`` or draw a new mixed GRF + piecewise batch."""
+    del l_m, t_max_d
     npz_path = Path(npz_path)
+    sensor_x = np.asarray(sensor_x, dtype=np.float64)
+    n_train = mixed_config.n_total
+
     if npz_path.is_file() and not reload:
         batch = load_grf_cases_npz(npz_path)
         if batch.sensor_u.shape[0] != n_train:
             raise ValueError(
-                f"Cached GRF batch has N={batch.sensor_u.shape[0]}, "
+                f"Cached batch has N={batch.sensor_u.shape[0]}, "
                 f"expected n_train={n_train}"
             )
         if batch.sensor_x.size != sensor_x.size or not np.allclose(
@@ -223,18 +465,20 @@ def load_or_generate_grf_train_cases(
             raise ValueError(
                 "Cached sensor_x does not match requested sensor locations"
             )
+        if not _mixed_config_matches_batch(batch, mixed_config):
+            raise ValueError(
+                "Cached batch composition does not match requested mixed config. "
+                "Use reload=True to regenerate."
+            )
         return batch
 
-    batch = draw_grf_velocity_fields(
-        n_train,
+    batch = draw_mixed_train_cases(
+        mixed_config,
         sensor_x,
         u_lo=u_lo,
         u_hi=u_hi,
-        corr_length=corr_length,
         grid_n=grid_n,
         seed=seed,
-        l_m=l_m,
-        t_max_d=t_max_d,
     )
     save_grf_cases_npz(npz_path, batch)
     return batch
