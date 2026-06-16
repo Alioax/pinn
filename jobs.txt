@@ -9,7 +9,12 @@
 # Workflow: edit this list on your laptop, commit & push, then run
 # run.bat on the remote. The run stops at the first script that fails.
 #
-# PINO_2 (GRF) — two sensor counts; results under parametric_heterogeneous_pinn/results/
-# exp_A: K=32 sensors (+ interface x*); exp_B: K=64 (2x sensors)
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-train 500 --n-sensors 32 --grf-corr-length 0.2 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir ../parametric_heterogeneous_pinn/results/exp_A_grf_K32_N500_float64_lr01_maxiter20 --skip-validation-plots
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-train 500 --n-sensors 64 --grf-corr-length 0.2 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir ../parametric_heterogeneous_pinn/results/exp_B_grf_K64_N500_float64_lr01_maxiter20 --skip-validation-plots
+# PINO_2 (GRF operator) — completed: exp_A K=32 default (13.4%), exp_B K=64 default (8.0%)
+# Results stored under parametric_heterogeneous_pinn/results/
+#
+# exp_L: dense arch + K=128 sensors (2x exp_B sensor count)
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-train 500 --n-sensors 128 --grf-corr-length 0.2 --arch dense --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir ../parametric_heterogeneous_pinn/results/exp_L_grf_K128_dense_N500_float64_lr01_maxiter20 --skip-validation-plots
+# exp_M: K=128 sensors, default arch (sensor scaling only)
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-train 500 --n-sensors 128 --grf-corr-length 0.2 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir ../parametric_heterogeneous_pinn/results/exp_M_grf_K128_N500_float64_lr01_maxiter20 --skip-validation-plots
+# exp_N: K=64 sensors, dense arch (dense width only vs exp_B)
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-train 500 --n-sensors 64 --grf-corr-length 0.2 --arch dense --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir ../parametric_heterogeneous_pinn/results/exp_N_grf_K64_dense_N500_float64_lr01_maxiter20 --skip-validation-plots

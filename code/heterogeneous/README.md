@@ -181,7 +181,15 @@ Report 5 follow-on experiments (vs maximin C):
 | Folder | Notes |
 |--------|-------|
 | `parametric_heterogeneous_pinn/results/exp_A_grf_K32_N500_float64_lr01_maxiter20` | `--design grf`, K=32 sensors (+ interface x*), N=500 GRF fields, `float64`, same L-BFGS settings as `exp_J` (`lr=0.1`, `max_iter=20`, early-stop 150). Compare `mean_rel_l2` to PINO_1 `exp_J` (~2.61%) and parametric PINN `exp_J_*_pinn` (~1.80%). |
-| `parametric_heterogeneous_pinn/results/exp_B_grf_K64_N500_float64_lr01_maxiter20` | Same as exp_A but `--n-sensors 64` (2× branch width; denser sensor grid for smooth→sharp validation). |
+| `parametric_heterogeneous_pinn/results/exp_B_grf_K64_N500_float64_lr01_maxiter20` | Same as exp_A but `--n-sensors 64` (2× branch width; denser sensor grid for smooth→sharp validation). **8.00%** mean rel-L₂. |
+
+**PINO_2 GRF next experiments** (operator + GRF only; results under `parametric_heterogeneous_pinn/results/`):
+
+| Folder | Change vs completed GRF runs |
+|--------|------------------------------|
+| `exp_L_grf_K128_dense_N500_float64_lr01_maxiter20` | `--arch dense --n-sensors 128` (2× `exp_B` K=64; widest dense branch) |
+| `exp_M_grf_K128_N500_float64_lr01_maxiter20` | `--arch default --n-sensors 128` — isolate 4× sensors vs `exp_A` without dense width |
+| `exp_N_grf_K64_dense_N500_float64_lr01_maxiter20` | `--arch dense --n-sensors 64` — isolate dense width vs `exp_B` at same sensor count |
 
 GRF CLI flags (with `--design grf`): `--n-sensors` (default 32), `--grf-corr-length` (default 0.2 in x*), `--grf-grid-n` (default 201). Training cache: `train_grf_cases.npz`. Interface PDE bands are disabled in GRF mode. Branch amortization in `deeponet.forward()` is a follow-up for timing comparison, not required for accuracy.
 
@@ -189,7 +197,7 @@ GRF CLI flags (with `--design grf`): `--n-sensors` (default 32), `--grf-corr-len
 
 | Folder | Notes |
 |--------|-------|
-| `exp_J_maximin_N500_float64_lr01_maxiter20_pinn` | maximin N=500, `float64`, `lr=0.1`, `max_iter=20` — compare `mean_rel_l2` to operator `exp_J_*` |
+| `exp_J_maximin_N500_float64_lr01_maxiter20_pinn` | maximin N=500, `float64`, `lr=0.1`, `max_iter=20` — **1.80%** mean rel-L₂ (best so far; beats PINO J at 2.61%) |
 
 Example (PINO):
 
@@ -212,15 +220,29 @@ python pinn1d_heterogeneous_parametric_pinn.py \
   --skip-validation-plots
 ```
 
-Example (PINO_2 GRF, remote batch settings):
+Example (PINO_2 GRF batch — exp_L / M / N):
 
 ```bash
 cd code/heterogeneous/pino_heterogeneous
 python pinn1d_heterogeneous_parametric_neural_operator.py \
-  --design grf --n-train 500 --n-sensors 32 --grf-corr-length 0.2 \
+  --design grf --n-train 500 --n-sensors 128 --grf-corr-length 0.2 --arch dense \
   --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 \
   --epochs 1000 \
-  --out-dir ../parametric_heterogeneous_pinn/results/exp_A_grf_K32_N500_float64_lr01_maxiter20 \
+  --out-dir ../parametric_heterogeneous_pinn/results/exp_L_grf_K128_dense_N500_float64_lr01_maxiter20 \
+  --skip-validation-plots
+
+python pinn1d_heterogeneous_parametric_neural_operator.py \
+  --design grf --n-train 500 --n-sensors 128 --grf-corr-length 0.2 \
+  --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 \
+  --epochs 1000 \
+  --out-dir ../parametric_heterogeneous_pinn/results/exp_M_grf_K128_N500_float64_lr01_maxiter20 \
+  --skip-validation-plots
+
+python pinn1d_heterogeneous_parametric_neural_operator.py \
+  --design grf --n-train 500 --n-sensors 64 --grf-corr-length 0.2 --arch dense \
+  --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 \
+  --epochs 1000 \
+  --out-dir ../parametric_heterogeneous_pinn/results/exp_N_grf_K64_dense_N500_float64_lr01_maxiter20 \
   --skip-validation-plots
 ```
 
