@@ -1,0 +1,78 @@
+# code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-train 500 --n-sensors 128 --grf-corr-length 0.2 --arch dense --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir ../parametric_heterogeneous_pinn/results/exp_L_grf_K128_dense_N500_float64_lr01_maxiter20 --skip-validation-plots
+# started 2026-06-16 07:39:12
+# cwd C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous
+
+Using GPU: NVIDIA GeForce RTX 3090 (cuda:0, dtype=torch.float64)
+PE (computed) = 0.010368
+design=grf  media_mode=grf  n_train_requested=500  n_corner_anchors=16  arch=dense  trunk_mode=single  batch_mode=True
+branch=[131, 64, 64, 128]  trunk=[2, 64, 64, 64, 64, 128]
+results_dir=C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\..\parametric_heterogeneous_pinn\results\exp_L_grf_K128_dense_N500_float64_lr01_maxiter20
+Training: 500 GRF smooth fields (K=131 sensors, ell=0.2, grid_n=201)
+  saved/loaded: C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\..\parametric_heterogeneous_pinn\results\exp_L_grf_K128_dense_N500_float64_lr01_maxiter20\train_grf_cases.npz
+  branch CFL range [0.136897, 0.589552]
+PDE mesh: bulk 50x50x500 (no interface bands in GRF mode)
+COMSOL validation: 81 fixed grid cases from comsol_4zones.txt -> C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\..\parametric_heterogeneous_pinn\results\exp_L_grf_K128_dense_N500_float64_lr01_maxiter20
+run_training=True  run_comsol_validation=True  validate_only=False  skip_validation_plots=True
+L-BFGS early stopping: patience=150 (max steps=1000)
+L-BFGS: lr=0.1  max_iter=20  outer_steps=1000
+PDE collocation points: 1,250,000 (bulk 1,250,000, interface 0)
+Collocation mesh plot (pre-train): C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\..\parametric_heterogeneous_pinn\results\exp_L_grf_K128_dense_N500_float64_lr01_maxiter20\pino_heterogeneous_collocation_points.png
+LBFGS (
+Parameter Group 0
+    history_size: 50
+    line_search_fn: strong_wolfe
+    lr: 0.1
+    max_eval: 25
+    max_iter: 20
+    tolerance_change: 1e-09
+    tolerance_grad: 1e-07
+)
+Early stopping: patience=150 L-BFGS steps (no total-loss improvement, rtol=1e-12)
+
+L-BFGS:   0%|          | 0/1000 [? > 00:00]
+L-BFGS:   0%|          | 1/1000 [107:18:10 > 06:26]
+L-BFGS:   0%|          | 2/1000 [106:47:44 > 12:50]
+L-BFGS:   0%|          | 3/1000 [108:20:10 > 19:29]
+L-BFGS:   0%|          | 4/1000 [107:30:50 > 25:53]
+L-BFGS:   0%|          | 5/1000 [106:55:41 > 32:17]
+L-BFGS:   1%|          | 6/1000 [106:31:59 > 38:41]
+L-BFGS:   1%|          | 7/1000 [106:24:32 > 45:07]
+L-BFGS:   1%|          | 8/1000 [107:23:36 > 51:45]
+L-BFGS:   1%|          | 9/1000 [108:03:26 > 58:24]
+L-BFGS:   1%|          | 10/1000 [107:43:31 > 1:04:53]
+L-BFGS:   1%|          | 11/1000 [106:58:16 > 1:11:17]
+L-BFGS:   1%|          | 12/1000 [106:35:22 > 1:17:44]
+L-BFGS:   1%|▏         | 13/1000 [106:18:19 > 1:24:10]
+L-BFGS:   1%|▏         | 14/1000 [106:02:06 > 1:30:36]
+L-BFGS:   2%|▏         | 15/1000 [105:47:06 > 1:37:01]
+L-BFGS:   2%|▏         | 16/1000 [106:49:41 > 1:43:42]
+L-BFGS:   2%|▏         | 17/1000 [106:20:31 > 1:50:08]
+L-BFGS:   2%|▏         | 18/1000 [105:55:19 > 1:56:34]
+L-BFGS:   2%|▏         | 19/1000 [105:24:31 > 2:02:57]
+L-BFGS:   2%|▏         | 20/1000 [105:19:20 > 2:09:24]
+L-BFGS:   2%|▏         | 21/1000 [105:07:37 > 2:15:50]
+L-BFGS:   2%|▏         | 22/1000 [104:58:19 > 2:22:16]
+L-BFGS:   2%|▏         | 23/1000 [104:57:31 > 2:28:43]
+L-BFGS:   2%|▏         | 24/1000 [105:59:01 > 2:35:24]
+L-BFGS:   2%|▎         | 25/1000 [105:25:34 > 2:41:49]
+L-BFGS:   3%|▎         | 26/1000 [106:22:10 > 2:48:32]
+L-BFGS:   3%|▎         | 27/1000 [106:39:42 > 2:55:10]
+L-BFGS:   3%|▎         | 28/1000 [105:51:40 > 3:01:36]
+L-BFGS:   3%|▎         | 29/1000 [105:27:08 > 3:08:04]
+L-BFGS:   3%|▎         | 30/1000 [106:11:35 > 3:14:46]
+L-BFGS:   3%|▎         | 31/1000 [105:23:27 > 3:21:11]
+L-BFGS:   3%|▎         | 32/1000 [105:57:57 > 3:27:51]
+L-BFGS:   3%|▎         | 33/1000 [105:07:03 > 3:34:16]
+L-BFGS:   3%|▎         | 34/1000 [104:43:03 > 3:40:44]
+L-BFGS:   4%|▎         | 35/1000 [104:16:09 > 3:47:10]
+L-BFGS:   4%|▎         | 36/1000 [103:51:56 > 3:53:35]
+L-BFGS:   4%|▎         | 37/1000 [103:32:15 > 4:00:00]
+L-BFGS:   4%|▍         | 38/1000 [104:28:52 > 4:06:41]
+L-BFGS:   4%|▍         | 39/1000 [104:08:02 > 4:13:09]
+L-BFGS:   4%|▍         | 40/1000 [103:43:51 > 4:19:35]
+L-BFGS:   4%|▍         | 41/1000 [103:19:29 > 4:26:00]
+L-BFGS:   4%|▍         | 42/1000 [104:20:32 > 4:32:42]
+L-BFGS:   4%|▍         | 43/1000 [104:55:38 > 4:39:23]
+L-BFGS:   4%|▍         | 44/1000 [105:16:26 > 4:46:03]
+L-BFGS:   4%|▍         | 45/1000 [105:29:09 > 4:52:44]
+L-BFGS:   5%|▍         | 46/1000 [105:45:58 > 4:59:26]

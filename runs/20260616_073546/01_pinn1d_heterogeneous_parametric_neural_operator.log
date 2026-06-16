@@ -1,0 +1,31 @@
+# code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-train 500 --n-sensors 128 --grf-corr-length 0.2 --arch dense --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir ../parametric_heterogeneous_pinn/results/exp_L_grf_K128_dense_N500_float64_lr01_maxiter20 --skip-validation-plots
+# started 2026-06-16 07:35:47
+# cwd C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous
+
+Using GPU: NVIDIA GeForce RTX 3090 (cuda:0, dtype=torch.float64)
+PE (computed) = 0.010368
+design=grf  media_mode=grf  n_train_requested=500  n_corner_anchors=16  arch=dense  trunk_mode=single  batch_mode=True
+branch=[131, 64, 64, 128]  trunk=[2, 64, 64, 64, 64, 128]
+results_dir=C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\..\parametric_heterogeneous_pinn\results\exp_L_grf_K128_dense_N500_float64_lr01_maxiter20
+Training: 500 GRF smooth fields (K=131 sensors, ell=0.2, grid_n=201)
+  saved/loaded: C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\..\parametric_heterogeneous_pinn\results\exp_L_grf_K128_dense_N500_float64_lr01_maxiter20\train_grf_cases.npz
+  branch CFL range [0.136897, 0.589552]
+PDE mesh: bulk 50x50x500 (no interface bands in GRF mode)
+COMSOL validation: 81 fixed grid cases from comsol_4zones.txt -> C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\..\parametric_heterogeneous_pinn\results\exp_L_grf_K128_dense_N500_float64_lr01_maxiter20
+run_training=True  run_comsol_validation=True  validate_only=False  skip_validation_plots=True
+L-BFGS early stopping: patience=150 (max steps=1000)
+L-BFGS: lr=0.1  max_iter=20  outer_steps=1000
+PDE collocation points: 1,250,000 (bulk 1,250,000, interface 0)
+Collocation mesh plot (pre-train): C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\..\parametric_heterogeneous_pinn\results\exp_L_grf_K128_dense_N500_float64_lr01_maxiter20\pino_heterogeneous_collocation_points.png
+LBFGS (
+Parameter Group 0
+    history_size: 50
+    line_search_fn: strong_wolfe
+    lr: 0.1
+    max_eval: 25
+    max_iter: 20
+    tolerance_change: 1e-09
+    tolerance_grad: 1e-07
+)
+Early stopping: patience=150 L-BFGS steps (no total-loss improvement, rtol=1e-12)
+
