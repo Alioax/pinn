@@ -1,0 +1,18 @@
+{
+  "model_family": "pino",
+  "checkpoint": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\parametric_heterogeneous_pinn\\results\\exp_B_grf_K64_N500_float64_lr01_maxiter20\\pino_heterogeneous_model.pt",
+  "run_meta": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\parametric_heterogeneous_pinn\\results\\exp_B_grf_K64_N500_float64_lr01_maxiter20\\run_meta.json",
+  "comsol_data": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\data\\comsol_4zones.txt",
+  "n_cases_exported": 81,
+  "n_cases_total": 81,
+  "n_x_star": 86,
+  "times_days": [
+    100.0,
+    300.0,
+    600.0,
+    900.0,
+    1200.0
+  ],
+  "dtype": "float64",
+  "device": "cpu"
+}

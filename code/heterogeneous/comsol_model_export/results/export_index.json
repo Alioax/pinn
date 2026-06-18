@@ -1,0 +1,135 @@
+{
+  "n_exports": 18,
+  "comsol_data": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\data\\comsol_4zones.txt",
+  "exports": [
+    {
+      "export_name": "exp_A_capacity",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_A_capacity",
+      "out_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_A_capacity",
+      "skipped": true
+    },
+    {
+      "export_name": "exp_B_lhc_N500",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_B_lhc_N500",
+      "out_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_B_lhc_N500",
+      "skipped": true
+    },
+    {
+      "export_name": "exp_C_maximin_N500",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_C_maximin_N500",
+      "out_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_C_maximin_N500",
+      "skipped": true
+    },
+    {
+      "export_name": "exp_D_anchored_N500",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_D_anchored_N500",
+      "out_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_D_anchored_N500",
+      "skipped": true
+    },
+    {
+      "export_name": "exp_E_capacity_dense",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_E_capacity_dense",
+      "out_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_E_capacity_dense",
+      "skipped": true
+    },
+    {
+      "export_name": "exp_F_maximin_N500_float64",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_F_maximin_N500_float64",
+      "out_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_F_maximin_N500_float64",
+      "skipped": true
+    },
+    {
+      "export_name": "exp_G_maximin_N500_zone_trunks",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_G_maximin_N500_zone_trunks",
+      "out_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_G_maximin_N500_zone_trunks",
+      "skipped": true
+    },
+    {
+      "export_name": "exp_H_capacity_float64",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_H_capacity_float64",
+      "out_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_H_capacity_float64",
+      "skipped": true
+    },
+    {
+      "export_name": "exp_I_maximin_N500_float64_lr01",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_I_maximin_N500_float64_lr01",
+      "out_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_I_maximin_N500_float64_lr01",
+      "skipped": true
+    },
+    {
+      "export_name": "exp_J_maximin_N500_float64_lr01_maxiter20",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_J_maximin_N500_float64_lr01_maxiter20",
+      "out_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_J_maximin_N500_float64_lr01_maxiter20",
+      "skipped": true
+    },
+    {
+      "export_name": "exp_K_maximin_N200_lr05_epochs5000",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_K_maximin_N200_lr05_epochs5000",
+      "out_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_K_maximin_N200_lr05_epochs5000",
+      "skipped": true
+    },
+    {
+      "export_name": "exp_L_maximin_N200_float64_lr05_epochs5000",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_L_maximin_N200_float64_lr05_epochs5000",
+      "out_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_L_maximin_N200_float64_lr05_epochs5000",
+      "skipped": true
+    },
+    {
+      "export_name": "exp_M_maximin_N200_float64_lr01_epochs5000",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_M_maximin_N200_float64_lr01_epochs5000",
+      "out_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_M_maximin_N200_float64_lr01_epochs5000",
+      "skipped": true
+    },
+    {
+      "export_name": "exp_N_maximin_N250_float64_lr01_maxiter25_epochs500",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_N_maximin_N250_float64_lr01_maxiter25_epochs500",
+      "out_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_N_maximin_N250_float64_lr01_maxiter25_epochs500",
+      "skipped": true
+    },
+    {
+      "export_name": "exp_O_grf_K100_N500_mixed_ell005_01_w64_float64_lr01_maxiter5",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_O_grf_K100_N500_mixed_ell005_01_w64_float64_lr01_maxiter5",
+      "pointwise_csv": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_O_grf_K100_N500_mixed_ell005_01_w64_float64_lr01_maxiter5\\comsol_vs_model_pointwise.csv",
+      "summary_csv": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_O_grf_K100_N500_mixed_ell005_01_w64_float64_lr01_maxiter5\\comsol_vs_model_summary.csv",
+      "skipped": false
+    },
+    {
+      "export_name": "exp_A_grf_K32_N500_float64_lr01_maxiter20",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\parametric_heterogeneous_pinn\\results\\exp_A_grf_K32_N500_float64_lr01_maxiter20",
+      "out_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_A_grf_K32_N500_float64_lr01_maxiter20",
+      "skipped": true
+    },
+    {
+      "export_name": "exp_B_grf_K64_N500_float64_lr01_maxiter20",
+      "model_family": "pino",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\parametric_heterogeneous_pinn\\results\\exp_B_grf_K64_N500_float64_lr01_maxiter20",
+      "pointwise_csv": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_B_grf_K64_N500_float64_lr01_maxiter20\\comsol_vs_model_pointwise.csv",
+      "summary_csv": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_B_grf_K64_N500_float64_lr01_maxiter20\\comsol_vs_model_summary.csv",
+      "skipped": false
+    },
+    {
+      "export_name": "exp_J_maximin_N500_float64_lr01_maxiter20_pinn",
+      "model_family": "parametric_pinn",
+      "experiment_dir": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\parametric_heterogeneous_pinn\\results\\exp_J_maximin_N500_float64_lr01_maxiter20_pinn",
+      "pointwise_csv": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_J_maximin_N500_float64_lr01_maxiter20_pinn\\comsol_vs_model_pointwise.csv",
+      "summary_csv": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\comsol_model_export\\results\\exp_J_maximin_N500_float64_lr01_maxiter20_pinn\\comsol_vs_model_summary.csv",
+      "skipped": false
+    }
+  ]
+}

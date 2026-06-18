@@ -1,7 +1,7 @@
 {
-  "design": "grf",
+  "design": "lhc",
   "media_mode": "grf",
-  "n_train": 500,
+  "n_train": 2500,
   "n_train_actual": 500,
   "n_corner_anchors": null,
   "arch_preset": "w64",
@@ -25,7 +25,7 @@
   "early_stop_patience": 150,
   "lr_lbfgs": 0.1,
   "lbfgs_max_iter": 5,
-  "wall_clock_s": 39032.675,
+  "wall_clock_s": 236.832,
   "out_dir": "results\\exp_O_grf_K100_N500_mixed_ell005_01_w64_float64_lr01_maxiter5",
   "n_sensors": 100,
   "n_sensors_requested": 100,
@@ -144,10 +144,7 @@
     4,
     5
   ],
-  "num_epochs_lbfgs_actual": 1000,
-  "early_stopped": false,
-  "best_total_loss": 0.014876859393128487,
-  "mean_rel_l2": 0.05000005093519927,
-  "max_rel_l2": 0.14131167186020374,
-  "min_rel_l2": 0.018624926285760506
+  "mean_rel_l2": 0.050000050935199145,
+  "max_rel_l2": 0.14131167186020271,
+  "min_rel_l2": 0.018624926285760075
 }

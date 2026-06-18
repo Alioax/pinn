@@ -163,6 +163,7 @@ n_piecewise_per_zones = 50
 piecewise_zone_counts = PIECEWISE_ZONE_COUNTS_DEFAULT
 grf_corr_lengths = GRF_CORR_LENGTHS_DEFAULT
 grf_grid_n = 201
+min_zone_frac: float | None = None
 sensor_xstar: np.ndarray | None = None
 
 # =============================================================================
@@ -1316,8 +1317,29 @@ def parse_cli() -> argparse.Namespace:
         default=None,
         metavar="N",
         help=(
-            "Piecewise cases per zone count in {2,3,4,5} "
+            "Piecewise cases per zone count in --piecewise-zone-counts "
             "(default 50 -> 200 piecewise + 300 GRF = 500 total)."
+        ),
+    )
+    parser.add_argument(
+        "--piecewise-zone-counts",
+        type=str,
+        default=None,
+        metavar="Z_LIST",
+        help=(
+            "Comma-separated piecewise zone counts, e.g. 1,2,3,4,5 "
+            f"(default {','.join(str(v) for v in PIECEWISE_ZONE_COUNTS_DEFAULT)})."
+        ),
+    )
+    parser.add_argument(
+        "--min-zone-frac",
+        type=float,
+        default=None,
+        metavar="F",
+        help=(
+            "Minimum zone width as fraction of domain length in x* "
+            "(e.g. 0.1 = 10%% of domain / 10 of K=100 sensors). "
+            "Enables 1-zone uniform fields; omit for legacy iface-margin sampling."
         ),
     )
     parser.add_argument(
@@ -1354,6 +1376,15 @@ def _parse_grf_corr_lengths(text: str) -> tuple[float, ...]:
     return values
 
 
+def _parse_piecewise_zone_counts(text: str) -> tuple[int, ...]:
+    values = tuple(int(s.strip()) for s in text.split(",") if s.strip())
+    if not values:
+        raise ValueError("piecewise-zone-counts must list at least one positive integer")
+    if any(v < 1 for v in values):
+        raise ValueError("each piecewise zone count must be >= 1")
+    return values
+
+
 def _apply_arch_preset(name: str) -> None:
     global branch_architecture, trunk_architecture, arch_preset
     if name not in ARCH_PRESETS:
@@ -1386,7 +1417,8 @@ def _load_run_meta_for_validate() -> bool:
     global branch_architecture, trunk_architecture, arch_preset, torch_dtype, trunk_mode
     global lr_lbfgs, lbfgs_max_iter, early_stop_patience
     global media_mode, sensor_count, sensor_xstar, grf_corr_lengths, grf_grid_n
-    global n_sensors_requested, n_grf_requested, n_piecewise_per_zones
+    global n_sensors_requested, n_grf_requested, n_piecewise_per_zones, piecewise_zone_counts
+    global min_zone_frac
     branch_architecture = list(branch)
     trunk_architecture = list(trunk)
     arch_preset = str(meta.get("arch_preset", "custom"))
@@ -1417,6 +1449,10 @@ def _load_run_meta_for_validate() -> bool:
         if "n_grf" in meta:
             n_grf_requested = int(meta["n_grf"])
             n_piecewise_per_zones = int(meta.get("n_piecewise_per_zones", 50))
+        if isinstance(meta.get("piecewise_zone_counts"), list):
+            piecewise_zone_counts = tuple(int(v) for v in meta["piecewise_zone_counts"])
+        if "min_zone_frac" in meta:
+            min_zone_frac = float(meta["min_zone_frac"])
     return True
 
 
@@ -1427,7 +1463,8 @@ def apply_cli(args: argparse.Namespace) -> None:
     global torch_dtype, trunk_mode, early_stop_patience, lr_lbfgs, lbfgs_max_iter
     global num_epochs_lbfgs, media_mode, n_sensors_requested, grf_corr_lengths
     global grf_grid_n, sensor_xstar, sensor_count, branch_architecture
-    global n_grf_requested, n_piecewise_per_zones, n_train_requested
+    global n_grf_requested, n_piecewise_per_zones, n_train_requested, piecewise_zone_counts
+    global min_zone_frac
 
     if args.reload_train_cases:
         reload_lhc_train_cases = True
@@ -1453,6 +1490,12 @@ def apply_cli(args: argparse.Namespace) -> None:
                 n_grf_requested = args.n_grf
             if args.n_piecewise_per_zones is not None:
                 n_piecewise_per_zones = args.n_piecewise_per_zones
+            if args.piecewise_zone_counts is not None:
+                piecewise_zone_counts = _parse_piecewise_zone_counts(
+                    args.piecewise_zone_counts
+                )
+            if args.min_zone_frac is not None:
+                min_zone_frac = args.min_zone_frac
             if args.n_train is not None:
                 n_train_requested = args.n_train
             else:
@@ -1573,6 +1616,8 @@ def write_run_meta(
         meta["n_grf"] = n_grf_requested
         meta["n_piecewise_per_zones"] = n_piecewise_per_zones
         meta["piecewise_zone_counts"] = list(piecewise_zone_counts)
+        if min_zone_frac is not None:
+            meta["min_zone_frac"] = min_zone_frac
     if training_summary:
         meta.update(training_summary)
     if validation_rows:
@@ -1629,6 +1674,7 @@ def main() -> None:
             n_piecewise_per_zone_count=n_piecewise_per_zones,
             piecewise_zone_counts=piecewise_zone_counts,
             grf_corr_lengths=grf_corr_lengths,
+            min_zone_frac=min_zone_frac,
         )
         if n_train_requested != mixed_config.n_total:
             raise ValueError(
@@ -1651,16 +1697,28 @@ def main() -> None:
         )
         n_u = grf_batch.sensor_u.shape[0]
         cfl_train = branch_cfl_from_grf_sensor_u(grf_batch.sensor_u)
-        grf_counts = mixed_config.grf_counts_per_length()
-        ell_desc = ", ".join(
-            f"{n}@{ell:g}" for ell, n in zip(grf_corr_lengths, grf_counts, strict=True)
-        )
-        train_desc = (
-            f"{mixed_config.n_grf} GRF ({ell_desc}) + {mixed_config.n_piecewise} piecewise "
-            f"({n_piecewise_per_zones} each for zones "
-            f"{list(piecewise_zone_counts)}) = {n_u} total; "
-            f"K={sensor_xstar.size} uniform sensors, grid_n={grf_grid_n}"
-        )
+        if mixed_config.n_grf > 0:
+            grf_counts = mixed_config.grf_counts_per_length()
+            ell_desc = ", ".join(
+                f"{n}@{ell:g}" for ell, n in zip(grf_corr_lengths, grf_counts, strict=True)
+            )
+            train_desc = (
+                f"{mixed_config.n_grf} GRF ({ell_desc}) + {mixed_config.n_piecewise} piecewise "
+                f"({n_piecewise_per_zones} each for zones "
+                f"{list(piecewise_zone_counts)}) = {n_u} total; "
+                f"K={sensor_xstar.size} uniform sensors, grid_n={grf_grid_n}"
+            )
+        else:
+            zone_desc = (
+                f"{mixed_config.n_piecewise} piecewise "
+                f"({n_piecewise_per_zones} each for zones {list(piecewise_zone_counts)})"
+            )
+            if min_zone_frac is not None:
+                zone_desc += f", min_zone_frac={min_zone_frac:g}"
+            train_desc = (
+                f"{zone_desc} = {n_u} total; "
+                f"K={sensor_xstar.size} uniform sensors, grid_n={grf_grid_n}"
+            )
         print(f"Training: {train_desc}")
         print(f"  saved/loaded: {U_TRAIN_CASES_PATH}")
         print(f"  branch CFL range [{cfl_train.min():g}, {cfl_train.max():g}]")

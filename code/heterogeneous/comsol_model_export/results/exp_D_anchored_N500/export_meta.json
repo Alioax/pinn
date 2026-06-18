@@ -1,0 +1,18 @@
+{
+  "model_family": "pino",
+  "checkpoint": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_D_anchored_N500\\pino_heterogeneous_model.pt",
+  "run_meta": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\pino_heterogeneous\\results\\exp_D_anchored_N500\\run_meta.json",
+  "comsol_data": "C:\\Research\\PINN\\Code Base\\code\\heterogeneous\\data\\comsol_4zones.txt",
+  "n_cases_exported": 81,
+  "n_cases_total": 81,
+  "n_x_star": 86,
+  "times_days": [
+    100.0,
+    300.0,
+    600.0,
+    900.0,
+    1200.0
+  ],
+  "dtype": "float32",
+  "device": "cpu"
+}

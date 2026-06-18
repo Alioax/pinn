@@ -41,6 +41,7 @@ class MixedTrainConfig:
     piecewise_zone_counts: tuple[int, ...] = PIECEWISE_ZONE_COUNTS_DEFAULT
     grf_corr_lengths: tuple[float, ...] = GRF_CORR_LENGTHS_DEFAULT
     iface_margin: float = 0.02
+    min_zone_frac: float | None = None
 
     def grf_counts_per_length(self) -> tuple[int, ...]:
         """GRF case counts per entry in :attr:`grf_corr_lengths`."""
@@ -183,6 +184,41 @@ def draw_grf_velocity_fields(
     return grid_u, sensor_u, grid_x
 
 
+def _zone_widths_from_simplex_params(
+    raw_p: np.ndarray,
+    *,
+    n_zones: int,
+    min_frac: float,
+) -> np.ndarray:
+    """Map LHC rows to zone widths in [min_frac, 1] summing to 1."""
+    if n_zones < 1:
+        raise ValueError("n_zones must be >= 1")
+    if not (0.0 < min_frac < 1.0):
+        raise ValueError("min_frac must lie in (0, 1)")
+    remaining = 1.0 - n_zones * min_frac
+    if remaining < -1e-12:
+        raise ValueError(
+            f"min_frac={min_frac:g} too large for {n_zones} zones "
+            f"(need {n_zones * min_frac:g} <= 1)"
+        )
+    if n_zones == 1:
+        return np.ones((raw_p.shape[0], 1), dtype=np.float64)
+    p = np.asarray(raw_p, dtype=np.float64)
+    if p.shape[1] != n_zones:
+        raise ValueError(
+            f"Expected {n_zones} simplex parameters, got shape {p.shape}"
+        )
+    p = p / p.sum(axis=1, keepdims=True)
+    return min_frac + remaining * p
+
+
+def _interfaces_from_zone_widths(widths: np.ndarray) -> np.ndarray:
+    """Cumulative zone widths -> sorted interface locations in (0, 1)."""
+    if widths.shape[1] < 2:
+        return np.empty((widths.shape[0], 0), dtype=np.float64)
+    return np.cumsum(widths[:, :-1], axis=1)
+
+
 def draw_piecewise_velocity_fields(
     n: int,
     n_zones: int,
@@ -191,6 +227,7 @@ def draw_piecewise_velocity_fields(
     u_lo: float = 0.01,
     u_hi: float = 0.05,
     iface_margin: float = 0.02,
+    min_zone_frac: float | None = None,
     grid_n: int = 201,
     seed: int = 0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -198,33 +235,69 @@ def draw_piecewise_velocity_fields(
     Draw ``n`` piecewise-constant velocity fields with ``n_zones`` zones.
 
     Interface locations and zone velocities are jointly sampled via maximin LHC.
+    When ``min_zone_frac`` is set, zone widths are sampled with each zone at
+    least that fraction of the domain (``n_zones`` may be 1 for uniform fields).
+    Otherwise interfaces are sampled in ``[iface_margin, 1-iface_margin]`` (legacy).
     """
     if n < 1:
         raise ValueError("n must be >= 1")
-    if n_zones < 2:
-        raise ValueError("n_zones must be >= 2")
-    if not (0.0 < iface_margin < 0.5):
-        raise ValueError("iface_margin must lie in (0, 0.5)")
     if grid_n < 3:
         raise ValueError("grid_n must be >= 3")
 
-    n_if = n_zones - 1
-    d = n_if + n_zones
-    lo = np.concatenate(
-        [
-            np.full(n_if, iface_margin, dtype=np.float64),
-            np.full(n_zones, u_lo, dtype=np.float64),
-        ]
-    )
-    hi = np.concatenate(
-        [
-            np.full(n_if, 1.0 - iface_margin, dtype=np.float64),
-            np.full(n_zones, u_hi, dtype=np.float64),
-        ]
-    )
-    params = generate_maximin_lhc_box_samples(n, lo, hi, seed=seed)
-    interfaces = np.sort(params[:, :n_if], axis=1)
-    zone_u = params[:, n_if:]
+    if min_zone_frac is not None:
+        if n_zones < 1:
+            raise ValueError("n_zones must be >= 1 when min_zone_frac is set")
+        if n_zones == 1:
+            d = 1
+            lo = np.array([u_lo], dtype=np.float64)
+            hi = np.array([u_hi], dtype=np.float64)
+            params = generate_maximin_lhc_box_samples(n, lo, hi, seed=seed)
+            interfaces = np.empty((n, 0), dtype=np.float64)
+            zone_u = params.reshape(n, 1)
+        else:
+            d = n_zones + n_zones
+            lo = np.concatenate(
+                [
+                    np.zeros(n_zones, dtype=np.float64),
+                    np.full(n_zones, u_lo, dtype=np.float64),
+                ]
+            )
+            hi = np.concatenate(
+                [
+                    np.ones(n_zones, dtype=np.float64),
+                    np.full(n_zones, u_hi, dtype=np.float64),
+                ]
+            )
+            params = generate_maximin_lhc_box_samples(n, lo, hi, seed=seed)
+            widths = _zone_widths_from_simplex_params(
+                params[:, :n_zones],
+                n_zones=n_zones,
+                min_frac=min_zone_frac,
+            )
+            interfaces = _interfaces_from_zone_widths(widths)
+            zone_u = params[:, n_zones:]
+    else:
+        if n_zones < 2:
+            raise ValueError("n_zones must be >= 2 when min_zone_frac is not set")
+        if not (0.0 < iface_margin < 0.5):
+            raise ValueError("iface_margin must lie in (0, 0.5)")
+        n_if = n_zones - 1
+        d = n_if + n_zones
+        lo = np.concatenate(
+            [
+                np.full(n_if, iface_margin, dtype=np.float64),
+                np.full(n_zones, u_lo, dtype=np.float64),
+            ]
+        )
+        hi = np.concatenate(
+            [
+                np.full(n_if, 1.0 - iface_margin, dtype=np.float64),
+                np.full(n_zones, u_hi, dtype=np.float64),
+            ]
+        )
+        params = generate_maximin_lhc_box_samples(n, lo, hi, seed=seed)
+        interfaces = np.sort(params[:, :n_if], axis=1)
+        zone_u = params[:, n_if:]
 
     grid_x = np.linspace(0.0, 1.0, grid_n, dtype=np.float64)
     sensor_x = np.asarray(sensor_x, dtype=np.float64)
@@ -294,6 +367,7 @@ def draw_mixed_train_cases(
             u_lo=u_lo,
             u_hi=u_hi,
             iface_margin=config.iface_margin,
+            min_zone_frac=config.min_zone_frac,
             grid_n=grid_n,
             seed=seed + 1000 * (j + 1) + n_zones,
         )
@@ -370,16 +444,17 @@ def _mixed_config_matches_batch(
     n_grf = int(np.sum(batch.case_kind == CASE_KIND_GRF))
     if n_grf != config.n_grf:
         return False
-    grf_counts = config.grf_counts_per_length()
-    for ell, n_expected in zip(config.grf_corr_lengths, grf_counts, strict=True):
-        n_have = int(
-            np.sum(
-                (batch.case_kind == CASE_KIND_GRF)
-                & np.isclose(batch.case_grf_corr_length, ell, rtol=0.0, atol=1e-12)
+    if config.n_grf > 0:
+        grf_counts = config.grf_counts_per_length()
+        for ell, n_expected in zip(config.grf_corr_lengths, grf_counts, strict=True):
+            n_have = int(
+                np.sum(
+                    (batch.case_kind == CASE_KIND_GRF)
+                    & np.isclose(batch.case_grf_corr_length, ell, rtol=0.0, atol=1e-12)
+                )
             )
-        )
-        if n_have != n_expected:
-            return False
+            if n_have != n_expected:
+                return False
     for n_zones in config.piecewise_zone_counts:
         n_pw = int(np.sum(batch.case_n_zones == n_zones))
         if n_pw != config.n_piecewise_per_zone_count:
