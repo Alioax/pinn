@@ -216,18 +216,20 @@ def _configure_pino_from_meta(mod: Any, meta: dict[str, object]) -> None:
         mod.sensor_xstar = np.asarray(meta["sensor_xstar"], dtype=np.float64)
     else:
         mod.sensor_xstar = None
+    mod.amortize_branch = bool(meta.get("amortize_branch", False))
+    mod.hard_bc = bool(meta.get("hard_bc", False))
+    mod.inlet_tau = float(meta.get("inlet_tau", 0.05))
 
 
 def _pino_architecture_from_meta(
     mod: Any, meta: dict[str, object]
-) -> tuple[list[int], list[int], str]:
+) -> tuple[list[int], list[int]]:
     branch = meta.get("branch_architecture")
     trunk = meta.get("trunk_architecture")
     if branch and trunk:
         return (
             list(branch),  # type: ignore[arg-type]
             list(trunk),  # type: ignore[arg-type]
-            str(meta.get("trunk_mode", "single")),
         )
 
     media_mode = str(meta.get("media_mode", "zone"))
@@ -243,7 +245,7 @@ def _pino_architecture_from_meta(
         branch_arch = [sensor_count, *preset_branch[1:]]
     else:
         branch_arch = list(preset_branch)
-    return branch_arch, list(preset_trunk), str(meta.get("trunk_mode", "single"))
+    return branch_arch, list(preset_trunk)
 
 
 def _pinn_architecture_from_meta(meta: dict[str, object]) -> list[int]:
@@ -268,9 +270,8 @@ def _build_model(
             "pino_train_mod",
         )
         _configure_pino_from_meta(mod, meta)
-        branch_arch, trunk_arch, trunk_mode = _pino_architecture_from_meta(mod, meta)
+        branch_arch, trunk_arch = _pino_architecture_from_meta(mod, meta)
         model = mod.build_deeponet(
-            trunk_mode,
             branch_arch,
             trunk_arch,
             mod.activation_cls,
@@ -343,7 +344,7 @@ def export_csv(
 
     x_t = torch.tensor(x_star.reshape(-1, 1), dtype=dtype, device=device)
     comsol_on_x = mod.comsol_c_star_on_x_star
-    branch_tensor = mod.branch_tensor_from_u_case
+    predict_at = mod.predict_at
 
     out_dir.mkdir(parents=True, exist_ok=True)
     pointwise_path = out_dir / "comsol_vs_model_pointwise.csv"
@@ -358,7 +359,6 @@ def export_csv(
         for case_id, u_case in tqdm(selected, desc="Export COMSOL vs model"):
             x_m, comsol_by_time = load_case(comsol_data, u_case)
             u1, u2, u3, u4 = u_case
-            branch = branch_tensor(u_case, n_x, device=device, dtype=dtype)
 
             l2_sum = 0.0
             n_time = 0
@@ -368,7 +368,7 @@ def export_csv(
                 t_star = float(t_days / t_max)
                 t_t = torch.full((n_x, 1), t_star, dtype=dtype, device=device)
                 with torch.no_grad():
-                    c_model = model(x_t, t_t, branch).detach().cpu().numpy().flatten()
+                    c_model = predict_at(model, x_t, t_t, u_case).detach().cpu().numpy().flatten()
                 c_ref = comsol_on_x(x_star, x_m, c_comsol_raw)
                 l2_sum += _l2_rel(c_model, c_ref)
                 n_time += 1

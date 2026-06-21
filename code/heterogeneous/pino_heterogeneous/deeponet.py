@@ -9,8 +9,6 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from utils.zone_velocity import zone_index_xstar
-
 
 def _build_mlp(arch: list[int], activation: type[nn.Module]) -> nn.Sequential:
     layers: list[nn.Module] = []
@@ -40,41 +38,32 @@ class DeepONetParametric(nn.Module):
         _init_mlp_gain(self.branch, gain)
         _init_mlp_gain(self.trunk, gain)
 
-    def forward(self, x_star, t_star, branch_input):
+    def forward(
+        self,
+        x_star,
+        t_star,
+        branch_input,
+        case_idx=None,
+        *,
+        tau: float = 0.05,
+        hard_bc: bool = False,
+    ):
+        if case_idx is None:
+            b_vec = self.branch(branch_input)
+        else:
+            b_vec = self.branch(branch_input)[case_idx]
         pts = torch.cat([x_star, t_star], dim=1)
-        b_vec = self.branch(branch_input)
         t_vec = self.trunk(pts)
-        return torch.sigmoid((b_vec * t_vec).sum(dim=-1, keepdim=True))
-
-
-class DeepONetZoneTrunks(nn.Module):
-    """Shared branch; one trunk per zone selected by zone_index(x*)."""
-
-    def __init__(self, branch_arch, trunk_arch, activation, *, n_zones: int = 4):
-        super().__init__()
-        self.n_zones = n_zones
-        self.branch = _build_mlp(branch_arch, activation)
-        self.trunks = nn.ModuleList(
-            [_build_mlp(trunk_arch, activation) for _ in range(n_zones)]
-        )
-
-        gain = nn.init.calculate_gain("tanh")
-        _init_mlp_gain(self.branch, gain)
-        for trunk in self.trunks:
-            _init_mlp_gain(trunk, gain)
-
-    def forward(self, x_star, t_star, branch_input):
-        pts = torch.cat([x_star, t_star], dim=1)
-        b_vec = self.branch(branch_input)
-        stacked = torch.stack([trunk(pts) for trunk in self.trunks], dim=1)
-        zidx = zone_index_xstar(x_star).long().view(-1)
-        row_idx = torch.arange(stacked.size(0), device=stacked.device)
-        t_vec = stacked[row_idx, zidx]
-        return torch.sigmoid((b_vec * t_vec).sum(dim=-1, keepdim=True))
+        n_raw = (b_vec * t_vec).sum(dim=-1, keepdim=True)
+        if not hard_bc:
+            return torch.sigmoid(n_raw)
+        r = 1.0 - torch.exp(-t_star / tau)
+        a = (1.0 - x_star) * r
+        b = x_star * (1.0 - x_star) * r
+        return a + b * n_raw
 
 
 def build_deeponet(
-    trunk_mode: str,
     branch_arch: list[int],
     trunk_arch: list[int],
     activation: type[nn.Module],
@@ -86,8 +75,4 @@ def build_deeponet(
             f"branch output {latent} != trunk output {trunk_arch[-1]} "
             f"(branch={branch_arch}, trunk={trunk_arch})"
         )
-    if trunk_mode == "single":
-        return DeepONetParametric(branch_arch, trunk_arch, activation)
-    if trunk_mode == "zone":
-        return DeepONetZoneTrunks(branch_arch, trunk_arch, activation)
-    raise ValueError(f"Unknown trunk_mode: {trunk_mode!r}")
+    return DeepONetParametric(branch_arch, trunk_arch, activation)

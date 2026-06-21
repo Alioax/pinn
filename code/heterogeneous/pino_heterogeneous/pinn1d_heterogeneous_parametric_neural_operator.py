@@ -61,7 +61,6 @@ from utils.zone_velocity import (  # noqa: E402
     cfl_from_u,
     cfl_from_u_np,
     piecewise_cfl_from_branch,
-    zone_index_xstar,
     zone_index_xstar_np,
 )
 
@@ -109,11 +108,6 @@ weight_pde = 1.0
 weight_ic = 1.0
 weight_inlet_bc = 1.0
 weight_outlet_bc = 1.0
-weight_interface_c = 1.0
-weight_interface_flux = 1.0
-
-# Half-width for left/right interface collocation (zone trunks only).
-interface_collocation_eps = 1e-3
 
 save_model = True
 collocation_scatter_ms = 3
@@ -151,9 +145,11 @@ train_design: TrainDesign = "lhc"
 n_train_requested = N_LHC_TRAIN
 n_corner_anchors = 16
 arch_preset = "default"
-trunk_mode = "single"
 skip_validation_plots = False
 batch_mode = False
+amortize_branch = False
+hard_bc = False
+inlet_tau = 0.05
 
 # GRF (PINO_2) mode — set by --design grf
 media_mode: str = "zone"
@@ -243,7 +239,7 @@ def _pde_collocation_from_u_cases(
     x_1d: np.ndarray,
     t_1d: np.ndarray,
     u_cases: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Build PDE collocation from 1D x*, t* grids and (N, 4) training velocities."""
     n_u = u_cases.shape[0]
     gx, gt, gu = np.meshgrid(x_1d, t_1d, np.arange(n_u, dtype=np.int64), indexing="ij")
@@ -252,6 +248,7 @@ def _pde_collocation_from_u_cases(
     return (
         gx.reshape(-1),
         gt.reshape(-1),
+        idx,
         branch,
         branch[:, 0],
         branch[:, 1],
@@ -311,6 +308,62 @@ def branch_tensor_from_u_case(
     )
 
 
+def model_call(
+    model: nn.Module,
+    x_star: torch.Tensor,
+    t_star: torch.Tensor,
+    tensors: dict[str, torch.Tensor],
+    *,
+    branch_key: str,
+    case_key: str,
+) -> torch.Tensor:
+    """Forward with amortized or legacy branch inputs."""
+    kwargs = {"hard_bc": hard_bc, "tau": inlet_tau}
+    if amortize_branch:
+        return model(
+            x_star,
+            t_star,
+            tensors["branch_unique"],
+            tensors[case_key],
+            **kwargs,
+        )
+    return model(x_star, t_star, tensors[branch_key], **kwargs)
+
+
+def validation_model_inputs(
+    u_case: tuple[float, float, float, float],
+    n: int,
+    *,
+    device: torch.device,
+    dtype: torch.dtype,
+) -> tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None]:
+    """Branch tensors for COMSOL validation / plotting (amortized or legacy)."""
+    cfl_branch = branch_cfl_vector_for_validation(u_case).reshape(1, -1)
+    if amortize_branch:
+        branch_unique = torch.tensor(cfl_branch, dtype=dtype, device=device)
+        case_idx = torch.zeros(n, dtype=torch.long, device=device)
+        return branch_unique, case_idx, None
+    branch_input = torch.tensor(
+        np.repeat(cfl_branch, n, axis=0), dtype=dtype, device=device
+    )
+    return None, None, branch_input
+
+
+def predict_at(
+    model: nn.Module,
+    x_star: torch.Tensor,
+    t_star: torch.Tensor,
+    u_case: tuple[float, float, float, float],
+) -> torch.Tensor:
+    branch_unique, case_idx, branch_input = validation_model_inputs(
+        u_case, x_star.shape[0], device=x_star.device, dtype=x_star.dtype
+    )
+    kwargs = {"hard_bc": hard_bc, "tau": inlet_tau}
+    if amortize_branch:
+        return model(x_star, t_star, branch_unique, case_idx, **kwargs)
+    return model(x_star, t_star, branch_input, **kwargs)
+
+
 def u_case_tag(u_case: tuple[float, float, float, float]) -> str:
     return "_".join(f"{v:g}".replace(".", "p") for v in u_case)
 
@@ -352,8 +405,7 @@ def _pde_residual_1d(
         x_star.reshape(-1, 1), dtype=dtype, device=device, requires_grad=True
     )
     t_t = torch.full((n_x, 1), t_star, dtype=dtype, device=device, requires_grad=True)
-    branch = branch_tensor_from_u_case(u_case, n_x, device=device, dtype=dtype)
-    c = model(x_t, t_t, branch)
+    c = predict_at(model, x_t, t_t, u_case)
     dC_dt = gradients(c, t_t)
     dC_dx = gradients(c, x_t)
     d2C_dx2 = gradients(dC_dx, x_t)
@@ -387,7 +439,6 @@ def comsol_case_mean_l2(
         x_star = pde_collocation_x_star_1d()
     n_x = x_star.size
     x_t = torch.tensor(x_star.reshape(-1, 1), dtype=dtype, device=device)
-    branch = branch_tensor_from_u_case(u_case, n_x, device=device, dtype=dtype)
 
     l2_sum = 0.0
     matched = _match_comsol_times(comsol_by_time, COMSOL_TIMES_DAYS)
@@ -396,7 +447,7 @@ def comsol_case_mean_l2(
         t_star = t_days / T_MAX
         t_t = torch.full((n_x, 1), t_star, dtype=dtype, device=device)
         with torch.no_grad():
-            c_pred = model(x_t, t_t, branch).cpu().numpy().flatten()
+            c_pred = predict_at(model, x_t, t_t, u_case).cpu().numpy().flatten()
         c_ref = comsol_c_star_on_x_star(x_star, x_m, c_comsol)
         l2_sum += _l2_rel(c_pred, c_ref)
     return l2_sum / len(matched)
@@ -417,7 +468,6 @@ def plot_comsol_case(
         x_star = pde_collocation_x_star_1d()
     n_x = x_star.size
     x_t = torch.tensor(x_star.reshape(-1, 1), dtype=dtype, device=device)
-    branch = branch_tensor_from_u_case(u_case, n_x, device=device, dtype=dtype)
 
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     pde_lw = 1.0
@@ -455,7 +505,7 @@ def plot_comsol_case(
         t_star = t_days / T_MAX
         t_t = torch.full((n_x, 1), t_star, dtype=dtype, device=device)
         with torch.no_grad():
-            c_pred = model(x_t, t_t, branch).cpu().numpy().flatten()
+            c_pred = predict_at(model, x_t, t_t, u_case).cpu().numpy().flatten()
         c_ref = comsol_c_star_on_x_star(x_star, x_m, c_comsol)
         l2_sum += _l2_rel(c_pred, c_ref)
         color = colors[idx % len(colors)]
@@ -592,22 +642,10 @@ def validate_against_comsol(
     return rows
 
 
-def zone_local_cfl_from_u(
-    x_star: torch.Tensor,
-    u_phys: torch.Tensor,
-) -> torch.Tensor:
-    """Zone-constant CFL at each collocation point (zone trunks / per-zone PDE)."""
-    cfl_all = cfl_from_u(u_phys, l_m=L, t_max_d=T_MAX)
-    zidx = zone_index_xstar(x_star).long().view(-1)
-    return cfl_all.gather(1, zidx.unsqueeze(1))
-
-
 def build_collocation_tensors(
     device: torch.device,
     dtype: torch.dtype,
     u_cases: np.ndarray,
-    *,
-    include_interface: bool = False,
 ):
     tf = float(T_MAX / T_MAX)
 
@@ -616,6 +654,7 @@ def build_collocation_tensors(
     (
         x_bulk_np,
         t_bulk_np,
+        case_idx_bulk_np,
         u_bulk_np,
         u1_bulk_np,
         u2_bulk_np,
@@ -626,6 +665,7 @@ def build_collocation_tensors(
     (
         x_if_np,
         t_if_np,
+        case_idx_if_np,
         u_if_np,
         u1_if_np,
         _u2_if_np,
@@ -634,11 +674,11 @@ def build_collocation_tensors(
 
     x_star_pde_np = np.concatenate([x_bulk_np, x_if_np])
     t_star_pde_np = np.concatenate([t_bulk_np, t_if_np])
+    case_idx_pde_np = np.concatenate([case_idx_bulk_np, case_idx_if_np])
     branch_pde_np = np.concatenate([u_bulk_np, u_if_np])
     u1_pde_np = np.concatenate([u1_bulk_np, u1_if_np])
     u2_pde_np = np.concatenate([u2_bulk_np, _u2_if_np])
     u3_pde_np = np.concatenate([u3_bulk_np, _u3_if_np])
-    u4_pde_np = branch_pde_np[:, 3]
 
     n_bulk = x_bulk_np.size
     n_interface = x_if_np.size
@@ -653,16 +693,19 @@ def build_collocation_tensors(
     pde_colors = [f"C{int(i) % n_cycle_colors}" for i in zone_pde_np]
 
     n_u = u_cases.shape[0]
+    branch_unique_np = branch_cfl_from_u(u_cases)
     x_ic_1d = np.linspace(0.0, 1.0, mesh_ic_nx)
     gxi, gui = np.meshgrid(x_ic_1d, np.arange(n_u, dtype=np.int64), indexing="ij")
     x_star_ic_np = gxi.reshape(-1)
     t_star_ic_np = np.zeros_like(x_star_ic_np)
-    branch_ic_np = u_cases[gui.reshape(-1)]
+    case_ic_np = gui.reshape(-1)
+    branch_ic_np = u_cases[case_ic_np]
 
     t_bc_1d = np.linspace(0.0, tf, mesh_bc_nt)
     gtb, gub = np.meshgrid(t_bc_1d, np.arange(n_u, dtype=np.int64), indexing="ij")
     t_star_inlet_np = gtb.reshape(-1)
-    branch_in_np = u_cases[gub.reshape(-1)]
+    case_bc_np = gub.reshape(-1)
+    branch_in_np = u_cases[case_bc_np]
     x_star_inlet_np = np.zeros_like(t_star_inlet_np)
     x_star_outlet_np = np.ones_like(t_star_inlet_np)
     t_star_outlet_np = t_star_inlet_np.copy()
@@ -671,13 +714,15 @@ def build_collocation_tensors(
     target_tail = np.array([0.03, 0.03, 0.03], dtype=np.float64)
     i_ref = int(np.argmin(np.linalg.norm(u_cases[:, 1:] - target_tail, axis=1)))
     u_ref = u_cases[i_ref]
-    slice_mask = np.all(
-        np.isclose(branch_pde_np, u_ref, rtol=0.0, atol=1e-12), axis=1
-    )
+    slice_mask = case_idx_pde_np == i_ref
     if not np.any(slice_mask):
         slice_mask = np.ones_like(x_star_pde_np, dtype=bool)
 
     tensors: dict[str, torch.Tensor] = {
+        "branch_unique": torch.tensor(branch_unique_np, dtype=dtype, device=device),
+        "case_pde": torch.tensor(case_idx_pde_np, dtype=torch.long, device=device),
+        "case_ic": torch.tensor(case_ic_np, dtype=torch.long, device=device),
+        "case_bc": torch.tensor(case_bc_np, dtype=torch.long, device=device),
         "x_pde": torch.tensor(
             x_star_pde_np.reshape(-1, 1), dtype=dtype, device=device, requires_grad=True
         ),
@@ -704,58 +749,6 @@ def build_collocation_tensors(
             branch_cfl_from_u(branch_out_np), dtype=dtype, device=device
         ),
     }
-
-    if include_interface:
-        eps = interface_collocation_eps
-        x_left_parts: list[np.ndarray] = []
-        x_right_parts: list[np.ndarray] = []
-        t_if_parts: list[np.ndarray] = []
-        u_if_parts: list[np.ndarray] = []
-        z_left_parts: list[np.ndarray] = []
-        for i_if, xi in enumerate(ZONE_INTERFACE_XSTAR):
-            x_l = max(0.0, float(xi) - eps)
-            x_r = min(1.0, float(xi) + eps)
-            gtb, gub = np.meshgrid(t_bc_1d, np.arange(n_u, dtype=np.int64), indexing="ij")
-            t_flat = gtb.reshape(-1)
-            u_flat = u_cases[gub.reshape(-1)]
-            n_pts = t_flat.size
-            x_left_parts.append(np.full(n_pts, x_l, dtype=np.float64))
-            x_right_parts.append(np.full(n_pts, x_r, dtype=np.float64))
-            t_if_parts.append(t_flat)
-            u_if_parts.append(u_flat)
-            z_left_parts.append(np.full(n_pts, i_if, dtype=np.int64))
-
-        x_if_l_np = np.concatenate(x_left_parts)
-        x_if_r_np = np.concatenate(x_right_parts)
-        t_if_np = np.concatenate(t_if_parts)
-        u_if_np = np.concatenate(u_if_parts)
-        z_if_left_np = np.concatenate(z_left_parts)
-        tensors.update(
-            {
-                "x_if_l": torch.tensor(
-                    x_if_l_np.reshape(-1, 1),
-                    dtype=dtype,
-                    device=device,
-                    requires_grad=True,
-                ),
-                "x_if_r": torch.tensor(
-                    x_if_r_np.reshape(-1, 1),
-                    dtype=dtype,
-                    device=device,
-                    requires_grad=True,
-                ),
-                "t_if": torch.tensor(
-                    t_if_np.reshape(-1, 1), dtype=dtype, device=device
-                ),
-                "branch_if": torch.tensor(
-                    branch_cfl_from_u(u_if_np), dtype=dtype, device=device
-                ),
-                "u_if": torch.tensor(u_if_np, dtype=dtype, device=device),
-                "z_if_left": torch.tensor(
-                    z_if_left_np, dtype=torch.long, device=device
-                ),
-            }
-        )
 
     plot_data = {
         "x_star_pde_np": x_star_pde_np,
@@ -832,8 +825,13 @@ def build_grf_collocation_tensors(
     u_ref_sensors = batch.sensor_u[i_ref]
     k_show = min(4, u_ref_sensors.size)
     u_ref_display = tuple(float(v) for v in u_ref_sensors[:k_show])
+    branch_unique_np = branch_cfl_from_grf_sensor_u(batch.sensor_u)
 
     tensors: dict[str, torch.Tensor] = {
+        "branch_unique": torch.tensor(branch_unique_np, dtype=dtype, device=device),
+        "case_pde": torch.tensor(case_idx_pde, dtype=torch.long, device=device),
+        "case_ic": torch.tensor(case_ic_np, dtype=torch.long, device=device),
+        "case_bc": torch.tensor(case_bc_np, dtype=torch.long, device=device),
         "x_pde": torch.tensor(
             x_star_pde_np.reshape(-1, 1), dtype=dtype, device=device, requires_grad=True
         ),
@@ -877,48 +875,24 @@ def build_grf_collocation_tensors(
     return tensors, plot_data
 
 
-def compute_interface_losses(
-    model: nn.Module,
-    tensors: dict[str, torch.Tensor],
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """C and flux continuity at zone interfaces (zone-trunk models)."""
-    x_l = tensors["x_if_l"]
-    x_r = tensors["x_if_r"]
-    t = tensors["t_if"]
-    branch = tensors["branch_if"]
-    u_phys = tensors["u_if"]
-    z_left = tensors["z_if_left"]
-
-    c_l = model(x_l, t, branch)
-    c_r = model(x_r, t, branch)
-    continuity_loss = torch.mean((c_l - c_r) ** 2)
-
-    dC_dx_l = gradients(c_l, x_l)
-    dC_dx_r = gradients(c_r, x_r)
-    cfl_all = cfl_from_u(u_phys, l_m=L, t_max_d=T_MAX)
-    cfl_l = cfl_all.gather(1, z_left.unsqueeze(1))
-    cfl_r = cfl_all.gather(1, (z_left + 1).unsqueeze(1))
-    flux_l = cfl_l * c_l - PE * dC_dx_l
-    flux_r = cfl_r * c_r - PE * dC_dx_r
-    flux_loss = torch.mean((flux_l - flux_r) ** 2)
-    return continuity_loss, flux_loss
-
-
 def compute_physics_loss(
     model: nn.Module,
     tensors: dict[str, torch.Tensor],
     *,
-    use_zone_pde: bool = False,
     use_grf_pde: bool = False,
-    use_interface_losses: bool = False,
 ) -> tuple[torch.Tensor, tuple[float, ...]]:
-    c_pde = model(tensors["x_pde"], tensors["t_pde"], tensors["branch_pde"])
+    c_pde = model_call(
+        model,
+        tensors["x_pde"],
+        tensors["t_pde"],
+        tensors,
+        branch_key="branch_pde",
+        case_key="case_pde",
+    )
     dC_dt = gradients(c_pde, tensors["t_pde"])
     dC_dx = gradients(c_pde, tensors["x_pde"])
     d2C_dx2 = gradients(dC_dx, tensors["x_pde"])
-    if use_zone_pde:
-        cfl_local = zone_local_cfl_from_u(tensors["x_pde"], tensors["u_pde"])
-    elif use_grf_pde:
+    if use_grf_pde:
         cfl_local = cfl_from_u(tensors["u_pde"], l_m=L, t_max_d=T_MAX)
     else:
         cfl_local = piecewise_cfl_from_branch(
@@ -926,39 +900,35 @@ def compute_physics_loss(
         )
     residual = dC_dt + cfl_local * dC_dx - PE * d2C_dx2
     pde_loss = torch.mean(residual**2)
-    ic_loss = torch.mean(
-        (model(tensors["x_ic"], tensors["t_ic"], tensors["branch_ic"]) - 0.0) ** 2
-    )
-    inlet_loss = torch.mean(
-        (model(tensors["x_in"], tensors["t_in"], tensors["branch_in"]) - 1.0) ** 2
-    )
-    outlet_loss = torch.mean(
-        (model(tensors["x_out"], tensors["t_out"], tensors["branch_out"]) - 0.0) ** 2
-    )
 
-    interface_c_loss = torch.tensor(0.0, dtype=pde_loss.dtype, device=pde_loss.device)
-    interface_flux_loss = torch.tensor(
-        0.0, dtype=pde_loss.dtype, device=pde_loss.device
+    c_ic = model_call(
+        model, tensors["x_ic"], tensors["t_ic"], tensors, branch_key="branch_ic", case_key="case_ic"
     )
-    if use_interface_losses:
-        interface_c_loss, interface_flux_loss = compute_interface_losses(model, tensors)
+    c_in = model_call(
+        model, tensors["x_in"], tensors["t_in"], tensors, branch_key="branch_in", case_key="case_bc"
+    )
+    c_out = model_call(
+        model, tensors["x_out"], tensors["t_out"], tensors, branch_key="branch_out", case_key="case_bc"
+    )
+    ic_loss = torch.mean((c_ic - 0.0) ** 2)
+    inlet_loss = torch.mean((c_in - 1.0) ** 2)
+    outlet_loss = torch.mean((c_out - 0.0) ** 2)
 
-    total_loss = (
-        weight_pde * pde_loss
-        + weight_ic * ic_loss
-        + weight_inlet_bc * inlet_loss
-        + weight_outlet_bc * outlet_loss
-        + weight_interface_c * interface_c_loss
-        + weight_interface_flux * interface_flux_loss
-    )
+    if hard_bc:
+        total_loss = weight_pde * pde_loss
+    else:
+        total_loss = (
+            weight_pde * pde_loss
+            + weight_ic * ic_loss
+            + weight_inlet_bc * inlet_loss
+            + weight_outlet_bc * outlet_loss
+        )
     metrics = (
         total_loss.item(),
         pde_loss.item(),
         ic_loss.item(),
         inlet_loss.item(),
         outlet_loss.item(),
-        interface_c_loss.item(),
-        interface_flux_loss.item(),
     )
     return total_loss, metrics
 
@@ -975,9 +945,7 @@ def train_model(
     device: torch.device,
     tensors: dict[str, torch.Tensor],
     *,
-    use_zone_pde: bool = False,
     use_grf_pde: bool = False,
-    use_interface_losses: bool = False,
 ) -> tuple[list[list[float]], dict[str, object]]:
     optimizer = torch.optim.LBFGS(
         model.parameters(),
@@ -1006,9 +974,7 @@ def train_model(
         total_loss, metrics = compute_physics_loss(
             model,
             tensors,
-            use_zone_pde=use_zone_pde,
             use_grf_pde=use_grf_pde,
-            use_interface_losses=use_interface_losses,
         )
         total_loss.backward()
         closure.latest = metrics
@@ -1128,14 +1094,11 @@ def plot_training_figures(
     for idx, u_case in enumerate(PLOT_U_CASES):
         ax = axes_arr[idx]
         u1, u2, u3, u4 = u_case
-        branch_eval = branch_tensor_from_u_case(
-            (u1, u2, u3, u4), len(x_plot), device=device, dtype=dtype
-        )
         for j, t_star in enumerate(times_tstar):
             color = colors_cycle[j % len(colors_cycle)]
             t_t = torch.full((len(x_plot), 1), float(t_star), dtype=dtype, device=device)
             with torch.no_grad():
-                c_op = model(x_plot_t, t_t, branch_eval).cpu().numpy().flatten()
+                c_op = predict_at(model, x_plot_t, t_t, (u1, u2, u3, u4)).cpu().numpy().flatten()
             ax.plot(x_plot, c_op, linewidth=2, linestyle="-", color=color)
         ax.set_title(rf"$u=({u1:g},{u2:g},{u3:g},{u4:g})$ m/d")
         ax.set_xlim(0.0, x_plot_max_star)
@@ -1174,23 +1137,6 @@ def plot_training_figures(
     ax3.plot(epochs, h[:, 2], color="gray", linewidth=1.0, alpha=0.6, label="IC")
     ax3.plot(epochs, h[:, 3], color="purple", linewidth=1.0, alpha=0.75, label="Inlet")
     ax3.plot(epochs, h[:, 4], color="crimson", linewidth=1.0, alpha=0.75, label="Outlet")
-    if h.shape[1] > 5 and (np.any(h[:, 5] > 0) or np.any(h[:, 6] > 0)):
-        ax3.plot(
-            epochs,
-            h[:, 5],
-            color="teal",
-            linewidth=1.0,
-            alpha=0.75,
-            label="Interface C",
-        )
-        ax3.plot(
-            epochs,
-            h[:, 6],
-            color="navy",
-            linewidth=1.0,
-            alpha=0.75,
-            label="Interface flux",
-        )
     ax3.set_yscale("log")
     ax3.set_xlabel("L-BFGS step")
     ax3.set_ylabel("Loss")
@@ -1262,10 +1208,21 @@ def parse_cli() -> argparse.Namespace:
         help="Torch floating-point dtype (default float32).",
     )
     parser.add_argument(
-        "--trunk-mode",
-        choices=["single", "zone"],
+        "--amortize-branch",
+        action="store_true",
+        help="Encode each training case once; gather branch latent by case index.",
+    )
+    parser.add_argument(
+        "--hard-bc",
+        action="store_true",
+        help="Hard IC/inlet/outlet ansatz C=A+B*N; PDE-only loss.",
+    )
+    parser.add_argument(
+        "--inlet-tau",
+        type=float,
         default=None,
-        help="Trunk architecture: one shared trunk or one trunk per zone.",
+        metavar="TAU",
+        help="Inlet ramp time scale tau in the hard-BC ansatz (default 0.05).",
     )
     parser.add_argument(
         "--early-stop-patience",
@@ -1405,7 +1362,7 @@ def _apply_grf_branch_arch(k: int, *, arch: str = "default") -> None:
 
 
 def _load_run_meta_for_validate() -> bool:
-    """If run_meta.json exists, restore arch/dtype/trunk_mode for validate-only."""
+    """If run_meta.json exists, restore arch/dtype and training flags for validate-only."""
     meta_path = RESULTS_DIR / "run_meta.json"
     if not meta_path.is_file():
         return False
@@ -1414,11 +1371,11 @@ def _load_run_meta_for_validate() -> bool:
     trunk = meta.get("trunk_architecture")
     if not branch or not trunk:
         return False
-    global branch_architecture, trunk_architecture, arch_preset, torch_dtype, trunk_mode
+    global branch_architecture, trunk_architecture, arch_preset, torch_dtype
     global lr_lbfgs, lbfgs_max_iter, early_stop_patience
     global media_mode, sensor_count, sensor_xstar, grf_corr_lengths, grf_grid_n
     global n_sensors_requested, n_grf_requested, n_piecewise_per_zones, piecewise_zone_counts
-    global min_zone_frac
+    global min_zone_frac, amortize_branch, hard_bc, inlet_tau
     branch_architecture = list(branch)
     trunk_architecture = list(trunk)
     arch_preset = str(meta.get("arch_preset", "custom"))
@@ -1427,7 +1384,12 @@ def _load_run_meta_for_validate() -> bool:
         torch_dtype = torch.float64
     else:
         torch_dtype = torch.float32
-    trunk_mode = str(meta.get("trunk_mode", "single"))
+    if "amortize_branch" in meta:
+        amortize_branch = bool(meta["amortize_branch"])
+    if "hard_bc" in meta:
+        hard_bc = bool(meta["hard_bc"])
+    if "inlet_tau" in meta:
+        inlet_tau = float(meta["inlet_tau"])
     if "lr_lbfgs" in meta:
         lr_lbfgs = float(meta["lr_lbfgs"])
     if "lbfgs_max_iter" in meta:
@@ -1460,11 +1422,11 @@ def apply_cli(args: argparse.Namespace) -> None:
     global RESULTS_DIR, COMSOL_VALIDATION_DIR, MODEL_PATH, U_TRAIN_CASES_PATH
     global train_design, n_train_requested, n_corner_anchors, skip_validation_plots
     global batch_mode, reload_lhc_train_cases, run_training, validate_only
-    global torch_dtype, trunk_mode, early_stop_patience, lr_lbfgs, lbfgs_max_iter
+    global torch_dtype, early_stop_patience, lr_lbfgs, lbfgs_max_iter
     global num_epochs_lbfgs, media_mode, n_sensors_requested, grf_corr_lengths
     global grf_grid_n, sensor_xstar, sensor_count, branch_architecture
     global n_grf_requested, n_piecewise_per_zones, n_train_requested, piecewise_zone_counts
-    global min_zone_frac
+    global min_zone_frac, amortize_branch, hard_bc, inlet_tau
 
     if args.reload_train_cases:
         reload_lhc_train_cases = True
@@ -1546,14 +1508,17 @@ def apply_cli(args: argparse.Namespace) -> None:
         elif media_mode != "grf":
             _apply_arch_preset(args.arch)
 
-    if args.trunk_mode == "zone" and media_mode == "grf":
-        raise ValueError("--trunk-mode zone is not supported with --design grf")
-
     if args.dtype is not None:
         torch_dtype = torch.float64 if args.dtype == "float64" else torch.float32
 
-    if args.trunk_mode is not None:
-        trunk_mode = args.trunk_mode
+    if args.amortize_branch:
+        amortize_branch = True
+
+    if args.hard_bc:
+        hard_bc = True
+
+    if args.inlet_tau is not None:
+        inlet_tau = args.inlet_tau
 
     if args.early_stop_patience is not None:
         early_stop_patience = args.early_stop_patience
@@ -1595,9 +1560,11 @@ def write_run_meta(
         "n_train_actual": n_train_actual,
         "n_corner_anchors": n_corner_anchors if train_design == "anchored" else None,
         "arch_preset": arch_preset,
-        "trunk_mode": trunk_mode,
         "branch_architecture": branch_architecture,
         "trunk_architecture": trunk_architecture,
+        "amortize_branch": amortize_branch,
+        "hard_bc": hard_bc,
+        "inlet_tau": inlet_tau,
         "seed": seed,
         "dtype": str(torch_dtype).replace("torch.", ""),
         "num_epochs_lbfgs_requested": num_epochs_lbfgs,
@@ -1658,7 +1625,8 @@ def main() -> None:
         f"design={train_design}  media_mode={media_mode}  "
         f"n_train_requested={n_train_requested}  "
         f"n_corner_anchors={n_corner_anchors}  arch={arch_preset}  "
-        f"trunk_mode={trunk_mode}  batch_mode={batch_mode}"
+        f"amortize_branch={amortize_branch}  hard_bc={hard_bc}  inlet_tau={inlet_tau:g}  "
+        f"batch_mode={batch_mode}"
     )
     print(f"branch={branch_architecture}  trunk={trunk_architecture}")
     print(f"results_dir={RESULTS_DIR}")
@@ -1767,9 +1735,8 @@ def main() -> None:
             f"outer_steps={num_epochs_lbfgs}"
         )
 
-    use_zone_trunks = trunk_mode == "zone"
     model = build_deeponet(
-        trunk_mode, branch_architecture, trunk_architecture, activation_cls
+        branch_architecture, trunk_architecture, activation_cls
     ).to(device)
 
     if run_training:
@@ -1777,35 +1744,21 @@ def main() -> None:
             if grf_batch is None:
                 raise RuntimeError("GRF batch missing for training")
             tensors, plot_data = build_grf_collocation_tensors(device, dtype, grf_batch)
-            use_zone_pde = False
             use_grf_pde = True
-            use_interface_losses = False
         else:
-            tensors, plot_data = build_collocation_tensors(
-                device, dtype, u_train, include_interface=use_zone_trunks
-            )
-            use_zone_pde = use_zone_trunks
+            tensors, plot_data = build_collocation_tensors(device, dtype, u_train)
             use_grf_pde = False
-            use_interface_losses = use_zone_trunks
         print(
             f"PDE collocation points: {plot_data['n_pde']:,} "
             f"(bulk {plot_data['n_pde_bulk']:,}, interface {plot_data['n_pde_interface']:,})"
         )
         coll_path = plot_collocation_points(plot_data, n_train_media=n_u)
         print(f"Collocation mesh plot (pre-train): {coll_path}")
-        if use_interface_losses:
-            n_if_pts = tensors["x_if_l"].shape[0]
-            print(
-                f"Zone trunks: per-zone PDE CFL + interface losses "
-                f"({n_if_pts:,} interface collocation pairs)"
-            )
         history, training_summary = train_model(
             model,
             device,
             tensors,
-            use_zone_pde=use_zone_pde,
             use_grf_pde=use_grf_pde,
-            use_interface_losses=use_interface_losses,
         )
         conc_path, loss_path = plot_training_figures(model, device, dtype, history)
         if save_model:

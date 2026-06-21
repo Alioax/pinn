@@ -102,12 +102,11 @@ def load_model_from_checkpoint(
     trunk = list(meta["trunk_architecture"])
     dtype_name = str(meta.get("dtype", "float32"))
     dtype = torch.float64 if dtype_name == "float64" else torch.float32
-    trunk_mode = str(meta.get("trunk_mode", "single"))
 
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = build_deeponet(trunk_mode, branch, trunk, nn.Tanh)
+    model = build_deeponet(branch, trunk, nn.Tanh)
     model.load_state_dict(
         torch.load(model_path, map_location=device, weights_only=True)
     )

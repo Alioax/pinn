@@ -96,7 +96,7 @@ def _load_model(checkpoint: Path, *, dtype: torch.dtype):
 
     device = torch.device("cpu")
     torch.set_default_dtype(dtype)
-    model = build_deeponet("single", BRANCH_ARCH, TRUNK_ARCH, nn.Tanh).to(
+    model = build_deeponet(BRANCH_ARCH, TRUNK_ARCH, nn.Tanh).to(
         device=device, dtype=dtype
     )
     try:

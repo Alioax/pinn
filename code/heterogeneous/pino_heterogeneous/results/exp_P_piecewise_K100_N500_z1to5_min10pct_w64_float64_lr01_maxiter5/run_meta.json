@@ -1,7 +1,7 @@
 {
-  "design": "grf",
+  "design": "lhc",
   "media_mode": "grf",
-  "n_train": 500,
+  "n_train": 2500,
   "n_train_actual": 500,
   "n_corner_anchors": null,
   "arch_preset": "w64",
@@ -25,7 +25,7 @@
   "early_stop_patience": 150,
   "lr_lbfgs": 0.1,
   "lbfgs_max_iter": 5,
-  "wall_clock_s": 38857.504,
+  "wall_clock_s": 121.844,
   "out_dir": "results\\exp_P_piecewise_K100_N500_z1to5_min10pct_w64_float64_lr01_maxiter5",
   "n_sensors": 100,
   "n_sensors_requested": 100,
@@ -146,10 +146,7 @@
     5
   ],
   "min_zone_frac": 0.1,
-  "num_epochs_lbfgs_actual": 1000,
-  "early_stopped": false,
-  "best_total_loss": 0.01513369543960377,
-  "mean_rel_l2": 0.05358545597019929,
-  "max_rel_l2": 0.12267889894772399,
-  "min_rel_l2": 0.01464226850657116
+  "mean_rel_l2": 0.05358545597019928,
+  "max_rel_l2": 0.12267889894772435,
+  "min_rel_l2": 0.014642268506571163
 }
