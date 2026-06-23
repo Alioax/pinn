@@ -278,7 +278,7 @@ REPORT5_EXPERIMENTS: list[tuple[str, str, list[str]]] = [
         ],
     ),
     (
-        "exp_R_piecewise_K100_N500_adam1000_lr025_lbfgs250_maxiter5_float64",
+        "exp_Ra_piecewise_K100_N500_adam1000_lr25e3_lbfgs250_maxiter5_float64",
         "piecewise",
         [
             "--design",
@@ -302,7 +302,7 @@ REPORT5_EXPERIMENTS: list[tuple[str, str, list[str]]] = [
             "--adam-epochs",
             "1000",
             "--lr-adam",
-            "0.25",
+            "0.0025",
             "--lr-lbfgs",
             "0.1",
             "--lbfgs-max-iter",
@@ -310,7 +310,7 @@ REPORT5_EXPERIMENTS: list[tuple[str, str, list[str]]] = [
             "--epochs",
             "250",
             "--out-dir",
-            "results/exp_R_piecewise_K100_N500_adam1000_lr025_lbfgs250_maxiter5_float64",
+            "results/exp_Ra_piecewise_K100_N500_adam1000_lr25e3_lbfgs250_maxiter5_float64",
         ],
     ),
 ]
