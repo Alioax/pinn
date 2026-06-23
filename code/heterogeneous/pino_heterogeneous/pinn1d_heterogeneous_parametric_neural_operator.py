@@ -93,6 +93,8 @@ activation_cls = nn.Tanh
 num_epochs_lbfgs = 1000
 lr_lbfgs = 1
 lbfgs_max_iter = 1  # PyTorch LBFGS max_iter per outer step
+num_epochs_adam = 0  # 0 = skip Adam; run L-BFGS only
+lr_adam = 0.25
 early_stop_patience = 0  # 0 = disabled; stop after N steps with no total-loss improvement
 
 mesh_nx_pde = 50
@@ -147,9 +149,6 @@ n_corner_anchors = 16
 arch_preset = "default"
 skip_validation_plots = False
 batch_mode = False
-amortize_branch = False
-hard_bc = False
-inlet_tau = 0.05
 
 # GRF (PINO_2) mode — set by --design grf
 media_mode: str = "zone"
@@ -295,58 +294,21 @@ def branch_cfl_vector_for_validation(
     return branch_cfl_from_u(physical).flatten()
 
 
-def branch_tensor_from_u_case(
-    u_case: tuple[float, float, float, float],
-    n: int,
-    *,
-    device: torch.device,
-    dtype: torch.dtype,
-) -> torch.Tensor:
-    cfl_branch = branch_cfl_vector_for_validation(u_case).reshape(1, -1)
-    return torch.tensor(
-        np.repeat(cfl_branch, n, axis=0), dtype=dtype, device=device
-    )
-
-
 def model_call(
     model: nn.Module,
     x_star: torch.Tensor,
     t_star: torch.Tensor,
     tensors: dict[str, torch.Tensor],
     *,
-    branch_key: str,
     case_key: str,
 ) -> torch.Tensor:
-    """Forward with amortized or legacy branch inputs."""
-    kwargs = {"hard_bc": hard_bc, "tau": inlet_tau}
-    if amortize_branch:
-        return model(
-            x_star,
-            t_star,
-            tensors["branch_unique"],
-            tensors[case_key],
-            **kwargs,
-        )
-    return model(x_star, t_star, tensors[branch_key], **kwargs)
-
-
-def validation_model_inputs(
-    u_case: tuple[float, float, float, float],
-    n: int,
-    *,
-    device: torch.device,
-    dtype: torch.dtype,
-) -> tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None]:
-    """Branch tensors for COMSOL validation / plotting (amortized or legacy)."""
-    cfl_branch = branch_cfl_vector_for_validation(u_case).reshape(1, -1)
-    if amortize_branch:
-        branch_unique = torch.tensor(cfl_branch, dtype=dtype, device=device)
-        case_idx = torch.zeros(n, dtype=torch.long, device=device)
-        return branch_unique, case_idx, None
-    branch_input = torch.tensor(
-        np.repeat(cfl_branch, n, axis=0), dtype=dtype, device=device
+    """Forward with amortized branch (unique rows + case index gather)."""
+    return model(
+        x_star,
+        t_star,
+        tensors["branch_unique"],
+        tensors[case_key],
     )
-    return None, None, branch_input
 
 
 def predict_at(
@@ -355,13 +317,12 @@ def predict_at(
     t_star: torch.Tensor,
     u_case: tuple[float, float, float, float],
 ) -> torch.Tensor:
-    branch_unique, case_idx, branch_input = validation_model_inputs(
-        u_case, x_star.shape[0], device=x_star.device, dtype=x_star.dtype
+    cfl_branch = branch_cfl_vector_for_validation(u_case).reshape(1, -1)
+    branch_unique = torch.tensor(
+        cfl_branch, dtype=x_star.dtype, device=x_star.device
     )
-    kwargs = {"hard_bc": hard_bc, "tau": inlet_tau}
-    if amortize_branch:
-        return model(x_star, t_star, branch_unique, case_idx, **kwargs)
-    return model(x_star, t_star, branch_input, **kwargs)
+    case_idx = torch.zeros(x_star.shape[0], dtype=torch.long, device=x_star.device)
+    return model(x_star, t_star, branch_unique, case_idx)
 
 
 def u_case_tag(u_case: tuple[float, float, float, float]) -> str:
@@ -886,7 +847,6 @@ def compute_physics_loss(
         tensors["x_pde"],
         tensors["t_pde"],
         tensors,
-        branch_key="branch_pde",
         case_key="case_pde",
     )
     dC_dt = gradients(c_pde, tensors["t_pde"])
@@ -902,27 +862,24 @@ def compute_physics_loss(
     pde_loss = torch.mean(residual**2)
 
     c_ic = model_call(
-        model, tensors["x_ic"], tensors["t_ic"], tensors, branch_key="branch_ic", case_key="case_ic"
+        model, tensors["x_ic"], tensors["t_ic"], tensors, case_key="case_ic"
     )
     c_in = model_call(
-        model, tensors["x_in"], tensors["t_in"], tensors, branch_key="branch_in", case_key="case_bc"
+        model, tensors["x_in"], tensors["t_in"], tensors, case_key="case_bc"
     )
     c_out = model_call(
-        model, tensors["x_out"], tensors["t_out"], tensors, branch_key="branch_out", case_key="case_bc"
+        model, tensors["x_out"], tensors["t_out"], tensors, case_key="case_bc"
     )
     ic_loss = torch.mean((c_ic - 0.0) ** 2)
     inlet_loss = torch.mean((c_in - 1.0) ** 2)
     outlet_loss = torch.mean((c_out - 0.0) ** 2)
 
-    if hard_bc:
-        total_loss = weight_pde * pde_loss
-    else:
-        total_loss = (
-            weight_pde * pde_loss
-            + weight_ic * ic_loss
-            + weight_inlet_bc * inlet_loss
-            + weight_outlet_bc * outlet_loss
-        )
+    total_loss = (
+        weight_pde * pde_loss
+        + weight_ic * ic_loss
+        + weight_inlet_bc * inlet_loss
+        + weight_outlet_bc * outlet_loss
+    )
     metrics = (
         total_loss.item(),
         pde_loss.item(),
@@ -940,12 +897,11 @@ def _loss_improved(current: float, best: float, *, rtol: float, atol: float) -> 
     return current < best - margin
 
 
-def train_model(
+def _train_lbfgs(
     model: nn.Module,
-    device: torch.device,
     tensors: dict[str, torch.Tensor],
     *,
-    use_grf_pde: bool = False,
+    use_grf_pde: bool,
 ) -> tuple[list[list[float]], dict[str, object]]:
     optimizer = torch.optim.LBFGS(
         model.parameters(),
@@ -1014,8 +970,78 @@ def train_model(
         "num_epochs_lbfgs_actual": len(history),
         "early_stop_patience": early_stop_patience,
         "early_stopped": early_stopped,
-        "best_total_loss": best_loss,
+        "best_total_loss_lbfgs": best_loss,
     }
+    return history, summary
+
+
+def _train_adam(
+    model: nn.Module,
+    tensors: dict[str, torch.Tensor],
+    *,
+    use_grf_pde: bool,
+) -> tuple[list[list[float]], dict[str, object]]:
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr_adam)
+    print(f"Adam(lr={lr_adam:g})  epochs={num_epochs_adam}")
+    history: list[list[float]] = []
+    best_loss = float("inf")
+    t_bar = trange(
+        num_epochs_adam,
+        desc="Adam",
+        bar_format=(
+            "{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} "
+            "[{remaining} > {elapsed}]"
+        ),
+    )
+    for _epoch in t_bar:
+        model.train()
+        optimizer.zero_grad(set_to_none=True)
+        total_loss, metrics = compute_physics_loss(
+            model,
+            tensors,
+            use_grf_pde=use_grf_pde,
+        )
+        total_loss.backward()
+        optimizer.step()
+        history.append(list(metrics))
+        best_loss = min(best_loss, float(metrics[0]))
+    t_bar.close()
+    summary: dict[str, object] = {
+        "num_epochs_adam_requested": num_epochs_adam,
+        "num_epochs_adam_actual": len(history),
+        "lr_adam": lr_adam,
+        "best_total_loss_adam": best_loss,
+    }
+    return history, summary
+
+
+def train_model(
+    model: nn.Module,
+    device: torch.device,
+    tensors: dict[str, torch.Tensor],
+    *,
+    use_grf_pde: bool = False,
+) -> tuple[list[list[float]], dict[str, object]]:
+    history: list[list[float]] = []
+    summary: dict[str, object] = {}
+
+    if num_epochs_adam > 0:
+        adam_history, adam_summary = _train_adam(
+            model, tensors, use_grf_pde=use_grf_pde
+        )
+        history.extend(adam_history)
+        summary.update(adam_summary)
+
+    if num_epochs_lbfgs > 0:
+        lbfgs_history, lbfgs_summary = _train_lbfgs(
+            model, tensors, use_grf_pde=use_grf_pde
+        )
+        history.extend(lbfgs_history)
+        summary.update(lbfgs_summary)
+        summary["best_total_loss"] = lbfgs_summary["best_total_loss_lbfgs"]
+    elif history:
+        summary["best_total_loss"] = summary.get("best_total_loss_adam", float("inf"))
+
     return history, summary
 
 
@@ -1138,7 +1164,7 @@ def plot_training_figures(
     ax3.plot(epochs, h[:, 3], color="purple", linewidth=1.0, alpha=0.75, label="Inlet")
     ax3.plot(epochs, h[:, 4], color="crimson", linewidth=1.0, alpha=0.75, label="Outlet")
     ax3.set_yscale("log")
-    ax3.set_xlabel("L-BFGS step")
+    ax3.set_xlabel("Training step" if num_epochs_adam > 0 else "L-BFGS step")
     ax3.set_ylabel("Loss")
     ax3.grid(True, alpha=0.3)
     ax3.legend(loc="best", fontsize=9, frameon=False)
@@ -1208,23 +1234,6 @@ def parse_cli() -> argparse.Namespace:
         help="Torch floating-point dtype (default float32).",
     )
     parser.add_argument(
-        "--amortize-branch",
-        action="store_true",
-        help="Encode each training case once; gather branch latent by case index.",
-    )
-    parser.add_argument(
-        "--hard-bc",
-        action="store_true",
-        help="Hard IC/inlet/outlet ansatz C=A+B*N; PDE-only loss.",
-    )
-    parser.add_argument(
-        "--inlet-tau",
-        type=float,
-        default=None,
-        metavar="TAU",
-        help="Inlet ramp time scale tau in the hard-BC ansatz (default 0.05).",
-    )
-    parser.add_argument(
         "--early-stop-patience",
         type=int,
         default=None,
@@ -1253,6 +1262,19 @@ def parse_cli() -> argparse.Namespace:
         default=None,
         metavar="N",
         help="L-BFGS outer steps (num_epochs_lbfgs, default 1000).",
+    )
+    parser.add_argument(
+        "--adam-epochs",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Adam pretraining steps before L-BFGS (default 0 = L-BFGS only).",
+    )
+    parser.add_argument(
+        "--lr-adam",
+        type=float,
+        default=None,
+        help="Adam learning rate when --adam-epochs > 0 (default 0.25).",
     )
     parser.add_argument(
         "--n-sensors",
@@ -1372,10 +1394,10 @@ def _load_run_meta_for_validate() -> bool:
     if not branch or not trunk:
         return False
     global branch_architecture, trunk_architecture, arch_preset, torch_dtype
-    global lr_lbfgs, lbfgs_max_iter, early_stop_patience
+    global lr_lbfgs, lbfgs_max_iter, early_stop_patience, num_epochs_adam, lr_adam, num_epochs_lbfgs
     global media_mode, sensor_count, sensor_xstar, grf_corr_lengths, grf_grid_n
     global n_sensors_requested, n_grf_requested, n_piecewise_per_zones, piecewise_zone_counts
-    global min_zone_frac, amortize_branch, hard_bc, inlet_tau
+    global min_zone_frac
     branch_architecture = list(branch)
     trunk_architecture = list(trunk)
     arch_preset = str(meta.get("arch_preset", "custom"))
@@ -1384,18 +1406,22 @@ def _load_run_meta_for_validate() -> bool:
         torch_dtype = torch.float64
     else:
         torch_dtype = torch.float32
-    if "amortize_branch" in meta:
-        amortize_branch = bool(meta["amortize_branch"])
-    if "hard_bc" in meta:
-        hard_bc = bool(meta["hard_bc"])
-    if "inlet_tau" in meta:
-        inlet_tau = float(meta["inlet_tau"])
     if "lr_lbfgs" in meta:
         lr_lbfgs = float(meta["lr_lbfgs"])
     if "lbfgs_max_iter" in meta:
         lbfgs_max_iter = int(meta["lbfgs_max_iter"])
     if "early_stop_patience" in meta:
         early_stop_patience = int(meta["early_stop_patience"])
+    if "num_epochs_adam" in meta:
+        num_epochs_adam = int(meta["num_epochs_adam"])
+    elif "num_epochs_adam_requested" in meta:
+        num_epochs_adam = int(meta["num_epochs_adam_requested"])
+    if "lr_adam" in meta:
+        lr_adam = float(meta["lr_adam"])
+    if "num_epochs_lbfgs" in meta:
+        num_epochs_lbfgs = int(meta["num_epochs_lbfgs"])
+    elif "num_epochs_lbfgs_requested" in meta:
+        num_epochs_lbfgs = int(meta["num_epochs_lbfgs_requested"])
     media_mode = str(meta.get("media_mode", "zone"))
     if media_mode == "grf":
         sensor_xstar = np.asarray(meta["sensor_xstar"], dtype=np.float64)
@@ -1426,7 +1452,7 @@ def apply_cli(args: argparse.Namespace) -> None:
     global num_epochs_lbfgs, media_mode, n_sensors_requested, grf_corr_lengths
     global grf_grid_n, sensor_xstar, sensor_count, branch_architecture
     global n_grf_requested, n_piecewise_per_zones, n_train_requested, piecewise_zone_counts
-    global min_zone_frac, amortize_branch, hard_bc, inlet_tau
+    global min_zone_frac, num_epochs_adam, lr_adam
 
     if args.reload_train_cases:
         reload_lhc_train_cases = True
@@ -1511,15 +1537,6 @@ def apply_cli(args: argparse.Namespace) -> None:
     if args.dtype is not None:
         torch_dtype = torch.float64 if args.dtype == "float64" else torch.float32
 
-    if args.amortize_branch:
-        amortize_branch = True
-
-    if args.hard_bc:
-        hard_bc = True
-
-    if args.inlet_tau is not None:
-        inlet_tau = args.inlet_tau
-
     if args.early_stop_patience is not None:
         early_stop_patience = args.early_stop_patience
 
@@ -1531,6 +1548,12 @@ def apply_cli(args: argparse.Namespace) -> None:
 
     if args.epochs is not None:
         num_epochs_lbfgs = args.epochs
+
+    if args.adam_epochs is not None:
+        num_epochs_adam = args.adam_epochs
+
+    if args.lr_adam is not None:
+        lr_adam = args.lr_adam
 
     if batch_mode:
         if media_mode == "grf":
@@ -1552,6 +1575,10 @@ def write_run_meta(
     n_train_actual: int,
     validation_rows: list[dict[str, object]] | None,
     training_summary: dict[str, object] | None = None,
+    train_wall_clock_s: float | None = None,
+    validation_wall_clock_s: float | None = None,
+    device_type: str | None = None,
+    device_name: str | None = None,
 ) -> Path:
     meta: dict[str, object] = {
         "design": train_design,
@@ -1562,18 +1589,25 @@ def write_run_meta(
         "arch_preset": arch_preset,
         "branch_architecture": branch_architecture,
         "trunk_architecture": trunk_architecture,
-        "amortize_branch": amortize_branch,
-        "hard_bc": hard_bc,
-        "inlet_tau": inlet_tau,
         "seed": seed,
         "dtype": str(torch_dtype).replace("torch.", ""),
         "num_epochs_lbfgs_requested": num_epochs_lbfgs,
+        "num_epochs_adam": num_epochs_adam,
+        "lr_adam": lr_adam,
         "early_stop_patience": early_stop_patience,
         "lr_lbfgs": lr_lbfgs,
         "lbfgs_max_iter": lbfgs_max_iter,
         "wall_clock_s": round(wall_clock_s, 3),
         "out_dir": str(RESULTS_DIR.relative_to(_PINO_DIR)),
     }
+    if device_type is not None:
+        meta["device_type"] = device_type
+    if device_name is not None:
+        meta["device_name"] = device_name
+    if train_wall_clock_s is not None:
+        meta["train_wall_clock_s"] = round(train_wall_clock_s, 3)
+    if validation_wall_clock_s is not None:
+        meta["validation_wall_clock_s"] = round(validation_wall_clock_s, 3)
     if media_mode == "grf" and sensor_xstar is not None:
         meta["n_sensors"] = int(sensor_xstar.size)
         meta["n_sensors_requested"] = n_sensors_requested
@@ -1606,9 +1640,11 @@ def main() -> None:
     args = parse_cli()
     apply_cli(args)
 
-    t_start = time.perf_counter()
+    t_start = time.time()
     validation_rows: list[dict[str, object]] | None = None
     training_summary: dict[str, object] | None = None
+    train_wall_clock_s: float | None = None
+    validation_wall_clock_s: float | None = None
 
     torch.set_default_dtype(torch_dtype)
     torch.manual_seed(seed)
@@ -1617,15 +1653,16 @@ def main() -> None:
     dtype = torch_dtype
     if device.type == "cuda":
         print(f"Using GPU: {torch.cuda.get_device_name(device)} ({device}, dtype={dtype})")
+        device_name = torch.cuda.get_device_name(device)
     else:
         print(f"Using CPU (CUDA not available, dtype={dtype})")
+        device_name = "cpu"
 
     print(f"PE (computed) = {PE:.12g}")
     print(
         f"design={train_design}  media_mode={media_mode}  "
         f"n_train_requested={n_train_requested}  "
         f"n_corner_anchors={n_corner_anchors}  arch={arch_preset}  "
-        f"amortize_branch={amortize_branch}  hard_bc={hard_bc}  inlet_tau={inlet_tau:g}  "
         f"batch_mode={batch_mode}"
     )
     print(f"branch={branch_architecture}  trunk={trunk_architecture}")
@@ -1724,16 +1761,19 @@ def main() -> None:
         f"run_training={run_training}  run_comsol_validation={run_comsol_validation}  "
         f"validate_only={validate_only}  skip_validation_plots={skip_validation_plots}"
     )
-    if run_training and early_stop_patience > 0:
-        print(
-            f"L-BFGS early stopping: patience={early_stop_patience} "
-            f"(max steps={num_epochs_lbfgs})"
-        )
     if run_training:
-        print(
-            f"L-BFGS: lr={lr_lbfgs:g}  max_iter={lbfgs_max_iter}  "
-            f"outer_steps={num_epochs_lbfgs}"
-        )
+        if num_epochs_adam > 0:
+            print(f"Adam: lr={lr_adam:g}  epochs={num_epochs_adam}")
+        if num_epochs_lbfgs > 0:
+            if early_stop_patience > 0:
+                print(
+                    f"L-BFGS early stopping: patience={early_stop_patience} "
+                    f"(max steps={num_epochs_lbfgs})"
+                )
+            print(
+                f"L-BFGS: lr={lr_lbfgs:g}  max_iter={lbfgs_max_iter}  "
+                f"outer_steps={num_epochs_lbfgs}"
+            )
 
     model = build_deeponet(
         branch_architecture, trunk_architecture, activation_cls
@@ -1754,12 +1794,15 @@ def main() -> None:
         )
         coll_path = plot_collocation_points(plot_data, n_train_media=n_u)
         print(f"Collocation mesh plot (pre-train): {coll_path}")
+        t_train0 = time.time()
         history, training_summary = train_model(
             model,
             device,
             tensors,
             use_grf_pde=use_grf_pde,
         )
+        train_wall_clock_s = time.time() - t_train0
+        training_summary["train_wall_clock_s"] = round(train_wall_clock_s, 3)
         conc_path, loss_path = plot_training_figures(model, device, dtype, history)
         if save_model:
             RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1775,12 +1818,14 @@ def main() -> None:
         print(f"Loaded checkpoint: {MODEL_PATH}")
 
     if run_comsol_validation:
+        t_val0 = time.time()
         validation_rows = validate_against_comsol(
             model,
             device,
             dtype,
             save_plots=not skip_validation_plots,
         )
+        validation_wall_clock_s = time.time() - t_val0
 
     if validate_only and n_u == 0:
         if media_mode == "grf" and U_TRAIN_CASES_PATH.is_file():
@@ -1790,12 +1835,21 @@ def main() -> None:
 
     if validation_rows is not None or not validate_only:
         meta_path = write_run_meta(
-            wall_clock_s=time.perf_counter() - t_start,
+            wall_clock_s=time.time() - t_start,
             n_train_actual=n_u,
             validation_rows=validation_rows,
             training_summary=training_summary,
+            train_wall_clock_s=train_wall_clock_s,
+            validation_wall_clock_s=validation_wall_clock_s,
+            device_type=device.type,
+            device_name=device_name,
         )
         print(f"Run metadata: {meta_path}")
+        if train_wall_clock_s is not None:
+            print(f"Wall-clock train: {train_wall_clock_s:.1f} s")
+        if validation_wall_clock_s is not None:
+            print(f"Wall-clock validation: {validation_wall_clock_s:.1f} s")
+        print(f"Wall-clock total: {time.time() - t_start:.1f} s  device={device.type}")
 
 
 if __name__ == "__main__":

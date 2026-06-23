@@ -9,10 +9,6 @@
 # Workflow: edit this list on your laptop, commit & push, then run
 # run.bat on the remote. The run stops at the first script that fails.
 #
-# exp_Q — exp_P piecewise protocol (K100 w64 float64 lr0.1 maxiter5). Runs A→D.
-# Run A: baseline repro (flags off). Runs B/C/D: amort / hard BC / both.
+# exp_R: Qb-style piecewise protocol + Adam 1000 (lr=0.25) then L-BFGS 250 (maxiter 5).
 #
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 5 --epochs 1000 --out-dir results/exp_Qa_piecewise_K100_N500_z1to5_min10pct_w64_float64_lr01_maxiter5
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 5 --epochs 1000 --amortize-branch --out-dir results/exp_Qb_amort_piecewise_K100_N500_z1to5_min10pct_w64_float64_lr01_maxiter5
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 5 --epochs 1000 --hard-bc --inlet-tau 0.05 --out-dir results/exp_Qc_hard_tau005_piecewise_K100_N500_z1to5_min10pct_w64_float64_lr01_maxiter5
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 5 --epochs 1000 --amortize-branch --hard-bc --inlet-tau 0.01 --out-dir results/exp_Qd_amort_hard_tau001_piecewise_K100_N500_z1to5_min10pct_w64_float64_lr01_maxiter5
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --adam-epochs 1000 --lr-adam 0.25 --lr-lbfgs 0.1 --lbfgs-max-iter 5 --epochs 250 --out-dir results/exp_R_piecewise_K100_N500_adam1000_lr025_lbfgs250_maxiter5_float64

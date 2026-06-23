@@ -216,9 +216,6 @@ def _configure_pino_from_meta(mod: Any, meta: dict[str, object]) -> None:
         mod.sensor_xstar = np.asarray(meta["sensor_xstar"], dtype=np.float64)
     else:
         mod.sensor_xstar = None
-    mod.amortize_branch = bool(meta.get("amortize_branch", False))
-    mod.hard_bc = bool(meta.get("hard_bc", False))
-    mod.inlet_tau = float(meta.get("inlet_tau", 0.05))
 
 
 def _pino_architecture_from_meta(

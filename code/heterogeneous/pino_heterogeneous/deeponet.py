@@ -38,16 +38,7 @@ class DeepONetParametric(nn.Module):
         _init_mlp_gain(self.branch, gain)
         _init_mlp_gain(self.trunk, gain)
 
-    def forward(
-        self,
-        x_star,
-        t_star,
-        branch_input,
-        case_idx=None,
-        *,
-        tau: float = 0.05,
-        hard_bc: bool = False,
-    ):
+    def forward(self, x_star, t_star, branch_input, case_idx=None):
         if case_idx is None:
             b_vec = self.branch(branch_input)
         else:
@@ -55,12 +46,7 @@ class DeepONetParametric(nn.Module):
         pts = torch.cat([x_star, t_star], dim=1)
         t_vec = self.trunk(pts)
         n_raw = (b_vec * t_vec).sum(dim=-1, keepdim=True)
-        if not hard_bc:
-            return torch.sigmoid(n_raw)
-        r = 1.0 - torch.exp(-t_star / tau)
-        a = (1.0 - x_star) * r
-        b = x_star * (1.0 - x_star) * r
-        return a + b * n_raw
+        return torch.sigmoid(n_raw)
 
 
 def build_deeponet(
