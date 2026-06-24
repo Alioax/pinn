@@ -9,6 +9,9 @@
 # Workflow: edit this list on your laptop, commit & push, then run
 # run.bat on the remote. The run stops at the first script that fails.
 #
-# exp_Rb: same as Ra (lr=2.5e-3) but Adam 500 + L-BFGS 500 (maxiter 5).
+# exp_S series: L-BFGS only (Rb-style, no Adam), 100 piecewise media, 4 zones, min_zone_frac=0.1.
+#   Sa: L-BFGS 500, max_iter=5
+#   Sb: L-BFGS 500, max_iter=20
 #
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --adam-epochs 500 --lr-adam 0.0025 --lr-lbfgs 0.1 --lbfgs-max-iter 5 --epochs 500 --out-dir results/exp_Rb_piecewise_K100_N500_adam500_lr25e3_lbfgs500_maxiter5_float64
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 4 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 5 --epochs 500 --out-dir results/exp_Sa_piecewise_K100_N100_z4_min10pct_w64_float64_lbfgs500_maxiter5
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 4 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 500 --out-dir results/exp_Sb_piecewise_K100_N100_z4_min10pct_w64_float64_lbfgs500_maxiter20
