@@ -113,6 +113,8 @@ weight_outlet_bc = 1.0
 
 # IC at inlet corner x*=0, t*=0 only (None = full-domain C*(x*,0)=0).
 ic_x0_t0_value: float | None = None
+# With --ic-x0-t0: also enforce C*(x*,0)=0 on the domain (corner overridden to C0).
+ic_zero_domain_at_t0: bool = False
 
 save_model = True
 collocation_scatter_ms = 3
@@ -874,9 +876,19 @@ def compute_physics_loss(
         model, tensors["x_out"], tensors["t_out"], tensors, case_key="case_bc"
     )
     if ic_x0_t0_value is not None:
-        at_inlet_t0 = tensors["x_ic"].squeeze(-1) <= 1e-9
-        c_ic_inlet = c_ic[at_inlet_t0]
-        ic_loss = torch.mean((c_ic_inlet - ic_x0_t0_value) ** 2)
+        if ic_zero_domain_at_t0:
+            ic_target = torch.zeros_like(c_ic)
+            at_inlet_t0 = tensors["x_ic"].squeeze(-1) <= 1e-9
+            ic_target = torch.where(
+                at_inlet_t0.unsqueeze(-1),
+                torch.full_like(c_ic, ic_x0_t0_value),
+                ic_target,
+            )
+            ic_loss = torch.mean((c_ic - ic_target) ** 2)
+        else:
+            at_inlet_t0 = tensors["x_ic"].squeeze(-1) <= 1e-9
+            c_ic_inlet = c_ic[at_inlet_t0]
+            ic_loss = torch.mean((c_ic_inlet - ic_x0_t0_value) ** 2)
     else:
         ic_loss = torch.mean((c_ic - 0.0) ** 2)
     inlet_loss = torch.mean((c_in - 1.0) ** 2)
@@ -1357,9 +1369,14 @@ def parse_cli() -> argparse.Namespace:
         default=None,
         metavar="C0",
         help=(
-            "Enforce only C*(0,0)=C0 at the inlet corner (no C*(x*,0)=0 elsewhere). "
-            "Omit for legacy full-domain zero IC at t*=0."
+            "C*(0,0)=C0 at the inlet corner. Default: corner only (no domain t*=0 IC). "
+            "Add --ic-zero-domain-at-t0 for C*(x*,0)=0 with C*(0,0)=C0."
         ),
+    )
+    parser.add_argument(
+        "--ic-zero-domain-at-t0",
+        action="store_true",
+        help="With --ic-x0-t0: enforce C*(x*,0)=0 and override C*(0,0) to C0.",
     )
     return parser.parse_args()
 
@@ -1415,7 +1432,7 @@ def _load_run_meta_for_validate() -> bool:
     global lr_lbfgs, lbfgs_max_iter, early_stop_patience, num_epochs_adam, lr_adam, num_epochs_lbfgs
     global media_mode, sensor_count, sensor_xstar, grf_corr_lengths, grf_grid_n
     global n_sensors_requested, n_grf_requested, n_piecewise_per_zones, piecewise_zone_counts
-    global min_zone_frac, ic_x0_t0_value
+    global min_zone_frac, ic_x0_t0_value, ic_zero_domain_at_t0
     branch_architecture = list(branch)
     trunk_architecture = list(trunk)
     arch_preset = str(meta.get("arch_preset", "custom"))
@@ -1461,6 +1478,7 @@ def _load_run_meta_for_validate() -> bool:
             min_zone_frac = float(meta["min_zone_frac"])
     if "ic_x0_t0_value" in meta and meta["ic_x0_t0_value"] is not None:
         ic_x0_t0_value = float(meta["ic_x0_t0_value"])
+    ic_zero_domain_at_t0 = bool(meta.get("ic_zero_domain_at_t0", False))
     return True
 
 
@@ -1472,7 +1490,7 @@ def apply_cli(args: argparse.Namespace) -> None:
     global num_epochs_lbfgs, media_mode, n_sensors_requested, grf_corr_lengths
     global grf_grid_n, sensor_xstar, sensor_count, branch_architecture
     global n_grf_requested, n_piecewise_per_zones, n_train_requested, piecewise_zone_counts
-    global min_zone_frac, num_epochs_adam, lr_adam, ic_x0_t0_value
+    global min_zone_frac, num_epochs_adam, lr_adam, ic_x0_t0_value, ic_zero_domain_at_t0
 
     if args.reload_train_cases:
         reload_lhc_train_cases = True
@@ -1578,6 +1596,9 @@ def apply_cli(args: argparse.Namespace) -> None:
     if args.ic_x0_t0 is not None:
         ic_x0_t0_value = args.ic_x0_t0
 
+    if args.ic_zero_domain_at_t0:
+        ic_zero_domain_at_t0 = True
+
     if batch_mode:
         if media_mode == "grf":
             U_TRAIN_CASES_PATH = RESULTS_DIR / "train_grf_cases.npz"
@@ -1625,6 +1646,7 @@ def write_run_meta(
     }
     if ic_x0_t0_value is not None:
         meta["ic_x0_t0_value"] = ic_x0_t0_value
+        meta["ic_zero_domain_at_t0"] = ic_zero_domain_at_t0
     if device_type is not None:
         meta["device_type"] = device_type
     if device_name is not None:
@@ -1790,7 +1812,12 @@ def main() -> None:
         if num_epochs_adam > 0:
             print(f"Adam: lr={lr_adam:g}  epochs={num_epochs_adam}")
         if ic_x0_t0_value is not None:
-            print(f"IC: C*(0,0)={ic_x0_t0_value:g} only (no domain-wide t*=0 IC)")
+            if ic_zero_domain_at_t0:
+                print(
+                    f"IC: C*(x*,0)=0 with C*(0,0)={ic_x0_t0_value:g}"
+                )
+            else:
+                print(f"IC: C*(0,0)={ic_x0_t0_value:g} only (no domain-wide t*=0 IC)")
         if num_epochs_lbfgs > 0:
             if early_stop_patience > 0:
                 print(

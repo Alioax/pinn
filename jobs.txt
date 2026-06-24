@@ -9,11 +9,11 @@
 # Workflow: edit this list on your laptop, commit & push, then run
 # run.bat on the remote. The run stops at the first script that fails.
 #
-# exp_S series: L-BFGS only, 100 piecewise media, 4 zones, min_zone_frac=0.1.
-#   Sa: L-BFGS 500, max_iter=5
-#   Sb: L-BFGS 500, max_iter=20
-#   Sc: same as Sa, IC only C*(0,0)=C0=1 (--ic-x0-t0 1; no C*(x*,0)=0)
+# exp_T series (Sb-style: L-BFGS 500/1000, max_iter=20, 100×4-zone piecewise, no Adam).
+#   Ta: Sb + IC C*(x*,0)=0 except C*(0,0)=1
+#   Tb: Sb + L-BFGS 1000 epochs
+#   Tc: Sb + L-BFGS 1000 epochs + K=200 sensors
 #
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 4 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 5 --epochs 500 --out-dir results/exp_Sa_piecewise_K100_N100_z4_min10pct_w64_float64_lbfgs500_maxiter5
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 4 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 500 --out-dir results/exp_Sb_piecewise_K100_N100_z4_min10pct_w64_float64_lbfgs500_maxiter20
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 4 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 5 --epochs 500 --ic-x0-t0 1 --out-dir results/exp_Sc_piecewise_K100_N100_z4_min10pct_w64_float64_lbfgs500_maxiter5_icx0C0
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 4 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 500 --ic-x0-t0 1 --ic-zero-domain-at-t0 --out-dir results/exp_Ta_piecewise_K100_N100_z4_min10pct_w64_float64_lbfgs500_maxiter20_icZeroX0C1
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 4 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_Tb_piecewise_K100_N100_z4_min10pct_w64_float64_lbfgs1000_maxiter20
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 200 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 4 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_Tc_piecewise_K200_N100_z4_min10pct_w64_float64_lbfgs1000_maxiter20
