@@ -1,0 +1,45 @@
+# code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 4 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 5 --epochs 500 --out-dir results/exp_Sa_piecewise_K100_N100_z4_min10pct_w64_float64_lbfgs500_maxiter5
+# started 2026-06-24 11:48:07
+# cwd C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous
+
+Using GPU: NVIDIA GeForce RTX 3090 (cuda:0, dtype=torch.float64)
+PE (computed) = 0.010368
+design=grf  media_mode=grf  n_train_requested=100  n_corner_anchors=16  arch=w64  batch_mode=True
+branch=[100, 64, 64, 64]  trunk=[2, 64, 64, 64, 64]
+results_dir=C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_Sa_piecewise_K100_N100_z4_min10pct_w64_float64_lbfgs500_maxiter5
+Training: 100 piecewise (100 each for zones [4]), min_zone_frac=0.1 = 100 total; K=100 uniform sensors, grid_n=201
+  saved/loaded: C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_Sa_piecewise_K100_N100_z4_min10pct_w64_float64_lbfgs500_maxiter5\train_grf_cases.npz
+  branch CFL range [0.120517, 0.599951]
+PDE mesh: bulk 50x50x100 (no interface bands in GRF mode)
+COMSOL validation: 81 fixed grid cases from comsol_4zones.txt -> C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_Sa_piecewise_K100_N100_z4_min10pct_w64_float64_lbfgs500_maxiter5\comsol_validation
+run_training=True  run_comsol_validation=True  validate_only=False  skip_validation_plots=False
+L-BFGS early stopping: patience=150 (max steps=500)
+L-BFGS: lr=0.1  max_iter=5  outer_steps=500
+PDE collocation points: 250,000 (bulk 250,000, interface 0)
+Collocation mesh plot (pre-train): C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\exp_Sa_piecewise_K100_N100_z4_min10pct_w64_float64_lbfgs500_maxiter5\pino_heterogeneous_collocation_points.png
+LBFGS (
+Parameter Group 0
+    history_size: 50
+    line_search_fn: strong_wolfe
+    lr: 0.1
+    max_eval: 6
+    max_iter: 5
+    tolerance_change: 1e-09
+    tolerance_grad: 1e-07
+)
+Early stopping: patience=150 L-BFGS steps (no total-loss improvement, rtol=1e-12)
+
+L-BFGS:   0%|          | 0/500 [? > 00:00]
+L-BFGS:   0%|          | 1/500 [25:58 > 00:03]
+L-BFGS:   0%|          | 2/500 [22:06 > 00:05]
+L-BFGS:   1%|          | 3/500 [22:19 > 00:08]
+L-BFGS:   1%|          | 4/500 [21:09 > 00:10]
+L-BFGS:   1%|          | 5/500 [21:41 > 00:13]
+L-BFGS:   1%|          | 6/500 [20:53 > 00:15]
+L-BFGS:   1%|▏         | 7/500 [21:25 > 00:18]
+L-BFGS:   2%|▏         | 8/500 [21:47 > 00:21]
+L-BFGS:   2%|▏         | 9/500 [20:59 > 00:23]
+L-BFGS:   2%|▏         | 10/500 [21:27 > 00:26]
+L-BFGS:   2%|▏         | 11/500 [21:45 > 00:29]
+L-BFGS:   2%|▏         | 12/500 [20:59 > 00:31]
+L-BFGS:   3%|▎         | 13/500 [21:27 > 00:34]
