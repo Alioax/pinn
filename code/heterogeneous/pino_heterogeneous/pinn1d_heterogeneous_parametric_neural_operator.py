@@ -111,6 +111,9 @@ weight_ic = 1.0
 weight_inlet_bc = 1.0
 weight_outlet_bc = 1.0
 
+# IC at inlet corner x*=0, t*=0 (None = 0, matching C*(x*,0)=0 everywhere).
+ic_x0_t0_value: float | None = None
+
 save_model = True
 collocation_scatter_ms = 3
 collocation_xstar_axis_pad = 0.05
@@ -870,7 +873,15 @@ def compute_physics_loss(
     c_out = model_call(
         model, tensors["x_out"], tensors["t_out"], tensors, case_key="case_bc"
     )
-    ic_loss = torch.mean((c_ic - 0.0) ** 2)
+    ic_target = torch.zeros_like(c_ic)
+    if ic_x0_t0_value is not None:
+        at_inlet_t0 = tensors["x_ic"].squeeze(-1) <= 1e-9
+        ic_target = torch.where(
+            at_inlet_t0.unsqueeze(-1),
+            torch.full_like(c_ic, ic_x0_t0_value),
+            ic_target,
+        )
+    ic_loss = torch.mean((c_ic - ic_target) ** 2)
     inlet_loss = torch.mean((c_in - 1.0) ** 2)
     outlet_loss = torch.mean((c_out - 0.0) ** 2)
 
@@ -1343,6 +1354,16 @@ def parse_cli() -> argparse.Namespace:
         default=None,
         help="GRF velocity field grid points on [0,1] (default 201).",
     )
+    parser.add_argument(
+        "--ic-x0-t0",
+        type=float,
+        default=None,
+        metavar="C0",
+        help=(
+            "IC target C*(0,0) at inlet corner x*=0, t*=0 (default: 0 everywhere at t*=0). "
+            "Use 1.0 for dimensionless C0 at the inlet initial point."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -1397,7 +1418,7 @@ def _load_run_meta_for_validate() -> bool:
     global lr_lbfgs, lbfgs_max_iter, early_stop_patience, num_epochs_adam, lr_adam, num_epochs_lbfgs
     global media_mode, sensor_count, sensor_xstar, grf_corr_lengths, grf_grid_n
     global n_sensors_requested, n_grf_requested, n_piecewise_per_zones, piecewise_zone_counts
-    global min_zone_frac
+    global min_zone_frac, ic_x0_t0_value
     branch_architecture = list(branch)
     trunk_architecture = list(trunk)
     arch_preset = str(meta.get("arch_preset", "custom"))
@@ -1441,6 +1462,8 @@ def _load_run_meta_for_validate() -> bool:
             piecewise_zone_counts = tuple(int(v) for v in meta["piecewise_zone_counts"])
         if "min_zone_frac" in meta:
             min_zone_frac = float(meta["min_zone_frac"])
+    if "ic_x0_t0_value" in meta and meta["ic_x0_t0_value"] is not None:
+        ic_x0_t0_value = float(meta["ic_x0_t0_value"])
     return True
 
 
@@ -1452,7 +1475,7 @@ def apply_cli(args: argparse.Namespace) -> None:
     global num_epochs_lbfgs, media_mode, n_sensors_requested, grf_corr_lengths
     global grf_grid_n, sensor_xstar, sensor_count, branch_architecture
     global n_grf_requested, n_piecewise_per_zones, n_train_requested, piecewise_zone_counts
-    global min_zone_frac, num_epochs_adam, lr_adam
+    global min_zone_frac, num_epochs_adam, lr_adam, ic_x0_t0_value
 
     if args.reload_train_cases:
         reload_lhc_train_cases = True
@@ -1555,6 +1578,9 @@ def apply_cli(args: argparse.Namespace) -> None:
     if args.lr_adam is not None:
         lr_adam = args.lr_adam
 
+    if args.ic_x0_t0 is not None:
+        ic_x0_t0_value = args.ic_x0_t0
+
     if batch_mode:
         if media_mode == "grf":
             U_TRAIN_CASES_PATH = RESULTS_DIR / "train_grf_cases.npz"
@@ -1600,6 +1626,8 @@ def write_run_meta(
         "wall_clock_s": round(wall_clock_s, 3),
         "out_dir": str(RESULTS_DIR.relative_to(_PINO_DIR)),
     }
+    if ic_x0_t0_value is not None:
+        meta["ic_x0_t0_value"] = ic_x0_t0_value
     if device_type is not None:
         meta["device_type"] = device_type
     if device_name is not None:
@@ -1764,6 +1792,8 @@ def main() -> None:
     if run_training:
         if num_epochs_adam > 0:
             print(f"Adam: lr={lr_adam:g}  epochs={num_epochs_adam}")
+        if ic_x0_t0_value is not None:
+            print(f"IC: C*(0,0)={ic_x0_t0_value:g}  (else C*(x*,0)=0)")
         if num_epochs_lbfgs > 0:
             if early_stop_patience > 0:
                 print(

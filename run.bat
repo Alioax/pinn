@@ -9,7 +9,7 @@ REM    2) On the remote (AnyDesk): just run   run.bat
 REM    3) Disconnect AnyDesk. It pulls, runs every job in order, and
 REM       pushes the results when done (or stops at the first failure).
 REM
-REM  Current batch (jobs.txt): PINO exp_Sa + exp_Sb — L-BFGS 500, 100×4-zone piecewise, no Adam.
+REM  Current batch (jobs.txt): PINO exp_Sa + Sb + Sc — L-BFGS, 100×4-zone piecewise, no Adam.
 REM  Pull on laptop after remote push to analyse / run validation plots.
 REM
 REM  Run a different list:   run.bat my_list.txt
