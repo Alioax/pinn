@@ -111,7 +111,7 @@ weight_ic = 1.0
 weight_inlet_bc = 1.0
 weight_outlet_bc = 1.0
 
-# IC at inlet corner x*=0, t*=0 (None = 0, matching C*(x*,0)=0 everywhere).
+# IC at inlet corner x*=0, t*=0 only (None = full-domain C*(x*,0)=0).
 ic_x0_t0_value: float | None = None
 
 save_model = True
@@ -873,15 +873,12 @@ def compute_physics_loss(
     c_out = model_call(
         model, tensors["x_out"], tensors["t_out"], tensors, case_key="case_bc"
     )
-    ic_target = torch.zeros_like(c_ic)
     if ic_x0_t0_value is not None:
         at_inlet_t0 = tensors["x_ic"].squeeze(-1) <= 1e-9
-        ic_target = torch.where(
-            at_inlet_t0.unsqueeze(-1),
-            torch.full_like(c_ic, ic_x0_t0_value),
-            ic_target,
-        )
-    ic_loss = torch.mean((c_ic - ic_target) ** 2)
+        c_ic_inlet = c_ic[at_inlet_t0]
+        ic_loss = torch.mean((c_ic_inlet - ic_x0_t0_value) ** 2)
+    else:
+        ic_loss = torch.mean((c_ic - 0.0) ** 2)
     inlet_loss = torch.mean((c_in - 1.0) ** 2)
     outlet_loss = torch.mean((c_out - 0.0) ** 2)
 
@@ -1360,8 +1357,8 @@ def parse_cli() -> argparse.Namespace:
         default=None,
         metavar="C0",
         help=(
-            "IC target C*(0,0) at inlet corner x*=0, t*=0 (default: 0 everywhere at t*=0). "
-            "Use 1.0 for dimensionless C0 at the inlet initial point."
+            "Enforce only C*(0,0)=C0 at the inlet corner (no C*(x*,0)=0 elsewhere). "
+            "Omit for legacy full-domain zero IC at t*=0."
         ),
     )
     return parser.parse_args()
@@ -1793,7 +1790,7 @@ def main() -> None:
         if num_epochs_adam > 0:
             print(f"Adam: lr={lr_adam:g}  epochs={num_epochs_adam}")
         if ic_x0_t0_value is not None:
-            print(f"IC: C*(0,0)={ic_x0_t0_value:g}  (else C*(x*,0)=0)")
+            print(f"IC: C*(0,0)={ic_x0_t0_value:g} only (no domain-wide t*=0 IC)")
         if num_epochs_lbfgs > 0:
             if early_stop_patience > 0:
                 print(
