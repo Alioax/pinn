@@ -9,6 +9,13 @@
 # Workflow: edit this list on your laptop, commit & push, then run
 # run.bat on the remote. The run stops at the first script that fails.
 #
-# exp_Tc only (resume after interrupted batch; Ta/Tb already committed).
+# exp_U series (Tb-style: L-BFGS 1000, max_iter=20, K=100, piecewise maximin LHC, min_zone_frac=0.1).
+#   Ua: N=500, 100/zone, zones 1-5
+#   Ub: N=500, 125/zone, zones 2-5 only
+#   Uc: N=250, 50/zone, zones 1-5
+#   Ud: N=100, 20/zone, zones 1-5
 #
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 200 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 4 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_Tc_piecewise_K200_N100_z4_min10pct_w64_float64_lbfgs1000_maxiter20
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_Ua_piecewise_K100_N500_z1to5_min10pct_w64_float64_lbfgs1000_maxiter20
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 125 --piecewise-zone-counts 2,3,4,5 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_Ub_piecewise_K100_N500_z2to5_n125_w64_float64_lbfgs1000_maxiter20
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 50 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_Uc_piecewise_K100_N250_z1to5_min10pct_w64_float64_lbfgs1000_maxiter20
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 20 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_Ud_piecewise_K100_N100_z1to5_min10pct_w64_float64_lbfgs1000_maxiter20
