@@ -83,6 +83,8 @@ LHC_EXCLUDE_ATOL = 1e-9
 sensor_count = 4
 ARCH_PRESETS: dict[str, tuple[list[int], list[int]]] = {
     "default": ([sensor_count, 16, 16, 32], [2, 32, 32, 32, 32]),
+    "w16": ([sensor_count, 16, 16, 16], [2, 16, 16, 16, 16]),
+    "w32": ([sensor_count, 32, 32, 32], [2, 32, 32, 32, 32]),
     "dense": ([sensor_count, 64, 64, 128], [2, 64, 64, 64, 64, 128]),
     "w64": ([sensor_count, 64, 64, 64], [2, 64, 64, 64, 64]),
 }
@@ -1233,10 +1235,12 @@ def parse_cli() -> argparse.Namespace:
     )
     parser.add_argument(
         "--arch",
-        choices=["default", "dense", "w64"],
+        choices=["default", "w16", "w32", "dense", "w64"],
         default=None,
         help=(
             "Network width preset (default: [K,16,16,32]/[2,32,32,32,32]; "
+            "w16: [K,16,16,16]/[2,16,16,16,16]; "
+            "w32: [K,32,32,32]/[2,32,32,32,32]; "
             "dense: [K,64,64,128]/[2,64,64,64,64,128]; "
             "w64: [K,64,64,64]/[2,64,64,64,64])."
         ),
