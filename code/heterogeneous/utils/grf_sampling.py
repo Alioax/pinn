@@ -22,6 +22,9 @@ PIECEWISE_ZONE_COUNTS_DEFAULT: tuple[int, ...] = (2, 3, 4, 5)
 GRF_CORR_LENGTHS_DEFAULT: tuple[float, ...] = (0.05, 0.1)
 CASE_KIND_GRF = 0
 CASE_KIND_PIECEWISE = 1
+ZONE9_BRANCH_DIM = 10
+MAX_PADDED_ZONES = 5
+MAX_PADDED_INTERFACES = 4
 
 
 def _split_counts(n: int, n_parts: int) -> tuple[int, ...]:
@@ -39,6 +42,7 @@ class MixedTrainConfig:
     n_grf: int = 300
     n_piecewise_per_zone_count: int = 50
     piecewise_zone_counts: tuple[int, ...] = PIECEWISE_ZONE_COUNTS_DEFAULT
+    n_piecewise_per_zone_list: tuple[int, ...] | None = None
     grf_corr_lengths: tuple[float, ...] = GRF_CORR_LENGTHS_DEFAULT
     iface_margin: float = 0.02
     min_zone_frac: float | None = None
@@ -49,9 +53,21 @@ class MixedTrainConfig:
             raise ValueError("grf_corr_lengths must be non-empty when n_grf > 0")
         return _split_counts(self.n_grf, len(self.grf_corr_lengths))
 
+    def piecewise_counts(self) -> tuple[int, ...]:
+        """Per-zone-count sample counts (explicit list overrides scalar)."""
+        if self.n_piecewise_per_zone_list is not None:
+            if len(self.n_piecewise_per_zone_list) != len(self.piecewise_zone_counts):
+                raise ValueError(
+                    "n_piecewise_per_zone_list length must match piecewise_zone_counts"
+                )
+            return self.n_piecewise_per_zone_list
+        return tuple(
+            self.n_piecewise_per_zone_count for _ in self.piecewise_zone_counts
+        )
+
     @property
     def n_piecewise(self) -> int:
-        return len(self.piecewise_zone_counts) * self.n_piecewise_per_zone_count
+        return sum(self.piecewise_counts())
 
     @property
     def n_total(self) -> int:
@@ -69,6 +85,9 @@ class GRFTrainingBatch:
     case_kind: np.ndarray | None = None  # (N,) 0=GRF, 1=piecewise
     case_n_zones: np.ndarray | None = None  # (N,) 0 for GRF else zone count
     case_grf_corr_length: np.ndarray | None = None  # (N,) ell for GRF, 0 for piecewise
+    zone9_branch: np.ndarray | None = None  # (N, 10) padded (u,b,n_zones) branch
+    piecewise_interfaces: np.ndarray | None = None  # (N, 4) padded internal interfaces
+    piecewise_zone_u: np.ndarray | None = None  # (N, 5) padded zone velocities
 
 
 def default_sensor_xstar(
@@ -108,6 +127,49 @@ def interpolate_u_xstar(
     grid_x = np.asarray(grid_x, dtype=np.float64)
     grid_u_row = np.asarray(grid_u_row, dtype=np.float64)
     return np.interp(x_star, grid_x, grid_u_row)
+
+
+def encode_zone9_branch_vector(
+    n_zones: int,
+    zone_u: np.ndarray,
+    interfaces: np.ndarray,
+) -> np.ndarray:
+    """
+    Padded 10-dim branch: (u1..u5, b1..b4, n_zones).
+
+    Velocities repeat u_k in trailing slots; unused boundaries are 1.0.
+    """
+    k = int(n_zones)
+    if not (1 <= k <= MAX_PADDED_ZONES):
+        raise ValueError(f"n_zones must lie in [1, {MAX_PADDED_ZONES}], got {k}")
+    u = np.asarray(zone_u, dtype=np.float64).reshape(-1)
+    b = np.asarray(interfaces, dtype=np.float64).reshape(-1)
+    if u.size < k:
+        raise ValueError(f"Expected at least {k} zone velocities, got {u.size}")
+    if k > 1 and b.size < k - 1:
+        raise ValueError(f"Expected at least {k - 1} interfaces, got {b.size}")
+
+    u_pad = np.empty(MAX_PADDED_ZONES, dtype=np.float64)
+    u_pad[:k] = u[:k]
+    u_pad[k:] = u[k - 1]
+
+    b_pad = np.ones(MAX_PADDED_INTERFACES, dtype=np.float64)
+    if k > 1:
+        b_pad[: k - 1] = b[: k - 1]
+
+    return np.concatenate([u_pad, b_pad, [float(k)]])
+
+
+def comsol_4zone_branch_vector(
+    u_case: UCases,
+    *,
+    l_m: float = L_DEFAULT,
+) -> np.ndarray:
+    """Encode fixed 4-zone COMSOL validation case into the 9-vector branch form."""
+    del l_m
+    u = np.asarray(u_case, dtype=np.float64).reshape(4)
+    interfaces = np.array([0.2, 0.4, 0.6], dtype=np.float64)
+    return encode_zone9_branch_vector(4, u, interfaces)
 
 
 def piecewise_u_at_xstar(
@@ -306,7 +368,7 @@ def draw_piecewise_velocity_fields(
         grid_u[i] = piecewise_u_at_xstar(grid_x, interfaces[i], zone_u[i])
 
     sensor_u = _fields_from_grid_rows(grid_u, grid_x, sensor_x)
-    return grid_u, sensor_u, grid_x
+    return grid_u, sensor_u, grid_x, interfaces, zone_u
 
 
 def draw_mixed_train_cases(
@@ -317,14 +379,24 @@ def draw_mixed_train_cases(
     u_hi: float = 0.05,
     grid_n: int = 201,
     seed: int = 0,
+    branch_mode: str = "sensor",
 ) -> GRFTrainingBatch:
     """Build a mixed GRF + piecewise training batch."""
     sensor_x = np.asarray(sensor_x, dtype=np.float64)
+    if branch_mode == "zone9" and config.n_grf > 0:
+        raise ValueError("branch_mode=zone9 requires n_grf=0 (piecewise-only training)")
     n_total = config.n_total
     grid_u = np.empty((n_total, grid_n), dtype=np.float64)
     case_kind = np.empty(n_total, dtype=np.int8)
     case_n_zones = np.empty(n_total, dtype=np.int8)
     case_grf_corr_length = np.zeros(n_total, dtype=np.float64)
+    zone9_branch: np.ndarray | None = None
+    piecewise_interfaces: np.ndarray | None = None
+    piecewise_zone_u: np.ndarray | None = None
+    if branch_mode == "zone9":
+        zone9_branch = np.empty((n_total, ZONE9_BRANCH_DIM), dtype=np.float64)
+        piecewise_interfaces = np.zeros((n_total, MAX_PADDED_INTERFACES), dtype=np.float64)
+        piecewise_zone_u = np.zeros((n_total, MAX_PADDED_ZONES), dtype=np.float64)
 
     offset = 0
     sensor_blocks: list[np.ndarray] = []
@@ -356,11 +428,12 @@ def draw_mixed_train_cases(
     if grid_x is None:
         grid_x = np.linspace(0.0, 1.0, grid_n, dtype=np.float64)
 
-    for j, n_zones in enumerate(config.piecewise_zone_counts):
-        n_pw = config.n_piecewise_per_zone_count
+    for j, (n_zones, n_pw) in enumerate(
+        zip(config.piecewise_zone_counts, config.piecewise_counts(), strict=True)
+    ):
         if n_pw <= 0:
             continue
-        pw_grid, pw_sensor, _ = draw_piecewise_velocity_fields(
+        pw_grid, pw_sensor, _, pw_ifaces, pw_zone_u = draw_piecewise_velocity_fields(
             n_pw,
             n_zones,
             sensor_x,
@@ -374,6 +447,18 @@ def draw_mixed_train_cases(
         grid_u[offset : offset + n_pw] = pw_grid
         case_kind[offset : offset + n_pw] = CASE_KIND_PIECEWISE
         case_n_zones[offset : offset + n_pw] = n_zones
+        if branch_mode == "zone9":
+            assert zone9_branch is not None
+            assert piecewise_interfaces is not None
+            assert piecewise_zone_u is not None
+            for i in range(n_pw):
+                row = offset + i
+                piecewise_zone_u[row, :n_zones] = pw_zone_u[i]
+                if n_zones > 1:
+                    piecewise_interfaces[row, : n_zones - 1] = pw_ifaces[i]
+                zone9_branch[row] = encode_zone9_branch_vector(
+                    n_zones, pw_zone_u[i], pw_ifaces[i]
+                )
         offset += n_pw
         sensor_blocks.append(pw_sensor)
 
@@ -386,6 +471,9 @@ def draw_mixed_train_cases(
         case_kind=case_kind,
         case_n_zones=case_n_zones,
         case_grf_corr_length=case_grf_corr_length,
+        zone9_branch=zone9_branch,
+        piecewise_interfaces=piecewise_interfaces,
+        piecewise_zone_u=piecewise_zone_u,
     )
 
 
@@ -455,9 +543,11 @@ def _mixed_config_matches_batch(
             )
             if n_have != n_expected:
                 return False
-    for n_zones in config.piecewise_zone_counts:
+    for n_zones, n_expected in zip(
+        config.piecewise_zone_counts, config.piecewise_counts(), strict=True
+    ):
         n_pw = int(np.sum(batch.case_n_zones == n_zones))
-        if n_pw != config.n_piecewise_per_zone_count:
+        if n_pw != n_expected:
             return False
     return True
 
@@ -473,6 +563,11 @@ def load_grf_cases_npz(path: Path) -> GRFTrainingBatch:
     case_grf_corr_length = (
         data["case_grf_corr_length"] if "case_grf_corr_length" in data else None
     )
+    zone9_branch = data["zone9_branch"] if "zone9_branch" in data else None
+    piecewise_interfaces = (
+        data["piecewise_interfaces"] if "piecewise_interfaces" in data else None
+    )
+    piecewise_zone_u = data["piecewise_zone_u"] if "piecewise_zone_u" in data else None
     return GRFTrainingBatch(
         sensor_u=np.asarray(data["sensor_u"], dtype=np.float64),
         grid_u=np.asarray(data["grid_u"], dtype=np.float64),
@@ -485,6 +580,15 @@ def load_grf_cases_npz(path: Path) -> GRFTrainingBatch:
         case_grf_corr_length=None
         if case_grf_corr_length is None
         else np.asarray(case_grf_corr_length, dtype=np.float64),
+        zone9_branch=None
+        if zone9_branch is None
+        else np.asarray(zone9_branch, dtype=np.float64),
+        piecewise_interfaces=None
+        if piecewise_interfaces is None
+        else np.asarray(piecewise_interfaces, dtype=np.float64),
+        piecewise_zone_u=None
+        if piecewise_zone_u is None
+        else np.asarray(piecewise_zone_u, dtype=np.float64),
     )
 
 
@@ -504,6 +608,12 @@ def save_grf_cases_npz(path: Path, batch: GRFTrainingBatch) -> Path:
         payload["case_n_zones"] = batch.case_n_zones
     if batch.case_grf_corr_length is not None:
         payload["case_grf_corr_length"] = batch.case_grf_corr_length
+    if batch.zone9_branch is not None:
+        payload["zone9_branch"] = batch.zone9_branch
+    if batch.piecewise_interfaces is not None:
+        payload["piecewise_interfaces"] = batch.piecewise_interfaces
+    if batch.piecewise_zone_u is not None:
+        payload["piecewise_zone_u"] = batch.piecewise_zone_u
     np.savez(path, **payload)
     return path
 
@@ -520,6 +630,7 @@ def load_or_generate_grf_train_cases(
     reload: bool = False,
     l_m: float = L_DEFAULT,
     t_max_d: float = T_MAX_DEFAULT,
+    branch_mode: str = "sensor",
 ) -> GRFTrainingBatch:
     """Load ``train_grf_cases.npz`` or draw a new mixed GRF + piecewise batch."""
     del l_m, t_max_d
@@ -545,6 +656,10 @@ def load_or_generate_grf_train_cases(
                 "Cached batch composition does not match requested mixed config. "
                 "Use reload=True to regenerate."
             )
+        if branch_mode == "zone9" and batch.zone9_branch is None:
+            raise ValueError(
+                "Cached batch lacks zone9_branch metadata. Use reload=True to regenerate."
+            )
         return batch
 
     batch = draw_mixed_train_cases(
@@ -554,6 +669,7 @@ def load_or_generate_grf_train_cases(
         u_hi=u_hi,
         grid_n=grid_n,
         seed=seed,
+        branch_mode=branch_mode,
     )
     save_grf_cases_npz(npz_path, batch)
     return batch

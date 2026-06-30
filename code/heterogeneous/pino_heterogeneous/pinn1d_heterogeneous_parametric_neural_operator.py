@@ -38,14 +38,18 @@ from utils.grf_sampling import (  # noqa: E402
     GRF_CORR_LENGTHS_DEFAULT,
     MixedTrainConfig,
     PIECEWISE_ZONE_COUNTS_DEFAULT,
+    ZONE9_BRANCH_DIM,
     branch_cfl_from_grf_sensor_u,
     branch_cfl_from_zone_case,
+    comsol_4zone_branch_vector,
     default_sensor_xstar,
     interpolate_u_xstar,
     load_or_generate_grf_train_cases,
     load_grf_cases_npz,
+    piecewise_u_at_xstar,
     zone_u_at_xstar,
 )
+from utils.soap import SOAP  # noqa: E402
 from utils.lhc_sampling import (  # noqa: E402
     TrainDesign,
     comsol_validation_u_grid,
@@ -167,6 +171,15 @@ grf_corr_lengths = GRF_CORR_LENGTHS_DEFAULT
 grf_grid_n = 201
 min_zone_frac: float | None = None
 sensor_xstar: np.ndarray | None = None
+branch_mode: str = "sensor"
+n_piecewise_per_zone_list: tuple[int, ...] | None = None
+
+optimizer_mode: str = "lbfgs"
+num_epochs_soap = 4000
+soap_lr = 3e-3
+soap_betas = (0.95, 0.95)
+soap_weight_decay = 0.01
+soap_precond_freq = 100
 
 # =============================================================================
 # Plot style
@@ -292,7 +305,9 @@ def comsol_c_star_on_x_star(
 def branch_cfl_vector_for_validation(
     u_case: tuple[float, float, float, float],
 ) -> np.ndarray:
-    """Branch CFL features for COMSOL validation (zone or GRF sensor encoding)."""
+    """Branch features for COMSOL validation (sensor CFL or zone9 encoding)."""
+    if branch_mode == "zone9":
+        return comsol_4zone_branch_vector(u_case, l_m=L)
     if media_mode == "grf":
         if sensor_xstar is None:
             raise RuntimeError("sensor_xstar not set for GRF validation")
@@ -733,6 +748,25 @@ def build_collocation_tensors(
     return tensors, plot_data
 
 
+def _pde_u_from_zone9_batch(
+    x_flat: np.ndarray,
+    case_idx: np.ndarray,
+    batch: GRFTrainingBatch,
+) -> np.ndarray:
+    """Physical u at each PDE collocation point from padded zone metadata."""
+    if batch.piecewise_interfaces is None or batch.piecewise_zone_u is None:
+        raise RuntimeError("zone9 PDE requires piecewise_interfaces and piecewise_zone_u")
+    if batch.case_n_zones is None:
+        raise RuntimeError("zone9 PDE requires case_n_zones")
+    u_out = np.empty(x_flat.size, dtype=np.float64)
+    for i, (xi, ci) in enumerate(zip(x_flat, case_idx, strict=True)):
+        k = int(batch.case_n_zones[ci])
+        ifaces = batch.piecewise_interfaces[ci, : max(k - 1, 0)]
+        zu = batch.piecewise_zone_u[ci, :k]
+        u_out[i] = piecewise_u_at_xstar(np.array([xi]), ifaces, zu)[0]
+    return u_out.reshape(-1, 1)
+
+
 def _pde_collocation_from_grf_cases(
     x_1d: np.ndarray,
     t_1d: np.ndarray,
@@ -744,11 +778,15 @@ def _pde_collocation_from_grf_cases(
     case_idx = gu.reshape(-1)
     x_flat = gx.reshape(-1)
     t_flat = gt.reshape(-1)
-    grid_rows = batch.grid_u[case_idx]
-    u_interp = np.empty(x_flat.size, dtype=np.float64)
-    for i, (xi, row) in enumerate(zip(x_flat, grid_rows, strict=True)):
-        u_interp[i] = interpolate_u_xstar(xi, batch.grid_x, row)
-    return x_flat, t_flat, case_idx, u_interp.reshape(-1, 1)
+    if branch_mode == "zone9":
+        u_interp = _pde_u_from_zone9_batch(x_flat, case_idx, batch)
+    else:
+        grid_rows = batch.grid_u[case_idx]
+        u_interp = np.empty(x_flat.size, dtype=np.float64)
+        for i, (xi, row) in enumerate(zip(x_flat, grid_rows, strict=True)):
+            u_interp[i] = interpolate_u_xstar(xi, batch.grid_x, row)
+        u_interp = u_interp.reshape(-1, 1)
+    return x_flat, t_flat, case_idx, u_interp
 
 
 def build_grf_collocation_tensors(
@@ -793,7 +831,12 @@ def build_grf_collocation_tensors(
     u_ref_sensors = batch.sensor_u[i_ref]
     k_show = min(4, u_ref_sensors.size)
     u_ref_display = tuple(float(v) for v in u_ref_sensors[:k_show])
-    branch_unique_np = branch_cfl_from_grf_sensor_u(batch.sensor_u)
+    if branch_mode == "zone9":
+        if batch.zone9_branch is None:
+            raise RuntimeError("zone9 training batch missing zone9_branch")
+        branch_unique_np = batch.zone9_branch
+    else:
+        branch_unique_np = branch_cfl_from_grf_sensor_u(batch.sensor_u)
 
     tensors: dict[str, torch.Tensor] = {
         "branch_unique": torch.tensor(branch_unique_np, dtype=dtype, device=device),
@@ -917,6 +960,58 @@ def _loss_improved(current: float, best: float, *, rtol: float, atol: float) -> 
         return True
     margin = atol + rtol * max(abs(best), 1.0)
     return current < best - margin
+
+
+def _train_soap(
+    model: nn.Module,
+    tensors: dict[str, torch.Tensor],
+    *,
+    use_grf_pde: bool,
+) -> tuple[list[list[float]], dict[str, object]]:
+    optimizer = SOAP(
+        model.parameters(),
+        lr=soap_lr,
+        betas=soap_betas,
+        weight_decay=soap_weight_decay,
+        precondition_frequency=soap_precond_freq,
+    )
+    print(
+        f"SOAP(lr={soap_lr:g}, betas={soap_betas}, weight_decay={soap_weight_decay:g}, "
+        f"precond_freq={soap_precond_freq})  epochs={num_epochs_soap}"
+    )
+    history: list[list[float]] = []
+    best_loss = float("inf")
+    t_bar = trange(
+        num_epochs_soap,
+        desc="SOAP",
+        bar_format=(
+            "{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} "
+            "[{remaining} > {elapsed}]"
+        ),
+    )
+    for _epoch in t_bar:
+        model.train()
+        optimizer.zero_grad(set_to_none=True)
+        total_loss, metrics = compute_physics_loss(
+            model,
+            tensors,
+            use_grf_pde=use_grf_pde,
+        )
+        total_loss.backward()
+        optimizer.step()
+        history.append(list(metrics))
+        best_loss = min(best_loss, float(metrics[0]))
+    t_bar.close()
+    summary: dict[str, object] = {
+        "num_epochs_soap_requested": num_epochs_soap,
+        "num_epochs_soap_actual": len(history),
+        "soap_lr": soap_lr,
+        "soap_betas": list(soap_betas),
+        "soap_weight_decay": soap_weight_decay,
+        "soap_precond_freq": soap_precond_freq,
+        "best_total_loss_soap": best_loss,
+    }
+    return history, summary
 
 
 def _train_lbfgs(
@@ -1045,7 +1140,7 @@ def train_model(
     use_grf_pde: bool = False,
 ) -> tuple[list[list[float]], dict[str, object]]:
     history: list[list[float]] = []
-    summary: dict[str, object] = {}
+    summary: dict[str, object] = {"optimizer": optimizer_mode}
 
     if num_epochs_adam > 0:
         adam_history, adam_summary = _train_adam(
@@ -1054,13 +1149,25 @@ def train_model(
         history.extend(adam_history)
         summary.update(adam_summary)
 
-    if num_epochs_lbfgs > 0:
-        lbfgs_history, lbfgs_summary = _train_lbfgs(
+    if optimizer_mode in ("soap", "soap_lbfgs") and num_epochs_soap > 0:
+        soap_history, soap_summary = _train_soap(
             model, tensors, use_grf_pde=use_grf_pde
         )
-        history.extend(lbfgs_history)
-        summary.update(lbfgs_summary)
-        summary["best_total_loss"] = lbfgs_summary["best_total_loss_lbfgs"]
+        history.extend(soap_history)
+        summary.update(soap_summary)
+
+    if optimizer_mode == "lbfgs" or (
+        optimizer_mode == "soap_lbfgs" and num_epochs_lbfgs > 0
+    ):
+        if num_epochs_lbfgs > 0:
+            lbfgs_history, lbfgs_summary = _train_lbfgs(
+                model, tensors, use_grf_pde=use_grf_pde
+            )
+            history.extend(lbfgs_history)
+            summary.update(lbfgs_summary)
+            summary["best_total_loss"] = lbfgs_summary["best_total_loss_lbfgs"]
+    elif optimizer_mode == "soap" and history:
+        summary["best_total_loss"] = summary.get("best_total_loss_soap", float("inf"))
     elif history:
         summary["best_total_loss"] = summary.get("best_total_loss_adam", float("inf"))
 
@@ -1382,6 +1489,61 @@ def parse_cli() -> argparse.Namespace:
         action="store_true",
         help="With --ic-x0-t0: enforce C*(x*,0)=0 and override C*(0,0) to C0.",
     )
+    parser.add_argument(
+        "--branch-mode",
+        choices=["sensor", "zone9"],
+        default=None,
+        help="GRF branch encoding: uniform sensor CFL (default) or 10-dim zone9 vector.",
+    )
+    parser.add_argument(
+        "--n-piecewise-per-zone-list",
+        type=str,
+        default=None,
+        metavar="N_LIST",
+        help=(
+            "Explicit per-zone-count sample counts, e.g. 17,33,50,67,83 "
+            "(overrides --n-piecewise-per-zones; length must match zone counts)."
+        ),
+    )
+    parser.add_argument(
+        "--optimizer",
+        choices=["lbfgs", "soap", "soap_lbfgs"],
+        default=None,
+        help="Training optimizer (default lbfgs). soap_lbfgs = SOAP warm-up then L-BFGS.",
+    )
+    parser.add_argument(
+        "--soap-epochs",
+        type=int,
+        default=None,
+        metavar="N",
+        help="SOAP outer steps (default 4000).",
+    )
+    parser.add_argument(
+        "--soap-lr",
+        type=float,
+        default=None,
+        help="SOAP learning rate (default 3e-3).",
+    )
+    parser.add_argument(
+        "--soap-betas",
+        type=str,
+        default=None,
+        metavar="B1,B2",
+        help="SOAP Adam betas (default 0.95,0.95).",
+    )
+    parser.add_argument(
+        "--soap-weight-decay",
+        type=float,
+        default=None,
+        help="SOAP weight decay (default 0.01).",
+    )
+    parser.add_argument(
+        "--soap-precond-freq",
+        type=int,
+        default=None,
+        metavar="N",
+        help="SOAP preconditioner update frequency (default 100).",
+    )
     return parser.parse_args()
 
 
@@ -1415,9 +1577,27 @@ def _apply_arch_preset(name: str) -> None:
         branch_architecture = list(preset_branch)
 
 
+def _parse_int_list(text: str) -> tuple[int, ...]:
+    values = tuple(int(s.strip()) for s in text.split(",") if s.strip())
+    if not values:
+        raise ValueError("list must contain at least one integer")
+    if any(v < 0 for v in values):
+        raise ValueError("each list entry must be >= 0")
+    return values
+
+
+def _parse_float_pair(text: str) -> tuple[float, float]:
+    parts = [s.strip() for s in text.split(",") if s.strip()]
+    if len(parts) != 2:
+        raise ValueError("betas must be two comma-separated floats")
+    return float(parts[0]), float(parts[1])
+
+
 def _apply_grf_branch_arch(k: int, *, arch: str = "default") -> None:
     """Set branch input width to K sensor CFL features; keep trunk latent dim in sync."""
     global sensor_count
+    if branch_mode == "zone9":
+        k = ZONE9_BRANCH_DIM
     sensor_count = k
     _apply_arch_preset(arch)
 
@@ -1437,6 +1617,9 @@ def _load_run_meta_for_validate() -> bool:
     global media_mode, sensor_count, sensor_xstar, grf_corr_lengths, grf_grid_n
     global n_sensors_requested, n_grf_requested, n_piecewise_per_zones, piecewise_zone_counts
     global min_zone_frac, ic_x0_t0_value, ic_zero_domain_at_t0
+    global branch_mode, n_piecewise_per_zone_list
+    global optimizer_mode, num_epochs_soap, soap_lr, soap_betas, soap_weight_decay
+    global soap_precond_freq
     branch_architecture = list(branch)
     trunk_architecture = list(trunk)
     arch_preset = str(meta.get("arch_preset", "custom"))
@@ -1480,6 +1663,24 @@ def _load_run_meta_for_validate() -> bool:
             piecewise_zone_counts = tuple(int(v) for v in meta["piecewise_zone_counts"])
         if "min_zone_frac" in meta:
             min_zone_frac = float(meta["min_zone_frac"])
+        if "branch_mode" in meta:
+            branch_mode = str(meta["branch_mode"])
+        if isinstance(meta.get("n_piecewise_per_zone_list"), list):
+            n_piecewise_per_zone_list = tuple(
+                int(v) for v in meta["n_piecewise_per_zone_list"]
+            )
+    if "optimizer" in meta:
+        optimizer_mode = str(meta["optimizer"])
+    if "num_epochs_soap_requested" in meta:
+        num_epochs_soap = int(meta["num_epochs_soap_requested"])
+    if "soap_lr" in meta:
+        soap_lr = float(meta["soap_lr"])
+    if isinstance(meta.get("soap_betas"), list):
+        soap_betas = (float(meta["soap_betas"][0]), float(meta["soap_betas"][1]))
+    if "soap_weight_decay" in meta:
+        soap_weight_decay = float(meta["soap_weight_decay"])
+    if "soap_precond_freq" in meta:
+        soap_precond_freq = int(meta["soap_precond_freq"])
     if "ic_x0_t0_value" in meta and meta["ic_x0_t0_value"] is not None:
         ic_x0_t0_value = float(meta["ic_x0_t0_value"])
     ic_zero_domain_at_t0 = bool(meta.get("ic_zero_domain_at_t0", False))
@@ -1495,6 +1696,9 @@ def apply_cli(args: argparse.Namespace) -> None:
     global grf_grid_n, sensor_xstar, sensor_count, branch_architecture
     global n_grf_requested, n_piecewise_per_zones, n_train_requested, piecewise_zone_counts
     global min_zone_frac, num_epochs_adam, lr_adam, ic_x0_t0_value, ic_zero_domain_at_t0
+    global branch_mode, n_piecewise_per_zone_list
+    global optimizer_mode, num_epochs_soap, soap_lr, soap_betas, soap_weight_decay
+    global soap_precond_freq, num_epochs_lbfgs
 
     if args.reload_train_cases:
         reload_lhc_train_cases = True
@@ -1524,10 +1728,18 @@ def apply_cli(args: argparse.Namespace) -> None:
                 piecewise_zone_counts = _parse_piecewise_zone_counts(
                     args.piecewise_zone_counts
                 )
+            if args.n_piecewise_per_zone_list is not None:
+                n_piecewise_per_zone_list = _parse_int_list(
+                    args.n_piecewise_per_zone_list
+                )
+            if args.branch_mode is not None:
+                branch_mode = args.branch_mode
             if args.min_zone_frac is not None:
                 min_zone_frac = args.min_zone_frac
             if args.n_train is not None:
                 n_train_requested = args.n_train
+            elif n_piecewise_per_zone_list is not None:
+                n_train_requested = n_grf_requested + sum(n_piecewise_per_zone_list)
             else:
                 n_train_requested = (
                     n_grf_requested
@@ -1539,11 +1751,15 @@ def apply_cli(args: argparse.Namespace) -> None:
                 grf_corr_lengths = _parse_grf_corr_lengths(args.grf_corr_lengths)
             if args.grf_grid_n is not None:
                 grf_grid_n = args.grf_grid_n
-            sensor_xstar = default_sensor_xstar(
-                n_sensors_requested, include_interfaces=False
-            )
+            if branch_mode == "zone9" and n_sensors_requested == 0:
+                sensor_k = 2
+            elif n_sensors_requested >= 2:
+                sensor_k = n_sensors_requested
+            else:
+                sensor_k = 2
+            sensor_xstar = default_sensor_xstar(sensor_k, include_interfaces=False)
             _apply_grf_branch_arch(
-                sensor_xstar.size,
+                ZONE9_BRANCH_DIM if branch_mode == "zone9" else sensor_xstar.size,
                 arch=args.arch if args.arch is not None else "default",
             )
         elif args.n_train is not None:
@@ -1603,6 +1819,27 @@ def apply_cli(args: argparse.Namespace) -> None:
     if args.ic_zero_domain_at_t0:
         ic_zero_domain_at_t0 = True
 
+    if args.soap_epochs is not None:
+        num_epochs_soap = args.soap_epochs
+
+    if args.soap_lr is not None:
+        soap_lr = args.soap_lr
+
+    if args.soap_betas is not None:
+        soap_betas = _parse_float_pair(args.soap_betas)
+
+    if args.soap_weight_decay is not None:
+        soap_weight_decay = args.soap_weight_decay
+
+    if args.soap_precond_freq is not None:
+        soap_precond_freq = args.soap_precond_freq
+
+    if args.optimizer is not None:
+        optimizer_mode = args.optimizer
+
+    if optimizer_mode == "soap":
+        num_epochs_lbfgs = 0
+
     if batch_mode:
         if media_mode == "grf":
             U_TRAIN_CASES_PATH = RESULTS_DIR / "train_grf_cases.npz"
@@ -1645,6 +1882,8 @@ def write_run_meta(
         "early_stop_patience": early_stop_patience,
         "lr_lbfgs": lr_lbfgs,
         "lbfgs_max_iter": lbfgs_max_iter,
+        "optimizer": optimizer_mode,
+        "branch_mode": branch_mode,
         "wall_clock_s": round(wall_clock_s, 3),
         "out_dir": str(RESULTS_DIR.relative_to(_PINO_DIR)),
     }
@@ -1668,8 +1907,16 @@ def write_run_meta(
         meta["n_grf"] = n_grf_requested
         meta["n_piecewise_per_zones"] = n_piecewise_per_zones
         meta["piecewise_zone_counts"] = list(piecewise_zone_counts)
+        if n_piecewise_per_zone_list is not None:
+            meta["n_piecewise_per_zone_list"] = list(n_piecewise_per_zone_list)
         if min_zone_frac is not None:
             meta["min_zone_frac"] = min_zone_frac
+    if optimizer_mode in ("soap", "soap_lbfgs"):
+        meta["num_epochs_soap_requested"] = num_epochs_soap
+        meta["soap_lr"] = soap_lr
+        meta["soap_betas"] = list(soap_betas)
+        meta["soap_weight_decay"] = soap_weight_decay
+        meta["soap_precond_freq"] = soap_precond_freq
     if training_summary:
         meta.update(training_summary)
     if validation_rows:
@@ -1711,7 +1958,8 @@ def main() -> None:
 
     print(f"PE (computed) = {PE:.12g}")
     print(
-        f"design={train_design}  media_mode={media_mode}  "
+        f"design={train_design}  media_mode={media_mode}  branch_mode={branch_mode}  "
+        f"optimizer={optimizer_mode}  "
         f"n_train_requested={n_train_requested}  "
         f"n_corner_anchors={n_corner_anchors}  arch={arch_preset}  "
         f"batch_mode={batch_mode}"
@@ -1729,6 +1977,7 @@ def main() -> None:
             n_grf=n_grf_requested,
             n_piecewise_per_zone_count=n_piecewise_per_zones,
             piecewise_zone_counts=piecewise_zone_counts,
+            n_piecewise_per_zone_list=n_piecewise_per_zone_list,
             grf_corr_lengths=grf_corr_lengths,
             min_zone_frac=min_zone_frac,
         )
@@ -1750,6 +1999,7 @@ def main() -> None:
             reload=reload_lhc_train_cases,
             l_m=L,
             t_max_d=T_MAX,
+            branch_mode=branch_mode,
         )
         n_u = grf_batch.sensor_u.shape[0]
         cfl_train = branch_cfl_from_grf_sensor_u(grf_batch.sensor_u)
@@ -1765,15 +2015,23 @@ def main() -> None:
                 f"K={sensor_xstar.size} uniform sensors, grid_n={grf_grid_n}"
             )
         else:
+            pw_counts = (
+                list(n_piecewise_per_zone_list)
+                if n_piecewise_per_zone_list is not None
+                else [n_piecewise_per_zones] * len(piecewise_zone_counts)
+            )
             zone_desc = (
                 f"{mixed_config.n_piecewise} piecewise "
-                f"({n_piecewise_per_zones} each for zones {list(piecewise_zone_counts)})"
+                f"({', '.join(str(c) for c in pw_counts)} for zones "
+                f"{list(piecewise_zone_counts)})"
             )
             if min_zone_frac is not None:
                 zone_desc += f", min_zone_frac={min_zone_frac:g}"
             train_desc = (
                 f"{zone_desc} = {n_u} total; "
-                f"K={sensor_xstar.size} uniform sensors, grid_n={grf_grid_n}"
+                f"branch_mode={branch_mode}, "
+                f"K={sensor_xstar.size if sensor_xstar is not None else 0} sensors, "
+                f"grid_n={grf_grid_n}"
             )
         print(f"Training: {train_desc}")
         print(f"  saved/loaded: {U_TRAIN_CASES_PATH}")
@@ -1831,6 +2089,11 @@ def main() -> None:
             print(
                 f"L-BFGS: lr={lr_lbfgs:g}  max_iter={lbfgs_max_iter}  "
                 f"outer_steps={num_epochs_lbfgs}"
+            )
+        if optimizer_mode in ("soap", "soap_lbfgs") and num_epochs_soap > 0:
+            print(
+                f"SOAP: lr={soap_lr:g}  betas={soap_betas}  weight_decay={soap_weight_decay:g}  "
+                f"precond_freq={soap_precond_freq}  steps={num_epochs_soap}"
             )
 
     model = build_deeponet(

@@ -4,17 +4,25 @@
 #   * use FORWARD slashes (they work on Windows too)
 #   * blank lines and lines starting with # are ignored
 #   * add arguments after the path if your script takes them
-#   * quote any path that contains spaces
 #
 # Workflow: edit this list on your laptop, commit & push, then run
 # run.bat on the remote. The run stops at the first script that fails.
 #
-# exp_V series — Uc recipe (N=250, 50/zone, zones 1-5), smaller arch sweep.
-#   Va: default  b=[100,16,16,32]  t=[2,32,32,32,32]
-#   Vb: w32      b=[100,32,32,32]  t=[2,32,32,32,32]
-#   Vc: w16      b=[100,16,16,16]  t=[2,16,16,16,16]
-#   (Tb-style: L-BFGS 1000, max_iter=20, K=100, piecewise maximin LHC, min_zone_frac=0.1)
+# PINO W-series — zoned experiment round (PINO_zoned_experiment_plan.md)
+# Reference: Va (already run) — mean 4.41% / max 9.72%, ~1.9 h on RTX 3090.
+# Va recipe: grf design, N=250 piecewise (50/zone, zones 1-5), default arch,
+#   float64, L-BFGS 1000 x maxiter 20, lr-lbfgs 0.1, early-stop-patience 150.
+# Each run below changes ONE axis vs Va unless noted.
 #
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 50 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_Va_piecewise_K100_N250_z1to5_min10pct_default_float64_lbfgs1000_maxiter20
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 50 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch w32 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_Vb_piecewise_K100_N250_z1to5_min10pct_w32_float64_lbfgs1000_maxiter20
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 50 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch w16 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_Vc_piecewise_K100_N250_z1to5_min10pct_w16_float64_lbfgs1000_maxiter20
+# W1a — SOAP only (~equal compute to Va; tune --soap-epochs if wall-clock diverges)
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 50 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --optimizer soap --soap-epochs 6000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --out-dir results/exp_W1a_soap_K100_N250_z1to5_default_float64
+# W1b — SOAP warm-up then L-BFGS fine-tune (Va L-BFGS settings after SOAP)
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 50 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --optimizer soap_lbfgs --soap-epochs 3000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_W1b_soap_lbfgs_K100_N250_z1to5_default_float64
+# W2 — train on 5-zone media only (N=250, all 5-zone)
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 250 --piecewise-zone-counts 5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_W2_5zoneonly_K100_N250_default_float64_lbfgs1000_maxiter20
+# W3a — ramped allocation N=250 (17/33/50/67/83 vs Va uniform 50/zone)
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zone-list 17,33,50,67,83 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_W3a_ramp_K100_N250_z1to5_default_float64
+# W3b — ramped allocation N=500 (33/67/100/133/167)
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zone-list 33,67,100,133,167 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_W3b_ramp_K100_N500_z1to5_default_float64
+# W4 — 9-vector branch probe (10-dim u/b/n_zones encoding, no sensors)
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --branch-mode zone9 --n-sensors 0 --n-grf 0 --n-piecewise-per-zones 50 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_W4_zone9_K0_N250_z1to5_default_float64_lbfgs1000_maxiter20
