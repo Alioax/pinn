@@ -180,6 +180,8 @@ soap_lr = 3e-3
 soap_betas = (0.95, 0.95)
 soap_weight_decay = 0.01
 soap_precond_freq = 100
+soap_iso_compute_twin_dir: str | None = None
+soap_probe_epochs = 200
 
 # =============================================================================
 # Plot style
@@ -962,12 +964,39 @@ def _loss_improved(current: float, best: float, *, rtol: float, atol: float) -> 
     return current < best - margin
 
 
+def _read_twin_train_wall_clock_s(twin_dir: str) -> float:
+    """Load train_wall_clock_s from an L-BFGS twin run_meta.json (iso-compute anchor)."""
+    meta_path = (_PINO_DIR / twin_dir / "run_meta.json").resolve()
+    if not meta_path.is_file():
+        raise FileNotFoundError(
+            f"SOAP iso-compute twin missing run_meta.json: {meta_path}"
+        )
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    if "train_wall_clock_s" in meta:
+        return float(meta["train_wall_clock_s"])
+    if "wall_clock_s" in meta:
+        return float(meta["wall_clock_s"])
+    raise KeyError(f"Twin run_meta has no train_wall_clock_s: {meta_path}")
+
+
 def _train_soap(
     model: nn.Module,
     tensors: dict[str, torch.Tensor],
     *,
     use_grf_pde: bool,
 ) -> tuple[list[list[float]], dict[str, object]]:
+    iso_meta: dict[str, object] = {}
+    target_wall_s: float | None = None
+    if soap_iso_compute_twin_dir is not None:
+        target_wall_s = _read_twin_train_wall_clock_s(soap_iso_compute_twin_dir)
+        iso_meta["soap_iso_compute_twin_dir"] = soap_iso_compute_twin_dir
+        iso_meta["soap_iso_compute_target_train_wall_s"] = round(target_wall_s, 3)
+        iso_meta["soap_probe_epochs"] = soap_probe_epochs
+
+    epoch_limit = num_epochs_soap
+    if target_wall_s is not None:
+        epoch_limit = max(soap_probe_epochs, 1)
+
     optimizer = SOAP(
         model.parameters(),
         lr=soap_lr,
@@ -975,21 +1004,42 @@ def _train_soap(
         weight_decay=soap_weight_decay,
         precondition_frequency=soap_precond_freq,
     )
+    if target_wall_s is not None:
+        print(
+            f"SOAP iso-compute: twin={soap_iso_compute_twin_dir}  "
+            f"target_train_wall={target_wall_s:.1f}s  probe_epochs={soap_probe_epochs}"
+        )
     print(
         f"SOAP(lr={soap_lr:g}, betas={soap_betas}, weight_decay={soap_weight_decay:g}, "
-        f"precond_freq={soap_precond_freq})  epochs={num_epochs_soap}"
+        f"precond_freq={soap_precond_freq})  epoch_budget={epoch_limit}"
     )
+    if early_stop_patience > 0:
+        stop_rtol = 1e-12 if torch_dtype == torch.float64 else 1e-8
+        print(
+            f"SOAP early stopping: patience={early_stop_patience} steps "
+            f"(no total-loss improvement, rtol={stop_rtol:g})"
+        )
+    else:
+        stop_rtol = 0.0
+
     history: list[list[float]] = []
     best_loss = float("inf")
-    t_bar = trange(
-        num_epochs_soap,
+    stale_epochs = 0
+    early_stopped = False
+    grad_evals = 0
+    probe_done = target_wall_s is None
+    train_t0 = time.time()
+
+    t_bar = tqdm(
+        total=epoch_limit,
         desc="SOAP",
         bar_format=(
             "{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} "
             "[{remaining} > {elapsed}]"
         ),
     )
-    for _epoch in t_bar:
+    epoch = 0
+    while epoch < epoch_limit:
         model.train()
         optimizer.zero_grad(set_to_none=True)
         total_loss, metrics = compute_physics_loss(
@@ -999,18 +1049,59 @@ def _train_soap(
         )
         total_loss.backward()
         optimizer.step()
+        grad_evals += 1
         history.append(list(metrics))
-        best_loss = min(best_loss, float(metrics[0]))
+        total_loss_val = float(metrics[0])
+        if _loss_improved(total_loss_val, best_loss, rtol=stop_rtol, atol=0.0):
+            best_loss = total_loss_val
+            stale_epochs = 0
+        else:
+            stale_epochs += 1
+            if early_stop_patience > 0 and stale_epochs >= early_stop_patience:
+                early_stopped = True
+                t_bar.set_postfix_str("early stop", refresh=False)
+                print(
+                    f"\nSOAP early stopping at step {epoch + 1}/{epoch_limit}: "
+                    f"total loss unchanged for {early_stop_patience} steps "
+                    f"(best={best_loss:.6e})."
+                )
+                break
+
+        epoch += 1
+        if (
+            target_wall_s is not None
+            and not probe_done
+            and epoch >= soap_probe_epochs
+        ):
+            elapsed = time.time() - train_t0
+            sec_per_epoch = elapsed / epoch
+            epoch_limit = max(epoch, int(target_wall_s / sec_per_epoch + 0.999))
+            iso_meta["soap_probe_sec_per_epoch"] = round(sec_per_epoch, 4)
+            iso_meta["soap_iso_compute_epochs_set"] = epoch_limit
+            probe_done = True
+            t_bar.total = epoch_limit
+            t_bar.refresh()
+            print(
+                f"\nSOAP iso-compute calibration: {epoch} probe epochs in "
+                f"{elapsed:.1f}s ({sec_per_epoch:.3f}s/epoch) -> "
+                f"budget {epoch_limit} epochs (~{target_wall_s:.0f}s twin train wall)"
+            )
+        t_bar.update(1)
     t_bar.close()
+
     summary: dict[str, object] = {
-        "num_epochs_soap_requested": num_epochs_soap,
+        "num_epochs_soap_requested": epoch_limit,
         "num_epochs_soap_actual": len(history),
         "soap_lr": soap_lr,
         "soap_betas": list(soap_betas),
         "soap_weight_decay": soap_weight_decay,
         "soap_precond_freq": soap_precond_freq,
+        "soap_gradient_evals": grad_evals,
+        "early_stop_patience": early_stop_patience,
+        "soap_early_stopped": early_stopped,
         "best_total_loss_soap": best_loss,
     }
+    summary.update(iso_meta)
     return history, summary
 
 
@@ -1041,8 +1132,11 @@ def _train_lbfgs(
     best_loss = float("inf")
     stale_epochs = 0
     early_stopped = False
+    grad_evals = 0
 
     def closure():
+        nonlocal grad_evals
+        grad_evals += 1
         optimizer.zero_grad(set_to_none=True)
         total_loss, metrics = compute_physics_loss(
             model,
@@ -1087,6 +1181,7 @@ def _train_lbfgs(
         "num_epochs_lbfgs_actual": len(history),
         "early_stop_patience": early_stop_patience,
         "early_stopped": early_stopped,
+        "lbfgs_gradient_evals": grad_evals,
         "best_total_loss_lbfgs": best_loss,
     }
     return history, summary
@@ -1544,6 +1639,30 @@ def parse_cli() -> argparse.Namespace:
         metavar="N",
         help="SOAP preconditioner update frequency (default 100).",
     )
+    parser.add_argument(
+        "--soap-iso-compute-twin",
+        type=str,
+        default=None,
+        metavar="OUT_DIR",
+        help=(
+            "SOAP iso-compute: match train wall-clock of this L-BFGS twin's "
+            "run_meta.json (results/exp_* under pino_heterogeneous). Probes "
+            "--soap-probe-epochs then sets the SOAP epoch budget."
+        ),
+    )
+    parser.add_argument(
+        "--soap-probe-epochs",
+        type=int,
+        default=None,
+        metavar="N",
+        help="SOAP timing-probe length for iso-compute (default 200).",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="RNG seed for training media and torch/numpy (default 1234567).",
+    )
     return parser.parse_args()
 
 
@@ -1698,7 +1817,8 @@ def apply_cli(args: argparse.Namespace) -> None:
     global min_zone_frac, num_epochs_adam, lr_adam, ic_x0_t0_value, ic_zero_domain_at_t0
     global branch_mode, n_piecewise_per_zone_list
     global optimizer_mode, num_epochs_soap, soap_lr, soap_betas, soap_weight_decay
-    global soap_precond_freq, num_epochs_lbfgs
+    global soap_precond_freq, num_epochs_lbfgs, seed
+    global soap_iso_compute_twin_dir, soap_probe_epochs
 
     if args.reload_train_cases:
         reload_lhc_train_cases = True
@@ -1834,6 +1954,17 @@ def apply_cli(args: argparse.Namespace) -> None:
     if args.soap_precond_freq is not None:
         soap_precond_freq = args.soap_precond_freq
 
+    if args.soap_iso_compute_twin is not None:
+        soap_iso_compute_twin_dir = args.soap_iso_compute_twin
+        if args.soap_epochs is None:
+            num_epochs_soap = soap_probe_epochs
+
+    if args.soap_probe_epochs is not None:
+        soap_probe_epochs = args.soap_probe_epochs
+
+    if args.seed is not None:
+        seed = args.seed
+
     if args.optimizer is not None:
         optimizer_mode = args.optimizer
 
@@ -1917,6 +2048,9 @@ def write_run_meta(
         meta["soap_betas"] = list(soap_betas)
         meta["soap_weight_decay"] = soap_weight_decay
         meta["soap_precond_freq"] = soap_precond_freq
+        if soap_iso_compute_twin_dir is not None:
+            meta["soap_iso_compute_twin_dir"] = soap_iso_compute_twin_dir
+            meta["soap_probe_epochs"] = soap_probe_epochs
     if training_summary:
         meta.update(training_summary)
     if validation_rows:
@@ -2091,10 +2225,18 @@ def main() -> None:
                 f"outer_steps={num_epochs_lbfgs}"
             )
         if optimizer_mode in ("soap", "soap_lbfgs") and num_epochs_soap > 0:
-            print(
-                f"SOAP: lr={soap_lr:g}  betas={soap_betas}  weight_decay={soap_weight_decay:g}  "
-                f"precond_freq={soap_precond_freq}  steps={num_epochs_soap}"
-            )
+            if soap_iso_compute_twin_dir is not None:
+                print(
+                    f"SOAP iso-compute: twin={soap_iso_compute_twin_dir}  "
+                    f"probe_epochs={soap_probe_epochs}  "
+                    f"(epoch budget set after probe)"
+                )
+            else:
+                print(
+                    f"SOAP: lr={soap_lr:g}  betas={soap_betas}  "
+                    f"weight_decay={soap_weight_decay:g}  "
+                    f"precond_freq={soap_precond_freq}  steps={num_epochs_soap}"
+                )
 
     model = build_deeponet(
         branch_architecture, trunk_architecture, activation_cls

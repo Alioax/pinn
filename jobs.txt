@@ -1,28 +1,33 @@
 # jobs.txt - the scripts run.bat will execute, top to bottom.
 #
-#   * one script per line, paths relative to the repo root
-#   * use FORWARD slashes (they work on Windows too)
-#   * blank lines and lines starting with # are ignored
-#   * add arguments after the path if your script takes them
+# PINO X-series — final zoned round (N=500, default arch unless noted).
+# Anchors: Va 4.41%/9.72% · W2 2.97%/7.20% (winner) · W1a SOAP speed story (do not re-run).
+# Va recipe everywhere else: float64, L-BFGS lr=0.1 maxiter=20 epochs=1000, patience=150,
+#   fixed collocation mesh, K=100 sensors, min_zone_frac=0.1.
 #
-# Workflow: edit this list on your laptop, commit & push, then run
-# run.bat on the remote. The run stops at the first script that fails.
+# Order: L-BFGS twins first (X1, X2, X5), then SOAP iso-compute arms (X3, X4, X6).
+# SOAP arms use --soap-iso-compute-twin: 200-epoch probe, then epoch budget matched to
+# twin train_wall_clock_s (see run_meta.json). Three seeds per SOAP arm.
 #
-# PINO W-series — zoned experiment round (PINO_zoned_experiment_plan.md)
-# Reference: Va (already run) — mean 4.41% / max 9.72%, ~1.9 h on RTX 3090.
-# Va recipe: grf design, N=250 piecewise (50/zone, zones 1-5), default arch,
-#   float64, L-BFGS 1000 x maxiter 20, lr-lbfgs 0.1, early-stop-patience 150.
-# Each run below changes ONE axis vs Va unless noted.
+# --- L-BFGS backbone (1 seed each) ---
+# X1 — Arm A: 5-zone only N=500 (vs W2 at N=250)
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 500 --piecewise-zone-counts 5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_X1_5zoneonly_K100_N500_default_float64_lbfgs1000_maxiter20
+# X2 — Arm B: uniform 100/zone N=500 (vs Va at 50/zone N=250)
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_X2_uniform_K100_N500_default_float64_lbfgs1000_maxiter20
+# X5 — optional w64 L-BFGS twin for capacity probe (skip analysis if X3 tail OK)
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 500 --piecewise-zone-counts 5 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_X5_5zoneonly_K100_N500_w64_float64_lbfgs1000_maxiter20
 #
-# W1a — SOAP only (~equal compute to Va; tune --soap-epochs if wall-clock diverges)
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 50 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --optimizer soap --soap-epochs 6000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --out-dir results/exp_W1a_soap_K100_N250_z1to5_default_float64
-# W1b — SOAP warm-up then L-BFGS fine-tune (Va L-BFGS settings after SOAP)
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 50 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --optimizer soap_lbfgs --soap-epochs 3000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_W1b_soap_lbfgs_K100_N250_z1to5_default_float64
-# W2 — train on 5-zone media only (N=250, all 5-zone)
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 250 --piecewise-zone-counts 5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_W2_5zoneonly_K100_N250_default_float64_lbfgs1000_maxiter20
-# W3a — ramped allocation N=250 (17/33/50/67/83 vs Va uniform 50/zone)
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zone-list 17,33,50,67,83 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_W3a_ramp_K100_N250_z1to5_default_float64
-# W3b — ramped allocation N=500 (33/67/100/133/167)
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zone-list 33,67,100,133,167 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_W3b_ramp_K100_N500_z1to5_default_float64
-# W4 — 9-vector branch probe (10-dim u/b/n_zones encoding, no sensors)
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --branch-mode zone9 --n-sensors 0 --n-grf 0 --n-piecewise-per-zones 50 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --lr-lbfgs 0.1 --lbfgs-max-iter 20 --epochs 1000 --out-dir results/exp_W4_zone9_K0_N250_z1to5_default_float64_lbfgs1000_maxiter20
+# --- SOAP iso-compute vs X1 (3 seeds) ---
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 500 --piecewise-zone-counts 5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-iso-compute-twin results/exp_X1_5zoneonly_K100_N500_default_float64_lbfgs1000_maxiter20 --out-dir results/exp_X3_soap_K100_N500_5zoneonly_default_float64_s1234567
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 500 --piecewise-zone-counts 5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --seed 2234567 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-iso-compute-twin results/exp_X1_5zoneonly_K100_N500_default_float64_lbfgs1000_maxiter20 --out-dir results/exp_X3_soap_K100_N500_5zoneonly_default_float64_s2234567
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 500 --piecewise-zone-counts 5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --seed 3234567 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-iso-compute-twin results/exp_X1_5zoneonly_K100_N500_default_float64_lbfgs1000_maxiter20 --out-dir results/exp_X3_soap_K100_N500_5zoneonly_default_float64_s3234567
+#
+# --- SOAP iso-compute vs X2 (3 seeds) ---
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-iso-compute-twin results/exp_X2_uniform_K100_N500_default_float64_lbfgs1000_maxiter20 --out-dir results/exp_X4_soap_K100_N500_uniform_default_float64_s1234567
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --seed 2234567 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-iso-compute-twin results/exp_X2_uniform_K100_N500_default_float64_lbfgs1000_maxiter20 --out-dir results/exp_X4_soap_K100_N500_uniform_default_float64_s2234567
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 100 --piecewise-zone-counts 1,2,3,4,5 --min-zone-frac 0.1 --arch default --dtype float64 --early-stop-patience 150 --seed 3234567 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-iso-compute-twin results/exp_X2_uniform_K100_N500_default_float64_lbfgs1000_maxiter20 --out-dir results/exp_X4_soap_K100_N500_uniform_default_float64_s3234567
+#
+# --- SOAP iso-compute vs X5 w64 (3 seeds, optional capacity probe) ---
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 500 --piecewise-zone-counts 5 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-iso-compute-twin results/exp_X5_5zoneonly_K100_N500_w64_float64_lbfgs1000_maxiter20 --out-dir results/exp_X6_soap_K100_N500_5zoneonly_w64_float64_s1234567
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 500 --piecewise-zone-counts 5 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --seed 2234567 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-iso-compute-twin results/exp_X5_5zoneonly_K100_N500_w64_float64_lbfgs1000_maxiter20 --out-dir results/exp_X6_soap_K100_N500_5zoneonly_w64_float64_s2234567
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 0 --n-piecewise-per-zones 500 --piecewise-zone-counts 5 --min-zone-frac 0.1 --arch w64 --dtype float64 --early-stop-patience 150 --seed 3234567 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-iso-compute-twin results/exp_X5_5zoneonly_K100_N500_w64_float64_lbfgs1000_maxiter20 --out-dir results/exp_X6_soap_K100_N500_5zoneonly_w64_float64_s3234567
