@@ -1,0 +1,65 @@
+{
+  "design": "grf",
+  "media_mode": "grf",
+  "n_train": 250,
+  "n_train_actual": 250,
+  "n_corner_anchors": null,
+  "arch_preset": "default",
+  "branch_architecture": [
+    10,
+    16,
+    16,
+    32
+  ],
+  "trunk_architecture": [
+    2,
+    32,
+    32,
+    32,
+    32
+  ],
+  "seed": 1234567,
+  "dtype": "float64",
+  "num_epochs_lbfgs_requested": 1000,
+  "num_epochs_adam": 0,
+  "lr_adam": 0.25,
+  "early_stop_patience": 150,
+  "lr_lbfgs": 0.1,
+  "lbfgs_max_iter": 20,
+  "optimizer": "lbfgs",
+  "branch_mode": "zone9",
+  "wall_clock_s": 7089.14,
+  "out_dir": "results\\exp_W4_zone9_K0_N250_z1to5_default_float64_lbfgs1000_maxiter20",
+  "device_type": "cuda",
+  "device_name": "NVIDIA GeForce RTX 3090",
+  "train_wall_clock_s": 6986.89,
+  "validation_wall_clock_s": 86.571,
+  "n_sensors": 2,
+  "n_sensors_requested": 0,
+  "sensor_xstar": [
+    0.0,
+    1.0
+  ],
+  "grf_corr_lengths": [
+    0.05,
+    0.1
+  ],
+  "grf_grid_n": 201,
+  "n_grf": 0,
+  "n_piecewise_per_zones": 50,
+  "piecewise_zone_counts": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "min_zone_frac": 0.1,
+  "num_epochs_lbfgs_actual": 1000,
+  "early_stopped": false,
+  "best_total_loss_lbfgs": 0.01686966575352207,
+  "best_total_loss": 0.01686966575352207,
+  "mean_rel_l2": 0.06893749982773512,
+  "max_rel_l2": 0.2437712002745355,
+  "min_rel_l2": 0.023146491953232907
+}
