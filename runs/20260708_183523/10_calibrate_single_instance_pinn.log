@@ -1,0 +1,39 @@
+# code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.05,0.01,0.05 --out-dir results/calib_single
+# started 2026-07-08 20:38:11
+# cwd C:\Ali Computation\pinn\code\heterogeneous\parametric_heterogeneous_pinn
+
+[calib] u=(0.01, 0.05, 0.01, 0.05) tag=u0p01_0p05_0p01_0p05 contrast=0.120 dtype=float64 device=cuda:0
+[calib] PE=0.010368  train mesh 120x120 + interface bands | proxy mesh 401x41
+[calib] params=4,285  collocation points=18,720
+[calib] epoch     0 | proxy_comb=1.191e+00 pde_rms=3.697e-01 | TRUE relL2=288.203%
+[calib] epoch   100 | proxy_comb=3.111e-01 pde_rms=3.094e-01 | TRUE relL2=4.076%
+[calib] epoch   200 | proxy_comb=5.067e-01 pde_rms=5.058e-01 | TRUE relL2=2.875%
+[calib] epoch   300 | proxy_comb=5.654e-01 pde_rms=5.647e-01 | TRUE relL2=2.014%
+[calib] epoch   400 | proxy_comb=6.460e-01 pde_rms=6.453e-01 | TRUE relL2=1.529%
+[calib] epoch   500 | proxy_comb=6.945e-01 pde_rms=6.939e-01 | TRUE relL2=1.252%
+[calib] epoch   600 | proxy_comb=7.495e-01 pde_rms=7.490e-01 | TRUE relL2=1.362%
+[calib] epoch   700 | proxy_comb=7.636e-01 pde_rms=7.632e-01 | TRUE relL2=1.312%
+[calib] epoch   800 | proxy_comb=7.501e-01 pde_rms=7.495e-01 | TRUE relL2=1.315%
+[calib] epoch   900 | proxy_comb=7.541e-01 pde_rms=7.537e-01 | TRUE relL2=1.283%
+[calib] epoch  1000 | proxy_comb=7.718e-01 pde_rms=7.713e-01 | TRUE relL2=1.550%
+[calib] epoch  1100 | proxy_comb=7.683e-01 pde_rms=7.678e-01 | TRUE relL2=1.565%
+[calib] epoch  1200 | proxy_comb=7.847e-01 pde_rms=7.843e-01 | TRUE relL2=1.653%
+[calib] epoch  1300 | proxy_comb=7.660e-01 pde_rms=7.655e-01 | TRUE relL2=1.490%
+[calib] epoch  1400 | proxy_comb=7.473e-01 pde_rms=7.468e-01 | TRUE relL2=1.603%
+[calib] epoch  1500 | proxy_comb=7.600e-01 pde_rms=7.596e-01 | TRUE relL2=1.795%
+[calib] epoch  1600 | proxy_comb=7.863e-01 pde_rms=7.859e-01 | TRUE relL2=1.910%
+[calib] epoch  1700 | proxy_comb=7.885e-01 pde_rms=7.881e-01 | TRUE relL2=1.904%
+[calib] epoch  1800 | proxy_comb=8.190e-01 pde_rms=8.186e-01 | TRUE relL2=1.901%
+[calib] epoch  1900 | proxy_comb=8.192e-01 pde_rms=8.187e-01 | TRUE relL2=1.927%
+[calib] epoch  2000 | proxy_comb=8.106e-01 pde_rms=8.101e-01 | TRUE relL2=1.876%
+[calib] epoch  2100 | proxy_comb=8.033e-01 pde_rms=8.029e-01 | TRUE relL2=1.791%
+[calib] epoch  2200 | proxy_comb=7.902e-01 pde_rms=7.897e-01 | TRUE relL2=1.713%
+[calib] epoch  2300 | proxy_comb=7.862e-01 pde_rms=7.857e-01 | TRUE relL2=1.700%
+[calib] epoch  2400 | proxy_comb=7.862e-01 pde_rms=7.857e-01 | TRUE relL2=1.700%
+[calib] epoch  2500 | proxy_comb=7.862e-01 pde_rms=7.857e-01 | TRUE relL2=1.700%
+[calib] early stop at epoch 2535 (train loss flat 300 steps).
+[calib] epoch  2535 | proxy_comb=7.862e-01 pde_rms=7.857e-01 | TRUE relL2=1.700%
+[calib] DONE u0p01_0p05_0p01_0p05: final proxy=7.862e-01 final TRUE=1.700% best TRUE=1.252% cross@-1 in 47.9 min
+[calib] wrote calib_traj_u0p01_0p05_0p01_0p05.csv, ref_field_u0p01_0p05_0p01_0p05.npz, model_u0p01_0p05_0p01_0p05.pt, and appended to calibration_results.csv
+
+# exit 0 after 0:47:59.727533

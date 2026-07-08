@@ -1,0 +1,27 @@
+# code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.05,0.05,0.01 --out-dir results/calib_single
+# started 2026-07-08 20:05:04
+# cwd C:\Ali Computation\pinn\code\heterogeneous\parametric_heterogeneous_pinn
+
+[calib] u=(0.01, 0.05, 0.05, 0.01) tag=u0p01_0p05_0p05_0p01 contrast=0.080 dtype=float64 device=cuda:0
+[calib] PE=0.010368  train mesh 120x120 + interface bands | proxy mesh 401x41
+[calib] params=4,285  collocation points=18,720
+[calib] epoch     0 | proxy_comb=1.165e+00 pde_rms=2.462e-01 | TRUE relL2=303.597%
+[calib] epoch   100 | proxy_comb=4.442e-01 pde_rms=4.427e-01 | TRUE relL2=1.703%
+[calib] epoch   200 | proxy_comb=5.788e-01 pde_rms=5.778e-01 | TRUE relL2=1.336%
+[calib] epoch   300 | proxy_comb=6.554e-01 pde_rms=6.547e-01 | TRUE relL2=1.360%
+[calib] epoch   400 | proxy_comb=6.851e-01 pde_rms=6.845e-01 | TRUE relL2=1.372%
+[calib] epoch   500 | proxy_comb=7.417e-01 pde_rms=7.412e-01 | TRUE relL2=1.328%
+[calib] epoch   600 | proxy_comb=8.065e-01 pde_rms=8.061e-01 | TRUE relL2=1.248%
+[calib] epoch   700 | proxy_comb=8.493e-01 pde_rms=8.489e-01 | TRUE relL2=1.265%
+[calib] epoch   800 | proxy_comb=8.635e-01 pde_rms=8.631e-01 | TRUE relL2=1.254%
+[calib] epoch   900 | proxy_comb=8.812e-01 pde_rms=8.808e-01 | TRUE relL2=1.122%
+[calib] epoch  1000 | proxy_comb=8.883e-01 pde_rms=8.880e-01 | TRUE relL2=1.102%
+[calib] epoch  1100 | proxy_comb=8.916e-01 pde_rms=8.913e-01 | TRUE relL2=1.058%
+[calib] epoch  1200 | proxy_comb=8.916e-01 pde_rms=8.913e-01 | TRUE relL2=1.058%
+[calib] epoch  1300 | proxy_comb=8.916e-01 pde_rms=8.913e-01 | TRUE relL2=1.058%
+[calib] early stop at epoch 1342 (train loss flat 300 steps).
+[calib] epoch  1342 | proxy_comb=8.916e-01 pde_rms=8.913e-01 | TRUE relL2=1.058%
+[calib] DONE u0p01_0p05_0p05_0p01: final proxy=8.916e-01 final TRUE=1.058% best TRUE=1.058% cross@-1 in 23.2 min
+[calib] wrote calib_traj_u0p01_0p05_0p05_0p01.csv, ref_field_u0p01_0p05_0p05_0p01.npz, model_u0p01_0p05_0p05_0p01.pt, and appended to calibration_results.csv
+
+# exit 0 after 0:23:15.816932

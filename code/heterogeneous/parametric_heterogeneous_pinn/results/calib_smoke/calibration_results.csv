@@ -1,0 +1,2 @@
+tag,u1,u2,u3,u4,contrast,n_params,mesh_nx,mesh_nt,proxy_threshold,crossed_epoch,proxy_at_cross,true_at_cross,final_epoch,final_proxy,final_true,best_true,wall_s
+u0p03_0p03_0p03_0p03,0.03,0.03,0.03,0.03,0.0,4285,40,40,0.005,-1,nan,nan,60,0.2385323052174101,0.02054240745245859,0.010598127864334488,72.1
