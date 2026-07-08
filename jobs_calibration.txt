@@ -1,0 +1,39 @@
+# jobs_calibration.txt - STEP 1: calibrate the PINN self-validation proxy vs COMSOL.
+#
+# Run with:   run.bat jobs_calibration.txt
+#
+# Each job trains a PROBLEM-SPECIFIC PINN (one fixed 4-zone medium) with dense
+# collocation + many L-BFGS steps, and every --eval-every steps logs:
+#   * proxy      = held-out dense PDE-residual + IC/BC violation (NO reference)
+#   * true error = relative-L2 vs the COMSOL case we already have
+# Purpose: discover the map proxy -> true error, then pick a conservative
+# threshold tau so (proxy < tau) => (true error < target) for future geometries
+# where COMSOL is missing.  Runs always go to --max-epochs to capture the full curve.
+#
+# The 10 media below span easy -> hard by adjacent-zone contrast:
+#   0.00 homogeneous (x2, Ogata-Banks analytic anchor) ... 0.12 slow-fast-slow
+#   (0.05,0.01,0.05,0.01) is the operator's worst class - the key stress case.
+#
+# Recipe = proven Exp-J (float64, L-BFGS lr 0.1, max_iter 20) but denser mesh.
+# ~ a few min/run on the RTX 3090; whole batch well under an hour.
+#
+# --- 0) FAST SMOKE TEST: catch wiring/import errors in ~1 min before the real batch ---
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.03,0.03,0.03,0.03 --max-epochs 60 --eval-every 20 --patience 0 --mesh-nx 40 --mesh-nt 40 --proxy-nx 201 --proxy-nt 21 --out-dir results/calib_smoke
+#
+# --- 1) homogeneous anchors (contrast 0.00) ---
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.01,0.01,0.01 --out-dir results/calib_single
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.05,0.05,0.05,0.05 --out-dir results/calib_single
+#
+# --- 2) low contrast (0.02-0.04) ---
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.03,0.03,0.05,0.05 --out-dir results/calib_single
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.01,0.01,0.05 --out-dir results/calib_single
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.03,0.05,0.05 --out-dir results/calib_single
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.05,0.03,0.01,0.01 --out-dir results/calib_single
+#
+# --- 3) high contrast (0.08) ---
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.05,0.05,0.01 --out-dir results/calib_single
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.05,0.01,0.01,0.05 --out-dir results/calib_single
+#
+# --- 4) hardest slow-fast-slow (0.12) - the operator's worst class ---
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.05,0.01,0.05 --out-dir results/calib_single
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.05,0.01,0.05,0.01 --out-dir results/calib_single
