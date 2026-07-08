@@ -98,6 +98,15 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--proxy-nt", type=int, default=41,
                     help="Held-out proxy t* slices in (0,1] (default 41).")
 
+    # inlet-corner exclusion for the residual proxy (v2). The x=0,t->0 corner
+    # (IC=0 meets inlet C=1) is near-singular; its residual dwarfs the solution
+    # error, so we drop a small box (x < corner-x AND t < corner-t) from the
+    # interior-residual aggregate. Set both to 0 to disable (recover v1).
+    ap.add_argument("--corner-x", type=float, default=0.05,
+                    help="Inlet-corner exclusion half-width in x* (default 0.05).")
+    ap.add_argument("--corner-t", type=float, default=0.05,
+                    help="Inlet-corner exclusion half-width in t* (default 0.05).")
+
     # cadence + threshold
     ap.add_argument("--eval-every", type=int, default=100,
                     help="Compute proxy+truth every N outer steps (default 100).")
@@ -131,22 +140,46 @@ def compute_proxy(
     *,
     device,
     dtype,
+    corner_x: float = 0.05,
+    corner_t: float = 0.05,
 ) -> dict[str, float]:
-    """Held-out PDE residual + IC/BC violation on a dense independent mesh.
+    """Corner-robust self-validation proxy (v2) - no COMSOL used.
 
-    Returns RMS pieces (dimensionless) and a combined RMS.  All are pure
-    self-consistency measures - they do not use COMSOL.
+    v1 was dominated by the x=0,t->0 inlet-corner singularity (IC=0 meets inlet
+    C=1), where the raw PDE residual blows up even though the solution is
+    accurate elsewhere; it never tracked the true error.  v2:
+      * excludes a small inlet-corner box (x < corner_x AND t < corner_t) from
+        the interior-residual aggregate (`pde_rms_excl`, `pde_max_excl`);
+      * also reports robust percentiles of |residual| over ALL points
+        (`pde_p50`, `pde_p90`) - these ignore the few extreme corner values
+        without needing a mask;
+      * keeps IC/BC violations as separate, well-behaved terms.
+    `proxy_combined` (v2) = sqrt(pde_rms_excl^2 + ic_rms^2 + inlet_rms^2 + outlet_rms^2).
+    `pde_rms` (raw, all points) is still logged for diagnosis / v1 comparison.
     """
     # --- interior PDE residual, slice by slice over the dense time set ---
-    sq_sum, n_res, res_max = 0.0, 0, 0.0
+    raw_sq, raw_n = 0.0, 0                 # raw (all points) - v1 signal
+    excl_sq, excl_n, excl_max = 0.0, 0, 0.0  # corner-excluded - v2 signal
+    all_abs: list[np.ndarray] = []         # |residual| everywhere (for percentiles)
     for t_star in t_proxy:
         r = P._pde_residual_1d(
             model, x_proxy, float(t_star), u_case, device=device, dtype=dtype
         )
-        sq_sum += float(np.sum(r * r))
-        n_res += r.size
-        res_max = max(res_max, float(np.max(np.abs(r))))
-    pde_rms = float(np.sqrt(sq_sum / max(n_res, 1)))
+        all_abs.append(np.abs(r))
+        raw_sq += float(np.sum(r * r))
+        raw_n += r.size
+        keep = (x_proxy >= corner_x) if float(t_star) < corner_t \
+            else np.ones_like(x_proxy, dtype=bool)
+        rk = r[keep]
+        if rk.size:
+            excl_sq += float(np.sum(rk * rk))
+            excl_n += rk.size
+            excl_max = max(excl_max, float(np.max(np.abs(rk))))
+    pde_rms = float(np.sqrt(raw_sq / max(raw_n, 1)))
+    pde_rms_excl = float(np.sqrt(excl_sq / max(excl_n, 1)))
+    _allc = np.concatenate(all_abs)
+    pde_p50 = float(np.percentile(_allc, 50))
+    pde_p90 = float(np.percentile(_allc, 90))
 
     # --- IC / BC violation (targets: IC C=0 at t*=0, inlet C=1 at x*=0, outlet C=0 at x*=1) ---
     model.eval()
@@ -171,15 +204,18 @@ def compute_proxy(
         outlet_rms = float(np.sqrt(np.mean(outlet * outlet)))
 
     combined = float(
-        np.sqrt(pde_rms ** 2 + ic_rms ** 2 + inlet_rms ** 2 + outlet_rms ** 2)
+        np.sqrt(pde_rms_excl ** 2 + ic_rms ** 2 + inlet_rms ** 2 + outlet_rms ** 2)
     )
     return {
-        "proxy_pde_rms": pde_rms,
-        "proxy_pde_max": res_max,
+        "proxy_pde_rms": pde_rms,             # raw, all points (v1 - for diagnosis)
+        "proxy_pde_rms_excl": pde_rms_excl,   # corner-excluded RMS  (v2)
+        "proxy_pde_max_excl": excl_max,       # corner-excluded max
+        "proxy_pde_p50": pde_p50,             # robust median |residual|
+        "proxy_pde_p90": pde_p90,             # robust p90 |residual|
         "proxy_ic_rms": ic_rms,
         "proxy_inlet_rms": inlet_rms,
         "proxy_outlet_rms": outlet_rms,
-        "proxy_combined": combined,
+        "proxy_combined": combined,           # v2 combined (used for threshold)
     }
 
 
@@ -271,7 +307,8 @@ def main() -> None:
 
     def probe(epoch: int) -> None:
         nonlocal crossed_epoch
-        px = compute_proxy(model, u_case, x_proxy, t_proxy, device=device, dtype=dtype)
+        px = compute_proxy(model, u_case, x_proxy, t_proxy, device=device, dtype=dtype,
+                           corner_x=args.corner_x, corner_t=args.corner_t)
         true_l2 = P.comsol_case_mean_l2(
             model=model, device=device, dtype=dtype,
             x_m=x_m, comsol_by_time=comsol_by_time, u_case=u_case, x_star=x_star_val,

@@ -18,22 +18,22 @@
 # ~ a few min/run on the RTX 3090; whole batch well under an hour.
 #
 # --- 0) FAST SMOKE TEST: catch wiring/import errors in ~1 min before the real batch ---
-code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.03,0.03,0.03,0.03 --max-epochs 60 --eval-every 20 --patience 0 --mesh-nx 40 --mesh-nt 40 --proxy-nx 201 --proxy-nt 21 --out-dir results/calib_smoke
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.03,0.03,0.03,0.03 --max-epochs 60 --eval-every 20 --patience 0 --mesh-nx 40 --mesh-nt 40 --proxy-nx 201 --proxy-nt 21 --out-dir results/calib_smoke_v2
 #
 # --- 1) homogeneous anchors (contrast 0.00) ---
-code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.01,0.01,0.01 --out-dir results/calib_single
-code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.05,0.05,0.05,0.05 --out-dir results/calib_single
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.01,0.01,0.01 --out-dir results/calib_single_v2
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.05,0.05,0.05,0.05 --out-dir results/calib_single_v2
 #
 # --- 2) low contrast (0.02-0.04) ---
-code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.03,0.03,0.05,0.05 --out-dir results/calib_single
-code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.01,0.01,0.05 --out-dir results/calib_single
-code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.03,0.05,0.05 --out-dir results/calib_single
-code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.05,0.03,0.01,0.01 --out-dir results/calib_single
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.03,0.03,0.05,0.05 --out-dir results/calib_single_v2
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.01,0.01,0.05 --out-dir results/calib_single_v2
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.03,0.05,0.05 --out-dir results/calib_single_v2
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.05,0.03,0.01,0.01 --out-dir results/calib_single_v2
 #
 # --- 3) high contrast (0.08) ---
-code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.05,0.05,0.01 --out-dir results/calib_single
-code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.05,0.01,0.01,0.05 --out-dir results/calib_single
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.05,0.05,0.01 --out-dir results/calib_single_v2
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.05,0.01,0.01,0.05 --out-dir results/calib_single_v2
 #
 # --- 4) hardest slow-fast-slow (0.12) - the operator's worst class ---
-code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.05,0.01,0.05 --out-dir results/calib_single
-code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.05,0.01,0.05,0.01 --out-dir results/calib_single
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.01,0.05,0.01,0.05 --out-dir results/calib_single_v2
+code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.05,0.01,0.05,0.01 --out-dir results/calib_single_v2

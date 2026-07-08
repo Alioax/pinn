@@ -1,0 +1,24 @@
+PINN self-validation proxy -> COMSOL true-error calibration
+==============================================================
+cases: 10   pooled evals: 147
+proxy key: proxy_combined
+Spearman(proxy, true) over pooled points: +0.393  (closer to +1 = proxy tracks true error better)
+target true rel-L2 to guarantee: 1.50%
+
+>>> No tau guarantees the target for ALL cases.
+    Either loosen --target, push --max-epochs higher, or improve
+    interface handling (the hard slow-fast-slow cases likely limit it).
+    best achievable at full coverage: worst true 4.076% at tau=8.069e-01
+
+per-case summary (final proxy, final/best true error):
+  tag                        contrast  final_proxy final_true% best_true%
+  u0p01_0p01_0p01_0p01            nan    5.568e-01       0.567      0.485
+  u0p01_0p01_0p01_0p05            nan    1.006e+00       1.838      1.166
+  u0p01_0p03_0p05_0p05            nan    6.042e-01       0.783      0.659
+  u0p01_0p05_0p01_0p05            nan    7.862e-01       1.700      1.252
+  u0p01_0p05_0p05_0p01            nan    8.916e-01       1.058      1.058
+  u0p03_0p03_0p05_0p05            nan    1.608e-01       0.883      0.883
+  u0p05_0p01_0p01_0p05            nan    1.075e-01       0.803      0.803
+  u0p05_0p01_0p05_0p01            nan    9.956e-02       1.063      1.057
+  u0p05_0p03_0p01_0p01            nan    4.883e-02       0.898      0.898
+  u0p05_0p05_0p05_0p05            nan    7.349e-02       1.104      1.104
