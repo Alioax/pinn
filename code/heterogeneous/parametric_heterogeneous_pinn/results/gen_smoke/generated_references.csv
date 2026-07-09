@@ -1,0 +1,2 @@
+tag,n_zones,zones,interfaces,contrast,best_proxy_p90combined,best_epoch,final_proxy,certified_2pct,comsol_true_rel_l2,n_params,wall_s
+z0p02_0p04__i0p5,2,0.02;0.04,0.5,0.02,0.047429958872856164,60,0.047429958872856164,False,,4213,78.7

@@ -1,0 +1,28 @@
+# code/heterogeneous/parametric_heterogeneous_pinn/generate_reference_pinn.py --zones 0.01,0.05,0.01 --out-dir results/gen_ref
+# started 2026-07-09 09:44:45
+# cwd C:\Ali Computation\pinn\code\heterogeneous\parametric_heterogeneous_pinn
+
+[gen] 3-zone u=[0.01, 0.05, 0.01] interfaces=[0.3333333333333333, 0.6666666666666666] contrast=0.080 dtype=float64 device=cuda:0 tag=z0p01_0p05_0p01__i0p333333_0p666667
+[gen] arch=[5, 36, 36, 36, 36, 1] params=4,249 collocation=17,280
+[gen] epoch     0 | p90=5.486e-01 combined=1.382e+00 (best 1.382e+00@0)
+[gen] epoch   100 | p90=5.137e-02 combined=6.615e-02 (best 6.615e-02@100)
+[gen] epoch   200 | p90=4.138e-02 combined=5.481e-02 (best 5.481e-02@200)
+[gen] epoch   300 | p90=3.789e-02 combined=5.099e-02 (best 5.099e-02@300)
+[gen] epoch   400 | p90=3.417e-02 combined=4.697e-02 (best 4.697e-02@400)
+[gen] epoch   500 | p90=3.196e-02 combined=4.535e-02 (best 4.535e-02@500)
+[gen] epoch   600 | p90=2.991e-02 combined=4.340e-02 (best 4.340e-02@600)
+[gen] epoch   700 | p90=2.723e-02 combined=4.140e-02 (best 4.140e-02@700)
+[gen] epoch   800 | p90=2.439e-02 combined=3.958e-02 (best 3.958e-02@800)
+[gen] epoch   900 | p90=2.454e-02 combined=3.913e-02 (best 3.913e-02@900)
+[gen] epoch  1000 | p90=2.353e-02 combined=3.802e-02 (best 3.802e-02@1000)
+[gen] epoch  1100 | p90=2.379e-02 combined=3.790e-02 (best 3.790e-02@1100)
+[gen] epoch  1200 | p90=2.213e-02 combined=3.681e-02 (best 3.681e-02@1200)
+[gen] epoch  1300 | p90=2.213e-02 combined=3.681e-02 (best 3.681e-02@1200)
+[gen] epoch  1400 | p90=2.213e-02 combined=3.681e-02 (best 3.681e-02@1200)
+[gen] epoch  1500 | p90=2.213e-02 combined=3.681e-02 (best 3.681e-02@1200)
+[gen] early stop at 1559 (train loss flat 400).
+[gen] epoch  1559 | p90=2.213e-02 combined=3.681e-02 (best 3.681e-02@1200)
+[gen] DONE z0p01_0p05_0p01__i0p333333_0p666667: best p90-combined=3.681e-02@1200 -> NOT certified (p90 above threshold)
+[gen] wrote ref_field_z0p01_0p05_0p01__i0p333333_0p666667.npz, model_z0p01_0p05_0p01__i0p333333_0p666667.pt, gen_traj_z0p01_0p05_0p01__i0p333333_0p666667.csv, appended generated_references.csv in 25.2 min
+
+# exit 0 after 0:25:17.462854

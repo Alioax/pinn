@@ -1,0 +1,31 @@
+# code/heterogeneous/parametric_heterogeneous_pinn/generate_reference_pinn.py --zones 0.04,0.02 --out-dir results/gen_ref
+# started 2026-07-09 09:14:37
+# cwd C:\Ali Computation\pinn\code\heterogeneous\parametric_heterogeneous_pinn
+
+[gen] 2-zone u=[0.04, 0.02] interfaces=[0.5] contrast=0.020 dtype=float64 device=cuda:0 tag=z0p04_0p02__i0p5
+[gen] arch=[4, 36, 36, 36, 36, 1] params=4,213 collocation=15,840
+[gen] epoch     0 | p90=6.740e-01 combined=1.388e+00 (best 1.388e+00@0)
+[gen] epoch   100 | p90=3.721e-02 combined=4.883e-02 (best 4.883e-02@100)
+[gen] epoch   200 | p90=3.716e-02 combined=4.711e-02 (best 4.711e-02@200)
+[gen] epoch   300 | p90=3.282e-02 combined=4.433e-02 (best 4.433e-02@300)
+[gen] epoch   400 | p90=2.609e-02 combined=3.935e-02 (best 3.935e-02@400)
+[gen] epoch   500 | p90=2.756e-02 combined=3.970e-02 (best 3.935e-02@400)
+[gen] epoch   600 | p90=2.665e-02 combined=3.907e-02 (best 3.907e-02@600)
+[gen] epoch   700 | p90=2.507e-02 combined=3.736e-02 (best 3.736e-02@700)
+[gen] epoch   800 | p90=2.396e-02 combined=3.637e-02 (best 3.637e-02@800)
+[gen] epoch   900 | p90=2.403e-02 combined=3.677e-02 (best 3.637e-02@800)
+[gen] epoch  1000 | p90=2.466e-02 combined=3.695e-02 (best 3.637e-02@800)
+[gen] epoch  1100 | p90=2.350e-02 combined=3.644e-02 (best 3.637e-02@800)
+[gen] epoch  1200 | p90=2.336e-02 combined=3.652e-02 (best 3.637e-02@800)
+[gen] epoch  1300 | p90=2.479e-02 combined=3.717e-02 (best 3.637e-02@800)
+[gen] epoch  1400 | p90=2.303e-02 combined=3.560e-02 (best 3.560e-02@1400)
+[gen] epoch  1500 | p90=2.307e-02 combined=3.572e-02 (best 3.560e-02@1400)
+[gen] epoch  1600 | p90=2.307e-02 combined=3.572e-02 (best 3.560e-02@1400)
+[gen] epoch  1700 | p90=2.307e-02 combined=3.572e-02 (best 3.560e-02@1400)
+[gen] epoch  1800 | p90=2.307e-02 combined=3.572e-02 (best 3.560e-02@1400)
+[gen] early stop at 1827 (train loss flat 400).
+[gen] epoch  1827 | p90=2.307e-02 combined=3.572e-02 (best 3.560e-02@1400)
+[gen] DONE z0p04_0p02__i0p5: best p90-combined=3.560e-02@1400 -> NOT certified (p90 above threshold)
+[gen] wrote ref_field_z0p04_0p02__i0p5.npz, model_z0p04_0p02__i0p5.pt, gen_traj_z0p04_0p02__i0p5.csv, appended generated_references.csv in 30.0 min
+
+# exit 0 after 0:30:07.234828

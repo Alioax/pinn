@@ -1,0 +1,14 @@
+# code/heterogeneous/parametric_heterogeneous_pinn/generate_reference_pinn.py --zones 0.02,0.04 --max-epochs 60 --eval-every 20 --patience 0 --mesh-nx 40 --mesh-nt 40 --proxy-nx 201 --proxy-nt 21 --out-dir results/gen_smoke
+# started 2026-07-09 08:15:31
+# cwd C:\Ali Computation\pinn\code\heterogeneous\parametric_heterogeneous_pinn
+
+[gen] 2-zone u=[0.02, 0.04] interfaces=[0.5] contrast=0.020 dtype=float64 device=cuda:0 tag=z0p02_0p04__i0p5
+[gen] arch=[4, 36, 36, 36, 36, 1] params=4,213 collocation=2,080
+[gen] epoch     0 | p90=6.801e-01 combined=1.399e+00 (best 1.399e+00@0)
+[gen] epoch    20 | p90=3.541e-02 combined=5.741e-02 (best 5.741e-02@20)
+[gen] epoch    40 | p90=2.312e-02 combined=4.875e-02 (best 4.875e-02@40)
+[gen] epoch    60 | p90=2.438e-02 combined=4.743e-02 (best 4.743e-02@60)
+[gen] DONE z0p02_0p04__i0p5: best p90-combined=4.743e-02@60 -> NOT certified (p90 above threshold)
+[gen] wrote ref_field_z0p02_0p04__i0p5.npz, model_z0p02_0p04__i0p5.pt, gen_traj_z0p02_0p04__i0p5.csv, appended generated_references.csv in 1.3 min
+
+# exit 0 after 0:01:24.336117

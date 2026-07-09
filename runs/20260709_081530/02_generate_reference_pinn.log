@@ -1,0 +1,20 @@
+# code/heterogeneous/parametric_heterogeneous_pinn/generate_reference_pinn.py --zones 0.01,0.01,0.01,0.01 --interfaces 0.2,0.4,0.6 --comsol-check --out-dir results/gen_ref
+# started 2026-07-09 08:16:55
+# cwd C:\Ali Computation\pinn\code\heterogeneous\parametric_heterogeneous_pinn
+
+[gen] 4-zone u=[0.01, 0.01, 0.01, 0.01] interfaces=[0.2, 0.4, 0.6] contrast=0.000 dtype=float64 device=cuda:0 tag=z0p01_0p01_0p01_0p01__i0p2_0p4_0p6
+[gen] arch=[6, 36, 36, 36, 36, 1] params=4,285 collocation=18,720
+[gen] epoch     0 | p90=3.938e-01 combined=1.258e+00 (best 1.258e+00@0)
+[gen] epoch   100 | p90=1.916e-02 combined=3.906e-02 (best 3.906e-02@100)
+[gen] epoch   200 | p90=1.394e-02 combined=3.502e-02 (best 3.502e-02@200)
+[gen] epoch   300 | p90=1.223e-02 combined=3.377e-02 (best 3.377e-02@300)
+[gen] epoch   400 | p90=1.154e-02 combined=3.325e-02 (best 3.325e-02@400)
+[gen] epoch   500 | p90=1.154e-02 combined=3.325e-02 (best 3.325e-02@400)
+[gen] epoch   600 | p90=1.154e-02 combined=3.325e-02 (best 3.325e-02@400)
+[gen] epoch   700 | p90=1.154e-02 combined=3.325e-02 (best 3.325e-02@400)
+[gen] early stop at 795 (train loss flat 400).
+[gen] epoch   795 | p90=1.154e-02 combined=3.325e-02 (best 3.325e-02@400)
+[gen] DONE z0p01_0p01_0p01_0p01__i0p2_0p4_0p6: best p90-combined=3.325e-02@400 -> NOT certified (p90 above threshold) | COMSOL true rel-L2=0.676%
+[gen] wrote ref_field_z0p01_0p01_0p01_0p01__i0p2_0p4_0p6.npz, model_z0p01_0p01_0p01_0p01__i0p2_0p4_0p6.pt, gen_traj_z0p01_0p01_0p01_0p01__i0p2_0p4_0p6.csv, appended generated_references.csv in 8.0 min
+
+# exit 0 after 0:08:03.956015
