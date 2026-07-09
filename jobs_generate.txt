@@ -1,0 +1,33 @@
+# jobs_generate.txt - generate self-certified PINN references for 2- and 3-zone
+# media that COMSOL does NOT cover (continuous velocities, equal-zone interfaces).
+#
+# Run with:   run.bat jobs_generate.txt
+#
+# Trust model: no COMSOL for these media -> each run self-certifies with the p90
+# residual proxy calibrated in step 1 (p90 < 0.03 => trust to ~2%). Field saved
+# at the BEST-proxy epoch. Later, when COMSOL arrives, diff and replace.
+#
+# Velocities stay in the established [0.01, 0.05] m/d range. Interfaces default
+# to equal zones (2-zone -> 0.5; 3-zone -> 1/3, 2/3), so these are genuinely
+# outside the 4-zone COMSOL grid (interfaces 0.2/0.4/0.6, u in {0.01,0.03,0.05}).
+# ~5-30 min/run on the RTX 3090.
+#
+# --- 0) SMOKE TEST: catch wiring in ~1 min before the real batch ---
+code/heterogeneous/parametric_heterogeneous_pinn/generate_reference_pinn.py --zones 0.02,0.04 --max-epochs 60 --eval-every 20 --patience 0 --mesh-nx 40 --mesh-nt 40 --proxy-nx 201 --proxy-nt 21 --out-dir results/gen_smoke
+#
+# --- 1) GENERATOR VALIDATION: 4-zone grid media WITH COMSOL (must match step-1 accuracy) ---
+#     homogeneous (calibrated ~0.5%) and hardest slow-fast-slow (calibrated ~1.06%)
+code/heterogeneous/parametric_heterogeneous_pinn/generate_reference_pinn.py --zones 0.01,0.01,0.01,0.01 --interfaces 0.2,0.4,0.6 --comsol-check --out-dir results/gen_ref
+code/heterogeneous/parametric_heterogeneous_pinn/generate_reference_pinn.py --zones 0.05,0.01,0.05,0.01 --interfaces 0.2,0.4,0.6 --comsol-check --out-dir results/gen_ref
+#
+# --- 2) TWO-ZONE references (interface 0.5) ---
+code/heterogeneous/parametric_heterogeneous_pinn/generate_reference_pinn.py --zones 0.02,0.04 --out-dir results/gen_ref
+code/heterogeneous/parametric_heterogeneous_pinn/generate_reference_pinn.py --zones 0.05,0.01 --out-dir results/gen_ref
+code/heterogeneous/parametric_heterogeneous_pinn/generate_reference_pinn.py --zones 0.01,0.04 --out-dir results/gen_ref
+code/heterogeneous/parametric_heterogeneous_pinn/generate_reference_pinn.py --zones 0.04,0.02 --out-dir results/gen_ref
+#
+# --- 3) THREE-ZONE references (interfaces 1/3, 2/3) ---
+code/heterogeneous/parametric_heterogeneous_pinn/generate_reference_pinn.py --zones 0.01,0.05,0.01 --out-dir results/gen_ref
+code/heterogeneous/parametric_heterogeneous_pinn/generate_reference_pinn.py --zones 0.05,0.01,0.05 --out-dir results/gen_ref
+code/heterogeneous/parametric_heterogeneous_pinn/generate_reference_pinn.py --zones 0.02,0.04,0.02 --out-dir results/gen_ref
+code/heterogeneous/parametric_heterogeneous_pinn/generate_reference_pinn.py --zones 0.05,0.03,0.01 --out-dir results/gen_ref

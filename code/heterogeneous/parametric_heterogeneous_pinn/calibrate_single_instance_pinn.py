@@ -203,8 +203,11 @@ def compute_proxy(
         inlet_rms = float(np.sqrt(np.mean(inlet * inlet)))
         outlet_rms = float(np.sqrt(np.mean(outlet * outlet)))
 
+    # v2 calibration verdict: the corner-excluded RMS is still poisoned by the
+    # sparse steep-front residuals; the p90 percentile is the signal that
+    # actually tracks true error (Spearman ~ +0.55 within-run). Use it.
     combined = float(
-        np.sqrt(pde_rms_excl ** 2 + ic_rms ** 2 + inlet_rms ** 2 + outlet_rms ** 2)
+        np.sqrt(pde_p90 ** 2 + ic_rms ** 2 + inlet_rms ** 2 + outlet_rms ** 2)
     )
     return {
         "proxy_pde_rms": pde_rms,             # raw, all points (v1 - for diagnosis)
