@@ -1,0 +1,21 @@
+# code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.03,0.03,0.05,0.05 --out-dir results/calib_single_v2
+# started 2026-07-08 23:58:39
+# cwd C:\Ali Computation\pinn\code\heterogeneous\parametric_heterogeneous_pinn
+
+[calib] u=(0.03, 0.03, 0.05, 0.05) tag=u0p03_0p03_0p05_0p05 contrast=0.020 dtype=float64 device=cuda:0
+[calib] PE=0.010368  train mesh 120x120 + interface bands | proxy mesh 401x41
+[calib] params=4,285  collocation points=18,720
+[calib] epoch     0 | proxy_comb=1.252e+00 pde_rms=3.300e-01 | TRUE relL2=243.877%
+[calib] epoch   100 | proxy_comb=5.107e-02 pde_rms=9.263e-02 | TRUE relL2=1.865%
+[calib] epoch   200 | proxy_comb=5.050e-02 pde_rms=1.232e-01 | TRUE relL2=1.251%
+[calib] epoch   300 | proxy_comb=4.925e-02 pde_rms=1.447e-01 | TRUE relL2=1.004%
+[calib] epoch   400 | proxy_comb=4.933e-02 pde_rms=1.580e-01 | TRUE relL2=0.931%
+[calib] epoch   500 | proxy_comb=5.005e-02 pde_rms=1.583e-01 | TRUE relL2=0.883%
+[calib] epoch   600 | proxy_comb=5.005e-02 pde_rms=1.583e-01 | TRUE relL2=0.883%
+[calib] epoch   700 | proxy_comb=5.005e-02 pde_rms=1.583e-01 | TRUE relL2=0.883%
+[calib] early stop at epoch 724 (train loss flat 300 steps).
+[calib] epoch   724 | proxy_comb=5.005e-02 pde_rms=1.583e-01 | TRUE relL2=0.883%
+[calib] DONE u0p03_0p03_0p05_0p05: final proxy=5.005e-02 final TRUE=0.883% best TRUE=0.883% cross@-1 in 9.3 min
+[calib] wrote calib_traj_u0p03_0p03_0p05_0p05.csv, ref_field_u0p03_0p03_0p05_0p05.npz, model_u0p03_0p03_0p05_0p05.pt, and appended to calibration_results.csv
+
+# exit 0 after 0:09:25.821824

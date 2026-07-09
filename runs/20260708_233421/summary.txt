@@ -1,0 +1,17 @@
+run 20260708_233421
+jobs file: jobs_calibration.txt
+result: all 11 ok
+11/11 script(s) succeeded
+
+  #        status   elapsed  script
+01            ok   0:01:25  code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py
+02            ok   0:16:31  code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py
+03            ok   0:06:19  code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py
+04            ok   0:09:25  code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py
+05            ok   0:08:10  code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py
+06            ok   0:20:13  code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py
+07            ok   0:28:02  code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py
+08            ok   0:23:09  code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py
+09            ok   0:10:08  code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py
+10            ok   0:48:18  code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py
+11            ok   0:12:02  code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py

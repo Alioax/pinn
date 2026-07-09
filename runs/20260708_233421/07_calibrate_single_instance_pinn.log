@@ -1,0 +1,29 @@
+# code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.05,0.03,0.01,0.01 --out-dir results/calib_single_v2
+# started 2026-07-09 00:36:29
+# cwd C:\Ali Computation\pinn\code\heterogeneous\parametric_heterogeneous_pinn
+
+[calib] u=(0.05, 0.03, 0.01, 0.01) tag=u0p05_0p03_0p01_0p01 contrast=0.040 dtype=float64 device=cuda:0
+[calib] PE=0.010368  train mesh 120x120 + interface bands | proxy mesh 401x41
+[calib] params=4,285  collocation points=18,720
+[calib] epoch     0 | proxy_comb=1.037e+00 pde_rms=4.407e-01 | TRUE relL2=137.405%
+[calib] epoch   100 | proxy_comb=5.134e-02 pde_rms=7.158e-02 | TRUE relL2=2.072%
+[calib] epoch   200 | proxy_comb=4.837e-02 pde_rms=6.130e-02 | TRUE relL2=1.922%
+[calib] epoch   300 | proxy_comb=4.657e-02 pde_rms=5.683e-02 | TRUE relL2=1.534%
+[calib] epoch   400 | proxy_comb=4.649e-02 pde_rms=7.637e-02 | TRUE relL2=1.324%
+[calib] epoch   500 | proxy_comb=4.613e-02 pde_rms=5.359e-02 | TRUE relL2=1.176%
+[calib] epoch   600 | proxy_comb=4.614e-02 pde_rms=4.271e-02 | TRUE relL2=0.976%
+[calib] epoch   700 | proxy_comb=4.544e-02 pde_rms=3.882e-02 | TRUE relL2=0.913%
+[calib] epoch   800 | proxy_comb=4.482e-02 pde_rms=3.709e-02 | TRUE relL2=0.995%
+[calib] epoch   900 | proxy_comb=4.365e-02 pde_rms=3.496e-02 | TRUE relL2=0.983%
+[calib] epoch  1000 | proxy_comb=4.250e-02 pde_rms=3.501e-02 | TRUE relL2=0.947%
+[calib] epoch  1100 | proxy_comb=4.241e-02 pde_rms=3.577e-02 | TRUE relL2=0.929%
+[calib] epoch  1200 | proxy_comb=4.198e-02 pde_rms=3.656e-02 | TRUE relL2=0.945%
+[calib] epoch  1300 | proxy_comb=4.125e-02 pde_rms=4.035e-02 | TRUE relL2=0.898%
+[calib] epoch  1400 | proxy_comb=4.125e-02 pde_rms=4.035e-02 | TRUE relL2=0.898%
+[calib] epoch  1500 | proxy_comb=4.125e-02 pde_rms=4.035e-02 | TRUE relL2=0.898%
+[calib] early stop at epoch 1578 (train loss flat 300 steps).
+[calib] epoch  1578 | proxy_comb=4.125e-02 pde_rms=4.035e-02 | TRUE relL2=0.898%
+[calib] DONE u0p05_0p03_0p01_0p01: final proxy=4.125e-02 final TRUE=0.898% best TRUE=0.898% cross@-1 in 27.9 min
+[calib] wrote calib_traj_u0p05_0p03_0p01_0p01.csv, ref_field_u0p05_0p03_0p01_0p01.npz, model_u0p05_0p03_0p01_0p01.pt, and appended to calibration_results.csv
+
+# exit 0 after 0:28:02.000729

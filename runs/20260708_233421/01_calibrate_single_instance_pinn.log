@@ -1,0 +1,15 @@
+# code/heterogeneous/parametric_heterogeneous_pinn/calibrate_single_instance_pinn.py --u 0.03,0.03,0.03,0.03 --max-epochs 60 --eval-every 20 --patience 0 --mesh-nx 40 --mesh-nt 40 --proxy-nx 201 --proxy-nt 21 --out-dir results/calib_smoke_v2
+# started 2026-07-08 23:34:23
+# cwd C:\Ali Computation\pinn\code\heterogeneous\parametric_heterogeneous_pinn
+
+[calib] u=(0.03, 0.03, 0.03, 0.03) tag=u0p03_0p03_0p03_0p03 contrast=0.000 dtype=float64 device=cuda:0
+[calib] PE=0.010368  train mesh 40x40 + interface bands | proxy mesh 201x21
+[calib] params=4,285  collocation points=3,040
+[calib] epoch     0 | proxy_comb=1.207e+00 pde_rms=3.437e-01 | TRUE relL2=248.835%
+[calib] epoch    20 | proxy_comb=1.038e-01 pde_rms=1.930e-01 | TRUE relL2=1.060%
+[calib] epoch    40 | proxy_comb=1.117e-01 pde_rms=2.210e-01 | TRUE relL2=1.914%
+[calib] epoch    60 | proxy_comb=1.165e-01 pde_rms=2.353e-01 | TRUE relL2=2.054%
+[calib] DONE u0p03_0p03_0p03_0p03: final proxy=1.165e-01 final TRUE=2.054% best TRUE=1.060% cross@-1 in 1.3 min
+[calib] wrote calib_traj_u0p03_0p03_0p03_0p03.csv, ref_field_u0p03_0p03_0p03_0p03.npz, model_u0p03_0p03_0p03_0p03.pt, and appended to calibration_results.csv
+
+# exit 0 after 0:01:25.638051
