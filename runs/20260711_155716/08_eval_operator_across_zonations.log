@@ -1,0 +1,16 @@
+# code/heterogeneous/pino_heterogeneous/eval_operator_across_zonations.py --exp-dir results/exp_M1_mix025_ell005_5z_mzf005_K101_N500_default_float64_soap --out-dir results/zonation_eval_M1
+# started 2026-07-11 19:28:51
+# cwd C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous
+
+
+=== exp_M1_mix025_ell005_5z_mzf005_K101_N500_default_float64_soap  (K=101, dir=exp_M1_mix025_ell005_5z_mzf005_K101_N500_default_float64_soap) ===
+  1-zone: n=   3  mean= 1.871%  max= 3.107%  min= 1.039%
+  2-zone: n=  36  mean= 2.010%  max= 3.776%  min= 1.207%
+  3-zone: n=  54  mean= 2.287%  max= 6.795%  min= 1.207%
+  4-zone: n=  81  mean= 2.156%  max= 3.864%  min= 1.202%
+  5-zone: n= 243  mean= 2.920%  max= 6.823%  min= 1.168%
+  6-zone: n= 216  mean= 2.476%  max= 5.891%  min= 1.008%
+
+Wrote CSVs + zonation_error.png to C:\Ali Computation\pinn\code\heterogeneous\pino_heterogeneous\results\zonation_eval_M1
+
+# exit 0 after 0:00:07.577682

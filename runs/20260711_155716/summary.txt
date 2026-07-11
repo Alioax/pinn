@@ -1,0 +1,18 @@
+run 20260711_155716
+jobs file: jobs.txt
+result: all 12 ok
+12/12 script(s) succeeded
+
+  #        status   elapsed  script
+01            ok   0:35:19  code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py
+02            ok   0:43:30  code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py
+03            ok   0:48:17  code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py
+04            ok   0:27:36  code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py
+05            ok   0:30:57  code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py
+06            ok   0:25:41  code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py
+07            ok   0:00:07  code/heterogeneous/pino_heterogeneous/eval_operator_across_zonations.py
+08            ok   0:00:07  code/heterogeneous/pino_heterogeneous/eval_operator_across_zonations.py
+09            ok   0:00:07  code/heterogeneous/pino_heterogeneous/eval_operator_across_zonations.py
+10            ok   0:00:07  code/heterogeneous/pino_heterogeneous/eval_operator_across_zonations.py
+11            ok   0:00:07  code/heterogeneous/pino_heterogeneous/eval_operator_across_zonations.py
+12            ok   0:00:07  code/heterogeneous/pino_heterogeneous/eval_operator_across_zonations.py
