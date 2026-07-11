@@ -1,35 +1,46 @@
 # jobs.txt - the scripts run.bat will execute, top to bottom.
 #
-# PINO_2 (pure GRF) grid  -  paper heterogeneous section, GRF-only variant.
-# Prior batch (X3/X4/X6 SOAP seed replicates) is DONE; those result dirs already exist.
+# M-series (PINO_3, mixed piecewise+GRF training) - paper heterogeneous section.
+# Prior batches DONE: X3/X4/X6 SOAP replicates + G01-G12 GRF grid (result dirs exist).
 #
-# Design: train the operator on smooth GRF velocity fields ONLY (no piecewise),
-#         test on the existing 81 four-zone COMSOL cases (no new COMSOL needed).
-# Grid  : correlation length ell in {0.05, 0.10, 0.20}  x  sensor count K in {50, 100, 150, 200}  = 12 runs.
-# Fixed : N=500 GRF fields, float64, default arch [K,16,16,32]/[2,32,32,32,32],
+# Motivation: X3 (pure 5-zone piecewise) = 2.04% in-distribution but fails
+#             cross-zonation OOD (223%); G01 (pure GRF) = 4.70% but stays stable OOD.
+#             The mix axis tests whether one training set gets both.
+# Grid  : GRF share in {0, 25, 50, 75, 100}% of N=500 (M0-M4)
+#         + one K=50 control at the 50/50 mix (M5) to re-test the
+#         "more sensors hurt at short ell" finding under mixed training.
+# Fixed : N=500 total, K=101 sensors (aligned with the COMSOL 0.01 grid;
+#         a 5%-min zone gets ~5 sensors), GRF ell=0.05, piecewise 5-zone ONLY
+#         with min-zone-frac 0.05 (X3 used 0.10 -> M0 re-anchors the 0% endpoint
+#         under the new protocol; M4 re-anchors 100% vs G02's K=100),
+#         float64, default arch [K,16,16,32]/[2,32,32,32,32],
 #         SOAP (lr 3e-3, betas 0.95,0.95, wd 0.01, precond_freq 100),
-#         soap-epochs 25000 with early-stop patience 150 (reproduces the X3 recipe;
-#         X3 early-stopped near 5.7k epochs, so 25k is a ceiling not a target).
-# Rationale: ell is the smoothness-vs-zone-transfer axis (0.20 barely varies across a zone
-#            -> the stale 8-13% baseline; 0.05 is the roughest safe at K=50, spacing 0.02).
-#            K sweep answers the outline's mandated "impact of number of sensors".
-# Runtime : ~50 min/run on the RTX 3090  ->  ~10 h wall for all 12.
+#         soap-epochs 25000 ceiling with early-stop patience 150, seed 1234567.
+# Size  : --skip-validation-plots on all training runs (the 81 per-case PNGs are
+#         ~48 MB/run; summary CSV kept). Regenerate plots for the winner only via
+#         --validate-only WITHOUT the skip flag.
+# Eval  : each run auto-validates on the 81 four-zone COMSOL cases; the
+#         eval_operator_across_zonations lines afterwards add the zonation
+#         1-6 OOD sweep per model (inference only, fast).
+# Single seed for the grid; replicate the winner with 2 more seeds after,
+# exactly as the X- and G-series did.
+# Runtime : ~50 min/run -> ~5 h training + fast evals.
 #
-# --- ell = 0.05 ---
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 50 --n-grf 500 --n-piecewise-per-zones 0 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --out-dir results/exp_G01_grf_ell005_K50_N500_default_float64_soap
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 500 --n-piecewise-per-zones 0 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --out-dir results/exp_G02_grf_ell005_K100_N500_default_float64_soap
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 150 --n-grf 500 --n-piecewise-per-zones 0 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --out-dir results/exp_G03_grf_ell005_K150_N500_default_float64_soap
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 200 --n-grf 500 --n-piecewise-per-zones 0 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --out-dir results/exp_G04_grf_ell005_K200_N500_default_float64_soap
+# --- training: mix grid (GRF share 0 -> 100%) ---
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 101 --n-grf 0 --n-piecewise-per-zones 500 --piecewise-zone-counts 5 --min-zone-frac 0.05 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --skip-validation-plots --out-dir results/exp_M0_mix000_5z_mzf005_K101_N500_default_float64_soap
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 101 --n-grf 125 --n-piecewise-per-zones 375 --piecewise-zone-counts 5 --min-zone-frac 0.05 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --skip-validation-plots --out-dir results/exp_M1_mix025_ell005_5z_mzf005_K101_N500_default_float64_soap
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 101 --n-grf 250 --n-piecewise-per-zones 250 --piecewise-zone-counts 5 --min-zone-frac 0.05 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --skip-validation-plots --out-dir results/exp_M2_mix050_ell005_5z_mzf005_K101_N500_default_float64_soap
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 101 --n-grf 375 --n-piecewise-per-zones 125 --piecewise-zone-counts 5 --min-zone-frac 0.05 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --skip-validation-plots --out-dir results/exp_M3_mix075_ell005_5z_mzf005_K101_N500_default_float64_soap
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 101 --n-grf 500 --n-piecewise-per-zones 0 --piecewise-zone-counts 5 --min-zone-frac 0.05 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --skip-validation-plots --out-dir results/exp_M4_mix100_ell005_K101_N500_default_float64_soap
 #
-# --- ell = 0.10 ---
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 50 --n-grf 500 --n-piecewise-per-zones 0 --grf-corr-length 0.10 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --out-dir results/exp_G05_grf_ell010_K50_N500_default_float64_soap
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 500 --n-piecewise-per-zones 0 --grf-corr-length 0.10 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --out-dir results/exp_G06_grf_ell010_K100_N500_default_float64_soap
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 150 --n-grf 500 --n-piecewise-per-zones 0 --grf-corr-length 0.10 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --out-dir results/exp_G07_grf_ell010_K150_N500_default_float64_soap
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 200 --n-grf 500 --n-piecewise-per-zones 0 --grf-corr-length 0.10 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --out-dir results/exp_G08_grf_ell010_K200_N500_default_float64_soap
+# --- training: K=50 sensor control at the 50/50 mix ---
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 50 --n-grf 250 --n-piecewise-per-zones 250 --piecewise-zone-counts 5 --min-zone-frac 0.05 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --skip-validation-plots --out-dir results/exp_M5_mix050_ell005_5z_mzf005_K50_N500_default_float64_soap
 #
-# --- ell = 0.20 ---
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 50 --n-grf 500 --n-piecewise-per-zones 0 --grf-corr-length 0.20 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --out-dir results/exp_G09_grf_ell020_K50_N500_default_float64_soap
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 100 --n-grf 500 --n-piecewise-per-zones 0 --grf-corr-length 0.20 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --out-dir results/exp_G10_grf_ell020_K100_N500_default_float64_soap
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 150 --n-grf 500 --n-piecewise-per-zones 0 --grf-corr-length 0.20 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --out-dir results/exp_G11_grf_ell020_K150_N500_default_float64_soap
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 200 --n-grf 500 --n-piecewise-per-zones 0 --grf-corr-length 0.20 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --out-dir results/exp_G12_grf_ell020_K200_N500_default_float64_soap
+# --- eval: zonation 1-6 OOD sweep per model (inference only) ---
+code/heterogeneous/pino_heterogeneous/eval_operator_across_zonations.py --exp-dir results/exp_M0_mix000_5z_mzf005_K101_N500_default_float64_soap --out-dir results/zonation_eval_M0
+code/heterogeneous/pino_heterogeneous/eval_operator_across_zonations.py --exp-dir results/exp_M1_mix025_ell005_5z_mzf005_K101_N500_default_float64_soap --out-dir results/zonation_eval_M1
+code/heterogeneous/pino_heterogeneous/eval_operator_across_zonations.py --exp-dir results/exp_M2_mix050_ell005_5z_mzf005_K101_N500_default_float64_soap --out-dir results/zonation_eval_M2
+code/heterogeneous/pino_heterogeneous/eval_operator_across_zonations.py --exp-dir results/exp_M3_mix075_ell005_5z_mzf005_K101_N500_default_float64_soap --out-dir results/zonation_eval_M3
+code/heterogeneous/pino_heterogeneous/eval_operator_across_zonations.py --exp-dir results/exp_M4_mix100_ell005_K101_N500_default_float64_soap --out-dir results/zonation_eval_M4
+code/heterogeneous/pino_heterogeneous/eval_operator_across_zonations.py --exp-dir results/exp_M5_mix050_ell005_5z_mzf005_K50_N500_default_float64_soap --out-dir results/zonation_eval_M5
 #

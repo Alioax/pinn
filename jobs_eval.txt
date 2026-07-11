@@ -1,0 +1,7 @@
+# jobs_eval.txt - evaluate the best operators across zonations 1-6.
+# Inference only (fast, laptop-friendly). Evaluates BOTH default models:
+#   GRF (G01, l=0.05/K=50, SOAP)  and  Interface (X3, 5-zone-only/K=100, SOAP)
+# Reference: Ogata-Banks for 1-zone, COMSOL for 2-6 (all combos per file).
+# Run either directly:   python code/heterogeneous/pino_heterogeneous/eval_operator_across_zonations.py
+# or via the runner:      run.bat jobs_eval.txt
+code/heterogeneous/pino_heterogeneous/eval_operator_across_zonations.py
