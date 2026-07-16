@@ -9,8 +9,7 @@ REM    2) On the remote (AnyDesk): just run   run.bat
 REM    3) Disconnect AnyDesk. It pulls, runs every job in order, and
 REM       pushes the results when done (or stops at the first failure).
 REM
-REM  Current batch (jobs.txt): X3/X4/X6 SOAP seed replicates (2234567, 3234567).
-REM  Seed 1234567 runs already in exp_X3/X4/X6_* (no _s suffix). Iso-compute vs X1/X2/X5 twins.
+REM  Current batch (jobs.txt): M6 = M1 mix025 with K=50 (vs M1 K=101).
 REM  Pull on laptop after remote push to analyse / run validation plots.
 REM
 REM  Run a different list:   run.bat my_list.txt
