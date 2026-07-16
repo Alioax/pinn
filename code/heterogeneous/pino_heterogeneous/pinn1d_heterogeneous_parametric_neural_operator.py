@@ -99,6 +99,7 @@ activation_cls = nn.Tanh
 num_epochs_lbfgs = 1000
 lr_lbfgs = 1
 lbfgs_max_iter = 1  # PyTorch LBFGS max_iter per outer step
+lbfgs_history_size = 50  # PyTorch LBFGS history_size (L-BFGS memory)
 num_epochs_adam = 0  # 0 = skip Adam; run L-BFGS only
 lr_adam = 0.25
 early_stop_patience = 0  # 0 = disabled; stop after N steps with no total-loss improvement
@@ -1115,7 +1116,7 @@ def _train_lbfgs(
         model.parameters(),
         lr=lr_lbfgs,
         max_iter=lbfgs_max_iter,
-        history_size=50,
+        history_size=lbfgs_history_size,
         line_search_fn="strong_wolfe",
     )
     print(optimizer)
@@ -1179,6 +1180,8 @@ def _train_lbfgs(
     summary: dict[str, object] = {
         "num_epochs_lbfgs_requested": num_epochs_lbfgs,
         "num_epochs_lbfgs_actual": len(history),
+        "lbfgs_max_iter": lbfgs_max_iter,
+        "lbfgs_history_size": lbfgs_history_size,
         "early_stop_patience": early_stop_patience,
         "early_stopped": early_stopped,
         "lbfgs_gradient_evals": grad_evals,
@@ -1483,6 +1486,13 @@ def parse_cli() -> argparse.Namespace:
         help="PyTorch LBFGS max_iter per outer step (default 1).",
     )
     parser.add_argument(
+        "--lbfgs-history-size",
+        type=int,
+        default=None,
+        metavar="N",
+        help="PyTorch LBFGS history_size / L-BFGS memory (default 50).",
+    )
+    parser.add_argument(
         "--epochs",
         type=int,
         default=None,
@@ -1732,7 +1742,7 @@ def _load_run_meta_for_validate() -> bool:
     if not branch or not trunk:
         return False
     global branch_architecture, trunk_architecture, arch_preset, torch_dtype
-    global lr_lbfgs, lbfgs_max_iter, early_stop_patience, num_epochs_adam, lr_adam, num_epochs_lbfgs
+    global lr_lbfgs, lbfgs_max_iter, lbfgs_history_size, early_stop_patience, num_epochs_adam, lr_adam, num_epochs_lbfgs
     global media_mode, sensor_count, sensor_xstar, grf_corr_lengths, grf_grid_n
     global n_sensors_requested, n_grf_requested, n_piecewise_per_zones, piecewise_zone_counts
     global min_zone_frac, ic_x0_t0_value, ic_zero_domain_at_t0
@@ -1751,6 +1761,8 @@ def _load_run_meta_for_validate() -> bool:
         lr_lbfgs = float(meta["lr_lbfgs"])
     if "lbfgs_max_iter" in meta:
         lbfgs_max_iter = int(meta["lbfgs_max_iter"])
+    if "lbfgs_history_size" in meta:
+        lbfgs_history_size = int(meta["lbfgs_history_size"])
     if "early_stop_patience" in meta:
         early_stop_patience = int(meta["early_stop_patience"])
     if "num_epochs_adam" in meta:
@@ -1810,7 +1822,7 @@ def apply_cli(args: argparse.Namespace) -> None:
     global RESULTS_DIR, COMSOL_VALIDATION_DIR, MODEL_PATH, U_TRAIN_CASES_PATH
     global train_design, n_train_requested, n_corner_anchors, skip_validation_plots
     global batch_mode, reload_lhc_train_cases, run_training, validate_only
-    global torch_dtype, early_stop_patience, lr_lbfgs, lbfgs_max_iter
+    global torch_dtype, early_stop_patience, lr_lbfgs, lbfgs_max_iter, lbfgs_history_size
     global num_epochs_lbfgs, media_mode, n_sensors_requested, grf_corr_lengths
     global grf_grid_n, sensor_xstar, sensor_count, branch_architecture
     global n_grf_requested, n_piecewise_per_zones, n_train_requested, piecewise_zone_counts
@@ -1924,6 +1936,9 @@ def apply_cli(args: argparse.Namespace) -> None:
     if args.lbfgs_max_iter is not None:
         lbfgs_max_iter = args.lbfgs_max_iter
 
+    if args.lbfgs_history_size is not None:
+        lbfgs_history_size = args.lbfgs_history_size
+
     if args.epochs is not None:
         num_epochs_lbfgs = args.epochs
 
@@ -2013,6 +2028,7 @@ def write_run_meta(
         "early_stop_patience": early_stop_patience,
         "lr_lbfgs": lr_lbfgs,
         "lbfgs_max_iter": lbfgs_max_iter,
+        "lbfgs_history_size": lbfgs_history_size,
         "optimizer": optimizer_mode,
         "branch_mode": branch_mode,
         "wall_clock_s": round(wall_clock_s, 3),
@@ -2222,6 +2238,7 @@ def main() -> None:
                 )
             print(
                 f"L-BFGS: lr={lr_lbfgs:g}  max_iter={lbfgs_max_iter}  "
+                f"history_size={lbfgs_history_size}  "
                 f"outer_steps={num_epochs_lbfgs}"
             )
         if optimizer_mode in ("soap", "soap_lbfgs") and num_epochs_soap > 0:

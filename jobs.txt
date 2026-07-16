@@ -1,13 +1,30 @@
-# jobs.txt - the scripts run.bat will execute, top to bottom.
+# jobs.txt - overnight batch for Lehmann Q1 (max-iter / history-size) + Q2 (SOAP -> L-BFGS).
 #
-# M6: K=50 control at the 25/75 mix (same protocol as M1, fewer sensors).
-# M1 was mix025 / K=101 / 125 GRF + 375 piecewise 5-zone / min-zone-frac 0.05.
-# M5 already covers K=50 at the 50/50 mix; M6 mirrors that control at mix025.
-# Fixed : N=500, GRF ell=0.05, float64, default arch, SOAP as in M0-M5.
+# Baseline for comparison ALREADY EXISTS: exp_M5 (SOAP-only, mix050/K50) mean rel-L2 = 2.27%.
+# All jobs below reuse M5's EXACT SOAP warm-up (same seed 1234567), then add an L-BFGS
+# polish stage (--optimizer soap_lbfgs). Only the L-BFGS knobs change, so any difference
+# in COMSOL rel-L2 is attributable to the polish + its settings. Each run auto-writes
+# comsol_validation_summary.csv (81-case 3^4 grid) at the end.
 #
-# --- training ---
-code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 50 --n-grf 125 --n-piecewise-per-zones 375 --piecewise-zone-counts 5 --min-zone-frac 0.05 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --optimizer soap --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --skip-validation-plots --out-dir results/exp_M6_mix025_ell005_5z_mzf005_K50_N500_default_float64_soap
+#   Q2 (does a SOAP->LBFGS polish help?):  compare every LB* below vs M5 SOAP-only.
+#   Q1 history_size:  LB2(hs=10) vs LB1(hs=50) vs LB3(hs=100), all at max_iter=20.
+#   Q1 max_iter:      LB4(mi=1)  vs LB1(mi=20) vs LB5(mi=50), all at history_size=50.
 #
-# --- eval: zonation 1-6 OOD sweep (inference only) ---
-code/heterogeneous/pino_heterogeneous/eval_operator_across_zonations.py --exp-dir results/exp_M6_mix025_ell005_5z_mzf005_K50_N500_default_float64_soap --out-dir results/zonation_eval_M6
+# epochs = L-BFGS OUTER steps (early-stop patience 150). Ordered by priority: the central
+# case runs first so partial nights still answer the core question. ~25 min SOAP warm-up
+# per run + a bounded L-BFGS polish.
 #
+# --- CENTRAL: sensible PyTorch defaults as a polish (max_iter=20, history_size=50) ---
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 50 --n-grf 250 --n-piecewise-per-zones 250 --piecewise-zone-counts 5 --min-zone-frac 0.05 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --lr-lbfgs 1 --optimizer soap_lbfgs --lbfgs-max-iter 20 --lbfgs-history-size 50 --epochs 150 --skip-validation-plots --out-dir results/exp_LB1_soaplbfgs_mi20_hs50_mix050_K50
+#
+# --- Q1 history_size sweep (max_iter fixed at 20) ---
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 50 --n-grf 250 --n-piecewise-per-zones 250 --piecewise-zone-counts 5 --min-zone-frac 0.05 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --lr-lbfgs 1 --optimizer soap_lbfgs --lbfgs-max-iter 20 --lbfgs-history-size 10 --epochs 150 --skip-validation-plots --out-dir results/exp_LB2_soaplbfgs_mi20_hs10_mix050_K50
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 50 --n-grf 250 --n-piecewise-per-zones 250 --piecewise-zone-counts 5 --min-zone-frac 0.05 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --lr-lbfgs 1 --optimizer soap_lbfgs --lbfgs-max-iter 20 --lbfgs-history-size 100 --epochs 150 --skip-validation-plots --out-dir results/exp_LB3_soaplbfgs_mi20_hs100_mix050_K50
+#
+# --- Q1 max_iter sweep (history_size fixed at 50) ---
+#   LB4 mirrors the current in-code default style (max_iter=1) -> needs more outer steps.
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 50 --n-grf 250 --n-piecewise-per-zones 250 --piecewise-zone-counts 5 --min-zone-frac 0.05 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --lr-lbfgs 1 --optimizer soap_lbfgs --lbfgs-max-iter 1 --lbfgs-history-size 50 --epochs 1000 --skip-validation-plots --out-dir results/exp_LB4_soaplbfgs_mi1_hs50_mix050_K50
+code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 50 --n-grf 250 --n-piecewise-per-zones 250 --piecewise-zone-counts 5 --min-zone-frac 0.05 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --lr-lbfgs 1 --optimizer soap_lbfgs --lbfgs-max-iter 50 --lbfgs-history-size 50 --epochs 60 --skip-validation-plots --out-dir results/exp_LB5_soaplbfgs_mi50_hs50_mix050_K50
+#
+# --- OPTIONAL contrast: L-BFGS ONLY (no SOAP). Uncomment if the night has time. ---
+# code/heterogeneous/pino_heterogeneous/pinn1d_heterogeneous_parametric_neural_operator.py --design grf --n-sensors 50 --n-grf 250 --n-piecewise-per-zones 250 --piecewise-zone-counts 5 --min-zone-frac 0.05 --grf-corr-length 0.05 --grf-grid-n 201 --arch default --dtype float64 --early-stop-patience 150 --seed 1234567 --soap-epochs 25000 --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --lr-lbfgs 1 --optimizer lbfgs --lbfgs-max-iter 20 --lbfgs-history-size 50 --epochs 800 --skip-validation-plots --out-dir results/exp_LB6_lbfgsonly_mi20_hs50_mix050_K50
