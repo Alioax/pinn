@@ -1,0 +1,8 @@
+# code/homogeneous_cfl/eval_saved_models.py 
+# started 2026-10-04 15:23:47
+# cwd C:\Ali Computation\pinn\code\homogeneous_cfl
+
+[E0_pinn_report4_saved] test rel-L2 median 1.162 %  max 2.929 %
+[E0_pino_report4_saved] test rel-L2 median 2.740 %  max 5.309 %
+
+# exit 0 after 0:00:09.488949

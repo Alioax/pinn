@@ -1,0 +1,93 @@
+{
+  "run_name": "H06_pino_n50_lbfgsP",
+  "model": "PINO",
+  "script": "pino_cfl\\pinn1d_cfl_pe_parametric_neural_operator.py",
+  "finished": "2026-10-04 16:04:45",
+  "architecture": {
+    "branch": [
+      1,
+      16,
+      16,
+      16
+    ],
+    "trunk": [
+      2,
+      16,
+      16,
+      16
+    ],
+    "latent_q": 16,
+    "branch_input": "CFL (one value, constant field)"
+  },
+  "activation": "tanh, sigmoid on the branch-trunk dot product",
+  "n_params": 1168,
+  "dtype": "torch.float64",
+  "seed": 1234567,
+  "n_cfl_samples": 50,
+  "cfl_range": [
+    0.12,
+    0.6
+  ],
+  "beta": 0.010367999999999999,
+  "collocation": {
+    "n_pde": 125000,
+    "n_ic": 2500,
+    "n_inlet": 2500,
+    "n_outlet": 2500,
+    "grid": "50 x 50 x 50 (x*, t*, CFL), uniform"
+  },
+  "loss_weights": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "optimizer": "lbfgs",
+  "steps_requested": 1000,
+  "steps_actual": 808,
+  "early_stop_patience": 150,
+  "early_stopped": true,
+  "gradient_evaluations": 16453,
+  "train_wall_clock_s": 920.488,
+  "train_s_per_step": 1.139218,
+  "final_loss": {
+    "total": 0.010542479567776784,
+    "pde": 0.00041590675319631474,
+    "ic": 0.005120457775931117,
+    "inlet": 0.005006109759970181,
+    "outlet": 5.278679171237897e-09
+  },
+  "best_total_loss": 0.010542479567776784,
+  "lbfgs_lr": 0.1,
+  "lbfgs_max_iter": 20,
+  "lbfgs_history_size": 50,
+  "lbfgs_line_search": "strong_wolfe",
+  "test_n_cfl": 40,
+  "test_cfl_range": [
+    0.1224,
+    0.5975999999999999
+  ],
+  "test_min_distance_to_training_cfl": 0.0023648484848484697,
+  "test_times_d": [
+    100.0,
+    300.0,
+    600.0,
+    900.0,
+    1200.0
+  ],
+  "test_n_positions": 101,
+  "rel_l2_median": 0.012295762412409497,
+  "rel_l2_max": 0.027497421511823918,
+  "rel_l2_mean": 0.013144791708947315,
+  "rel_l2_min": 0.00804657725587147,
+  "cfl_at_max": 0.1224,
+  "script_wall_clock_s": 925.921,
+  "environment": {
+    "device": "cuda:0",
+    "torch": "2.12.0+cu126",
+    "python": "3.14.5",
+    "host": "ites-0008",
+    "cpu_threads": 10,
+    "gpu": "NVIDIA GeForce RTX 3090"
+  }
+}

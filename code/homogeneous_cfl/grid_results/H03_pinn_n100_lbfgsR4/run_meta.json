@@ -1,0 +1,85 @@
+{
+  "run_name": "H03_pinn_n100_lbfgsR4",
+  "model": "PARA-PINN",
+  "script": "parametric_cfl_pinn\\pinn1d_cfl_pe_parametric_pinn.py",
+  "finished": "2026-10-04 15:30:25",
+  "architecture": [
+    3,
+    16,
+    16,
+    16,
+    16,
+    1
+  ],
+  "activation": "tanh, sigmoid output",
+  "n_params": 897,
+  "dtype": "torch.float64",
+  "seed": 1234567,
+  "n_cfl_samples": 100,
+  "cfl_range": [
+    0.12,
+    0.6
+  ],
+  "beta": 0.010367999999999999,
+  "collocation": {
+    "n_pde": 250000,
+    "n_ic": 5000,
+    "n_inlet": 5000,
+    "n_outlet": 5000,
+    "grid": "50 x 50 x 100 (x*, t*, CFL), uniform"
+  },
+  "loss_weights": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "optimizer": "lbfgs",
+  "steps_requested": 1000,
+  "steps_actual": 1000,
+  "early_stop_patience": 0,
+  "early_stopped": false,
+  "gradient_evaluations": 2000,
+  "train_wall_clock_s": 152.564,
+  "train_s_per_step": 0.152564,
+  "final_loss": {
+    "total": 0.9952954345286122,
+    "pde": 3.1651121335991774e-06,
+    "ic": 1.1286680567193906e-06,
+    "inlet": 0.9952907824009268,
+    "outlet": 3.5834749510510995e-07
+  },
+  "best_total_loss": 0.903820913554898,
+  "lbfgs_lr": 1.0,
+  "lbfgs_max_iter": 1,
+  "lbfgs_history_size": 50,
+  "lbfgs_line_search": "strong_wolfe",
+  "test_n_cfl": 40,
+  "test_cfl_range": [
+    0.1224,
+    0.5975999999999999
+  ],
+  "test_min_distance_to_training_cfl": 0.0023648484848484697,
+  "test_times_d": [
+    100.0,
+    300.0,
+    600.0,
+    900.0,
+    1200.0
+  ],
+  "test_n_positions": 101,
+  "rel_l2_median": 0.8047523997881325,
+  "rel_l2_max": 1.1563592394613498,
+  "rel_l2_mean": 0.8453211368707645,
+  "rel_l2_min": 0.7629207655931689,
+  "cfl_at_max": 0.1224,
+  "script_wall_clock_s": 159.874,
+  "environment": {
+    "device": "cuda:0",
+    "torch": "2.12.0+cu126",
+    "python": "3.14.5",
+    "host": "ites-0008",
+    "cpu_threads": 10,
+    "gpu": "NVIDIA GeForce RTX 3090"
+  }
+}

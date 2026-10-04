@@ -1,0 +1,54 @@
+{
+  "run_name": "E0_pinn_report4_saved",
+  "model": "PARA-PINN",
+  "source_model": "parametric_cfl_pinn/results/parametric_cfl_pinn_model.pt",
+  "finished": "2026-10-04 15:23:56",
+  "architecture": [
+    3,
+    16,
+    16,
+    16,
+    16,
+    1
+  ],
+  "n_params": 897,
+  "dtype": "torch.float64",
+  "n_cfl_samples": 50,
+  "optimizer": "lbfgs",
+  "lbfgs_lr": 1.0,
+  "lbfgs_max_iter": 1,
+  "lbfgs_history_size": 50,
+  "steps_requested": 1000,
+  "early_stop_patience": 0,
+  "note": "Report 4 model as saved on 14 Apr 2026; training time was not logged",
+  "train_wall_clock_s": null,
+  "steps_actual": null,
+  "test_n_cfl": 40,
+  "test_cfl_range": [
+    0.1224,
+    0.5975999999999999
+  ],
+  "test_min_distance_to_training_cfl": 0.0023648484848484697,
+  "test_times_d": [
+    100.0,
+    300.0,
+    600.0,
+    900.0,
+    1200.0
+  ],
+  "test_n_positions": 101,
+  "rel_l2_median": 0.011616455251864456,
+  "rel_l2_max": 0.029291986911184155,
+  "rel_l2_mean": 0.01286959926460796,
+  "rel_l2_min": 0.009028482891444806,
+  "cfl_at_max": 0.1224,
+  "script_wall_clock_s": 0.672,
+  "environment": {
+    "device": "cuda:0",
+    "torch": "2.12.0+cu126",
+    "python": "3.14.5",
+    "host": "ites-0008",
+    "cpu_threads": 10,
+    "gpu": "NVIDIA GeForce RTX 3090"
+  }
+}
