@@ -3,10 +3,16 @@
 Parametric PINN — 1D ADE with raw CFL as input;
 Pe = D*T_s/L^2 fixed (computed from D in m^2/s).
 
-Maps (x*, t*, CFL) to C* in [0,1]. Training: L-BFGS on a fixed 3D mesh.
+Maps (x*, t*, CFL) to C* in [0,1]. Training: L-BFGS (or SOAP) on a fixed 3D mesh.
+
+With no flags this reproduces Report 4 exactly. Flags for the sample x optimizer grid
+(see homog_common.py and jobs_homog.txt), e.g.
+  python pinn1d_cfl_pe_parametric_pinn.py --run-name H09_pinn_n50_soap --n-cfl 50 --optimizer soap
 """
 
 import os
+import sys
+import time
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -14,12 +20,17 @@ import numpy as np
 import torch
 import torch.nn as nn
 from scipy.special import erfc, erfcx
-from tqdm import trange
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import homog_common as H  # noqa: E402
+
+args = H.parse_args("Parametric CFL PINN (Report 4 model), homogeneous medium")
+script_t0 = time.perf_counter()
 
 # =============================================================================
 # Plot style
 # =============================================================================
-mpl.rcParams["figure.dpi"] = 800
+mpl.rcParams["figure.dpi"] = args.plot_dpi
 mpl.rcParams["axes.prop_cycle"] = mpl.cycler(
     color=[
         "#FF5F05",
@@ -35,13 +46,12 @@ mpl.rcParams["axes.prop_cycle"] = mpl.cycler(
 plt.rcParams["font.family"] = "Times New Roman"
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-results_dir = os.path.join(script_dir, "results")
-os.makedirs(results_dir, exist_ok=True)
+results_dir = H.output_dir(args, os.path.join(script_dir, "results"))
 
 # =============================================================================
 # Configuration
 # =============================================================================
-seed = 1234567
+seed = args.seed
 torch_dtype = torch.float64
 
 L = 100.0  # m
@@ -62,16 +72,15 @@ cfl_max = float(CFL_VALUES.max())
 pinn_architecture = [3, 16, 16, 16, 16, 1]
 activation = nn.Tanh
 
-num_epochs_lbfgs = 1000
-lr_lbfgs = 1.0
+# optimizer settings come from the command line (defaults = Report 4: L-BFGS lr 1.0, max_iter 1, 1000 steps)
 
 mesh_nx_pde = 50
 mesh_nt_pde = 50
-mesh_ncfl_pde = 50
+mesh_ncfl_pde = args.n_cfl   # CFL training samples (Report 4: 50)
 mesh_ic_nx = 50
-mesh_ic_ncfl = 50
+mesh_ic_ncfl = args.n_cfl
 mesh_bc_nt = 50
-mesh_bc_ncfl = 50
+mesh_bc_ncfl = args.n_cfl
 
 weight_pde = 1.0
 weight_ic = 1.0
@@ -107,27 +116,7 @@ print(f"Raw CFL range used for training: [{cfl_min:g}, {cfl_max:g}]")
 # =============================================================================
 
 
-class ParametricPINN(nn.Module):
-    def __init__(self, architecture, activation_cls):
-        super().__init__()
-        layers = []
-        for i in range(len(architecture) - 1):
-            in_f, out_f = architecture[i], architecture[i + 1]
-            layers.append(nn.Linear(in_f, out_f))
-            if i < len(architecture) - 2:
-                layers.append(activation_cls())
-            else:
-                layers.append(nn.Sigmoid())
-        self.net = nn.Sequential(*layers)
-        gain = nn.init.calculate_gain("tanh")
-        for m in self.net:
-            if isinstance(m, nn.Linear):
-                nn.init.xavier_normal_(m.weight, gain=gain)
-                if m.bias is not None:
-                    nn.init.zeros_(m.bias)
-
-    def forward(self, x_star, t_star, cfl):
-        return self.net(torch.cat([x_star, t_star, cfl], dim=1))
+ParametricPINN = H.ParametricPINN   # unchanged from Report 4, defined in homog_common.py
 
 
 def gradients(outputs, inputs):
@@ -191,22 +180,9 @@ train_cfl_out = torch.tensor(cfl_outlet_np.reshape(-1, 1), dtype=DTYPE, device=d
 # Train
 # =============================================================================
 model = ParametricPINN(pinn_architecture, activation).to(device)
-obj = []
-
-optimizer = torch.optim.LBFGS(
-    model.parameters(),
-    lr=lr_lbfgs,
-    max_iter=1,
-    history_size=50,
-    line_search_fn="strong_wolfe",
-)
-print(optimizer)
-
-t_bar = trange(num_epochs_lbfgs, bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]")
 
 
-def closure():
-    optimizer.zero_grad(set_to_none=True)
+def compute_loss():
     c_pde = model(train_x_pde, train_t_pde, train_cfl_pde)
     dC_dt = gradients(c_pde, train_t_pde)
     dC_dx = gradients(c_pde, train_x_pde)
@@ -222,27 +198,17 @@ def closure():
         + weight_inlet_bc * inlet_loss
         + weight_outlet_bc * outlet_loss
     )
-    total_loss.backward()
-    closure.latest = (
+    metrics = (
         total_loss.item(),
         pde_loss.item(),
         ic_loss.item(),
         inlet_loss.item(),
         outlet_loss.item(),
     )
-    t_bar.set_description(
-        "loss : %.3e  mse_pde %.3e  mse_ic %.3e  mse_in %.3e  mse_out %.3e"
-        % closure.latest
-    )
-    t_bar.refresh()
-    return total_loss
+    return total_loss, metrics
 
 
-for _ in t_bar:
-    model.train()
-    optimizer.step(closure)
-    obj.append(list(closure.latest))
-t_bar.close()
+obj, train_info = H.train(model, compute_loss, args, device, DTYPE)
 
 # =============================================================================
 # Collocation figure (x* vs t*; discrete C0.. by CFL index; no colorbar)
@@ -352,7 +318,7 @@ ax3.plot(epochs, h[:, 2], color="gray", linewidth=1.0, alpha=0.6, label="IC")
 ax3.plot(epochs, h[:, 3], color="purple", linewidth=1.0, alpha=0.75, label="Inlet")
 ax3.plot(epochs, h[:, 4], color="crimson", linewidth=1.0, alpha=0.75, label="Outlet")
 ax3.set_yscale("log")
-ax3.set_xlabel("L-BFGS step")
+ax3.set_xlabel("L-BFGS step" if args.optimizer == "lbfgs" else "SOAP step")
 ax3.set_ylabel("Loss")
 ax3.grid(True, alpha=0.3)
 ax3.legend(loc="best", fontsize=9, frameon=False)
@@ -364,3 +330,35 @@ if save_model:
     torch.save(model.state_dict(), os.path.join(results_dir, "parametric_cfl_pinn_model.pt"))
 
 print("Saved:", conc_path, os.path.join(results_dir, "parametric_cfl_pinn_collocation_points.png"), loss_path)
+
+# =============================================================================
+# Held-out test against Ogata-Banks (same protocol for every run) + run_meta.json
+# =============================================================================
+model.eval()
+test_rows, test_summary = H.evaluate(
+    lambda x, t, cfl: model(x, t, torch.full_like(x, cfl)), device, DTYPE
+)
+meta = {
+    "run_name": args.run_name or "report4_default",
+    "model": "PARA-PINN",
+    "script": os.path.relpath(os.path.abspath(__file__), H.HOMOG_DIR),
+    "finished": H.timestamp(),
+    "architecture": pinn_architecture,
+    "activation": "tanh, sigmoid output",
+    "n_params": H.n_params(model),
+    "dtype": str(DTYPE),
+    "seed": seed,
+    "n_cfl_samples": mesh_ncfl_pde,
+    "cfl_range": [cfl_min, cfl_max],
+    "beta": PE,
+    "collocation": {"n_pde": int(x_star_pde_np.size), "n_ic": int(x_star_ic_np.size),
+                    "n_inlet": int(x_star_inlet_np.size), "n_outlet": int(x_star_outlet_np.size),
+                    "grid": f"{mesh_nx_pde} x {mesh_nt_pde} x {mesh_ncfl_pde} (x*, t*, CFL), uniform"},
+    "loss_weights": [weight_pde, weight_ic, weight_inlet_bc, weight_outlet_bc],
+    **train_info,
+    **test_summary,
+    "script_wall_clock_s": round(time.perf_counter() - script_t0, 3),
+    "environment": H.environment(device),
+}
+H.write_outputs(results_dir, meta, test_rows, obj)
+H.print_summary(meta["run_name"], test_summary, train_info)

@@ -3,10 +3,16 @@
 Parametric neural operator (DeepONet-style) — same PDE as parametric CFL PINN.
 
 Branch encodes raw CFL; trunk maps (x*, t*).
-Pe = D*T_s/L^2 computed. Training: L-BFGS on fixed mesh.
+Pe = D*T_s/L^2 computed. Training: L-BFGS (or SOAP) on fixed mesh.
+
+With no flags this reproduces Report 4 exactly. Flags for the sample x optimizer grid
+(see homog_common.py and jobs_homog.txt), e.g.
+  python pinn1d_cfl_pe_parametric_neural_operator.py --run-name H10_pino_n50_soap --n-cfl 50 --optimizer soap
 """
 
 import os
+import sys
+import time
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -16,10 +22,16 @@ import torch.nn as nn
 from scipy.special import erfc, erfcx
 from tqdm import trange
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import homog_common as H  # noqa: E402
+
+args = H.parse_args("Parametric CFL PINO / DeepONet (Report 4 model), homogeneous medium")
+script_t0 = time.perf_counter()
+
 # =============================================================================
 # Plot style
 # =============================================================================
-mpl.rcParams["figure.dpi"] = 800
+mpl.rcParams["figure.dpi"] = args.plot_dpi
 mpl.rcParams["axes.prop_cycle"] = mpl.cycler(
     color=[
         "#FF5F05",
@@ -35,13 +47,12 @@ mpl.rcParams["axes.prop_cycle"] = mpl.cycler(
 plt.rcParams["font.family"] = "Times New Roman"
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-results_dir = os.path.join(script_dir, "results")
-os.makedirs(results_dir, exist_ok=True)
+results_dir = H.output_dir(args, os.path.join(script_dir, "results"))
 
 # =============================================================================
 # Configuration
 # =============================================================================
-seed = 1234567
+seed = args.seed
 torch_dtype = torch.float64
 
 L = 100.0
@@ -63,16 +74,15 @@ branch_architecture = [sensor_count, 16, 16, 16]
 trunk_architecture = [2, 16, 16, 16]
 activation_cls = nn.Tanh
 
-num_epochs_lbfgs = 1000
-lr_lbfgs = 1.0
+# optimizer settings come from the command line (defaults = Report 4: L-BFGS lr 1.0, max_iter 1, 1000 steps)
 
 mesh_nx_pde = 50
 mesh_nt_pde = 50
-mesh_ncfl_pde = 50
+mesh_ncfl_pde = args.n_cfl   # CFL training samples (Report 4: 50)
 mesh_ic_nx = 50
-mesh_ic_ncfl = 50
+mesh_ic_ncfl = args.n_cfl
 mesh_bc_nt = 50
-mesh_bc_ncfl = 50
+mesh_bc_ncfl = args.n_cfl
 
 weight_pde = 1.0
 weight_ic = 1.0
@@ -108,38 +118,7 @@ print(f"Raw CFL range used for training: [{cfl_min:g}, {cfl_max:g}]")
 # =============================================================================
 
 
-class DeepONetParametric(nn.Module):
-    def __init__(self, branch_arch, trunk_arch, activation):
-        super().__init__()
-        branch_layers = []
-        for i in range(len(branch_arch) - 1):
-            in_f, out_f = branch_arch[i], branch_arch[i + 1]
-            branch_layers.append(nn.Linear(in_f, out_f))
-            if i < len(branch_arch) - 2:
-                branch_layers.append(activation())
-        self.branch = nn.Sequential(*branch_layers)
-
-        trunk_layers = []
-        for i in range(len(trunk_arch) - 1):
-            in_f, out_f = trunk_arch[i], trunk_arch[i + 1]
-            trunk_layers.append(nn.Linear(in_f, out_f))
-            if i < len(trunk_arch) - 2:
-                trunk_layers.append(activation())
-        self.trunk = nn.Sequential(*trunk_layers)
-
-        gain = nn.init.calculate_gain("tanh")
-        for mod in (self.branch, self.trunk):
-            for layer in mod:
-                if isinstance(layer, nn.Linear):
-                    nn.init.xavier_normal_(layer.weight, gain=gain)
-                    if layer.bias is not None:
-                        nn.init.zeros_(layer.bias)
-
-    def forward(self, x_star, t_star, branch_input):
-        pts = torch.cat([x_star, t_star], dim=1)
-        b_vec = self.branch(branch_input)
-        t_vec = self.trunk(pts)
-        return torch.sigmoid((b_vec * t_vec).sum(dim=-1, keepdim=True))
+DeepONetParametric = H.DeepONetParametric   # unchanged from Report 4, defined in homog_common.py
 
 
 def gradients(outputs, inputs):
@@ -210,22 +189,9 @@ branch_out = train_cfl_out.expand(-1, sensor_count)
 # Train
 # =============================================================================
 model = DeepONetParametric(branch_architecture, trunk_architecture, activation_cls).to(device)
-obj = []
-
-optimizer = torch.optim.LBFGS(
-    model.parameters(),
-    lr=lr_lbfgs,
-    max_iter=1,
-    history_size=50,
-    line_search_fn="strong_wolfe",
-)
-print(optimizer)
-
-t_bar = trange(num_epochs_lbfgs, bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]")
 
 
-def closure():
-    optimizer.zero_grad(set_to_none=True)
+def compute_loss():
     c_pde = model(train_x_pde, train_t_pde, branch_pde)
     dC_dt = gradients(c_pde, train_t_pde)
     dC_dx = gradients(c_pde, train_x_pde)
@@ -241,27 +207,17 @@ def closure():
         + weight_inlet_bc * inlet_loss
         + weight_outlet_bc * outlet_loss
     )
-    total_loss.backward()
-    closure.latest = (
+    metrics = (
         total_loss.item(),
         pde_loss.item(),
         ic_loss.item(),
         inlet_loss.item(),
         outlet_loss.item(),
     )
-    t_bar.set_description(
-        "loss : %.3e  mse_pde %.3e  mse_ic %.3e  mse_in %.3e  mse_out %.3e"
-        % closure.latest
-    )
-    t_bar.refresh()
-    return total_loss
+    return total_loss, metrics
 
 
-for _ in t_bar:
-    model.train()
-    optimizer.step(closure)
-    obj.append(list(closure.latest))
-t_bar.close()
+obj, train_info = H.train(model, compute_loss, args, device, DTYPE)
 
 # =============================================================================
 # Collocation figure
@@ -371,7 +327,7 @@ ax3.plot(epochs, h[:, 2], color="gray", linewidth=1.0, alpha=0.6, label="IC")
 ax3.plot(epochs, h[:, 3], color="purple", linewidth=1.0, alpha=0.75, label="Inlet")
 ax3.plot(epochs, h[:, 4], color="crimson", linewidth=1.0, alpha=0.75, label="Outlet")
 ax3.set_yscale("log")
-ax3.set_xlabel("L-BFGS step")
+ax3.set_xlabel("L-BFGS step" if args.optimizer == "lbfgs" else "SOAP step")
 ax3.set_ylabel("Loss")
 ax3.grid(True, alpha=0.3)
 ax3.legend(loc="best", fontsize=9, frameon=False)
@@ -383,3 +339,38 @@ if save_model:
     torch.save(model.state_dict(), os.path.join(results_dir, "pino_cfl_model.pt"))
 
 print("Saved:", conc_path, os.path.join(results_dir, "pino_cfl_collocation_points.png"), loss_path)
+
+# =============================================================================
+# Held-out test against Ogata-Banks (same protocol for every run) + run_meta.json
+# =============================================================================
+model.eval()
+test_rows, test_summary = H.evaluate(
+    lambda x, t, cfl: model(x, t, torch.full((x.shape[0], sensor_count), cfl, dtype=x.dtype, device=x.device)),
+    device,
+    DTYPE,
+)
+meta = {
+    "run_name": args.run_name or "report4_default",
+    "model": "PINO",
+    "script": os.path.relpath(os.path.abspath(__file__), H.HOMOG_DIR),
+    "finished": H.timestamp(),
+    "architecture": {"branch": branch_architecture, "trunk": trunk_architecture,
+                     "latent_q": trunk_architecture[-1], "branch_input": "CFL (one value, constant field)"},
+    "activation": "tanh, sigmoid on the branch-trunk dot product",
+    "n_params": H.n_params(model),
+    "dtype": str(DTYPE),
+    "seed": seed,
+    "n_cfl_samples": mesh_ncfl_pde,
+    "cfl_range": [cfl_min, cfl_max],
+    "beta": PE,
+    "collocation": {"n_pde": int(x_star_pde_np.size), "n_ic": int(x_star_ic_np.size),
+                    "n_inlet": int(x_star_inlet_np.size), "n_outlet": int(x_star_outlet_np.size),
+                    "grid": f"{mesh_nx_pde} x {mesh_nt_pde} x {mesh_ncfl_pde} (x*, t*, CFL), uniform"},
+    "loss_weights": [weight_pde, weight_ic, weight_inlet_bc, weight_outlet_bc],
+    **train_info,
+    **test_summary,
+    "script_wall_clock_s": round(time.perf_counter() - script_t0, 3),
+    "environment": H.environment(device),
+}
+H.write_outputs(results_dir, meta, test_rows, obj)
+H.print_summary(meta["run_name"], test_summary, train_info)

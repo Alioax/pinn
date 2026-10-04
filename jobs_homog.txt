@@ -1,0 +1,39 @@
+# jobs_homog.txt - Section 3.1 (homogeneous aquifers): Report 4 models, samples x optimizer grid.
+#
+# Run on the remote:   run.bat jobs_homog.txt
+# Then on the laptop:  git pull  and  python code/homogeneous_cfl/summarize_grid.py
+#
+# Networks are the Report 4 ones, unchanged:
+#   PARA-PINN [3,16,16,16,16,1];  PINO branch [1,16,16,16] (CFL) + trunk [2,16,16,16], q = 16.
+# Varied: CFL training samples {50, 100} x optimizer {L-BFGS Report 4, L-BFGS paper, SOAP paper}.
+# Fixed:  uniform 50 x 50 (x*, t*) grid per sample + 50 IC / 50 inlet / 50 outlet points per sample,
+#         float64, Xavier init, equal loss weights, seed 1234567, same machine for every run.
+# Every run writes code/homogeneous_cfl/grid_results/<run>/ : run_meta.json (settings, wall-clock,
+# steps, device), test_errors.csv (40 held-out CFL values, each >= 0.0023 from any training value, vs Ogata-Banks at 101 positions x 5 times),
+# loss_history.csv, model .pt, three PNGs (200 dpi).
+# Order: E0 (no training), then cheapest to most expensive optimizer.
+
+# --- E0: saved April (Report 4) models, inference only ---
+code/homogeneous_cfl/eval_saved_models.py
+
+# --- L-BFGS, Report 4 recipe: lr 1.0, max_iter 1, 1000 fixed steps, no early stop ---
+code/homogeneous_cfl/parametric_cfl_pinn/pinn1d_cfl_pe_parametric_pinn.py --run-name H01_pinn_n50_lbfgsR4 --n-cfl 50 --optimizer lbfgs --lr-lbfgs 1.0 --lbfgs-max-iter 1 --lbfgs-history-size 50 --epochs 1000 --early-stop-patience 0 --seed 1234567 --plot-dpi 200
+code/homogeneous_cfl/pino_cfl/pinn1d_cfl_pe_parametric_neural_operator.py --run-name H02_pino_n50_lbfgsR4 --n-cfl 50 --optimizer lbfgs --lr-lbfgs 1.0 --lbfgs-max-iter 1 --lbfgs-history-size 50 --epochs 1000 --early-stop-patience 0 --seed 1234567 --plot-dpi 200
+code/homogeneous_cfl/parametric_cfl_pinn/pinn1d_cfl_pe_parametric_pinn.py --run-name H03_pinn_n100_lbfgsR4 --n-cfl 100 --optimizer lbfgs --lr-lbfgs 1.0 --lbfgs-max-iter 1 --lbfgs-history-size 50 --epochs 1000 --early-stop-patience 0 --seed 1234567 --plot-dpi 200
+code/homogeneous_cfl/pino_cfl/pinn1d_cfl_pe_parametric_neural_operator.py --run-name H04_pino_n100_lbfgsR4 --n-cfl 100 --optimizer lbfgs --lr-lbfgs 1.0 --lbfgs-max-iter 1 --lbfgs-history-size 50 --epochs 1000 --early-stop-patience 0 --seed 1234567 --plot-dpi 200
+
+# --- L-BFGS, paper recipe: lr 0.1, max_iter 20, history 50, <= 1000 steps, patience 150 ---
+code/homogeneous_cfl/parametric_cfl_pinn/pinn1d_cfl_pe_parametric_pinn.py --run-name H05_pinn_n50_lbfgsP --n-cfl 50 --optimizer lbfgs --lr-lbfgs 0.1 --lbfgs-max-iter 20 --lbfgs-history-size 50 --epochs 1000 --early-stop-patience 150 --seed 1234567 --plot-dpi 200
+code/homogeneous_cfl/pino_cfl/pinn1d_cfl_pe_parametric_neural_operator.py --run-name H06_pino_n50_lbfgsP --n-cfl 50 --optimizer lbfgs --lr-lbfgs 0.1 --lbfgs-max-iter 20 --lbfgs-history-size 50 --epochs 1000 --early-stop-patience 150 --seed 1234567 --plot-dpi 200
+code/homogeneous_cfl/parametric_cfl_pinn/pinn1d_cfl_pe_parametric_pinn.py --run-name H07_pinn_n100_lbfgsP --n-cfl 100 --optimizer lbfgs --lr-lbfgs 0.1 --lbfgs-max-iter 20 --lbfgs-history-size 50 --epochs 1000 --early-stop-patience 150 --seed 1234567 --plot-dpi 200
+code/homogeneous_cfl/pino_cfl/pinn1d_cfl_pe_parametric_neural_operator.py --run-name H08_pino_n100_lbfgsP --n-cfl 100 --optimizer lbfgs --lr-lbfgs 0.1 --lbfgs-max-iter 20 --lbfgs-history-size 50 --epochs 1000 --early-stop-patience 150 --seed 1234567 --plot-dpi 200
+
+# --- SOAP, paper recipe: lr 3e-3, betas 0.95, weight decay 0.01, precond 100, <= 25000 steps, patience 150 ---
+code/homogeneous_cfl/parametric_cfl_pinn/pinn1d_cfl_pe_parametric_pinn.py --run-name H09_pinn_n50_soap --n-cfl 50 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-epochs 25000 --early-stop-patience 150 --seed 1234567 --plot-dpi 200
+code/homogeneous_cfl/pino_cfl/pinn1d_cfl_pe_parametric_neural_operator.py --run-name H10_pino_n50_soap --n-cfl 50 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-epochs 25000 --early-stop-patience 150 --seed 1234567 --plot-dpi 200
+code/homogeneous_cfl/parametric_cfl_pinn/pinn1d_cfl_pe_parametric_pinn.py --run-name H11_pinn_n100_soap --n-cfl 100 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-epochs 25000 --early-stop-patience 150 --seed 1234567 --plot-dpi 200
+code/homogeneous_cfl/pino_cfl/pinn1d_cfl_pe_parametric_neural_operator.py --run-name H12_pino_n100_soap --n-cfl 100 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-epochs 25000 --early-stop-patience 150 --seed 1234567 --plot-dpi 200
+
+# --- Afterwards: two more seeds for the winning pair (edit the flags to the winning cell) ---
+# code/homogeneous_cfl/parametric_cfl_pinn/pinn1d_cfl_pe_parametric_pinn.py --run-name H13_pinn_<cell>_s2 ... --seed 2
+# code/homogeneous_cfl/pino_cfl/pinn1d_cfl_pe_parametric_neural_operator.py --run-name H14_pino_<cell>_s2 ... --seed 2
