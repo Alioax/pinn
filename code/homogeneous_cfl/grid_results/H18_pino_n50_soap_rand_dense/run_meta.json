@@ -1,0 +1,106 @@
+{
+  "run_name": "H18_pino_n50_soap_rand_dense",
+  "model": "PINO",
+  "script": "pino_cfl\\pinn1d_cfl_pe_parametric_neural_operator.py",
+  "finished": "2026-10-05 17:50:32",
+  "architecture": {
+    "branch": [
+      1,
+      16,
+      16,
+      16
+    ],
+    "trunk": [
+      2,
+      16,
+      16,
+      16
+    ],
+    "latent_q": 16,
+    "branch_input": "CFL (one value, constant field)"
+  },
+  "activation": "tanh, sigmoid on the branch-trunk dot product",
+  "n_params": 1168,
+  "dtype": "torch.float64",
+  "seed": 1234567,
+  "n_cfl_samples": 50,
+  "cfl_range": [
+    0.12,
+    0.6
+  ],
+  "beta": 0.010367999999999999,
+  "collocation": {
+    "n_pde": 125000,
+    "n_ic": 2500,
+    "n_inlet": 2500,
+    "n_outlet": 2500,
+    "grid": "50 x 50 x 50 (x*, t*, CFL), uniform",
+    "resample_every": 1,
+    "random_draws": 20000,
+    "dense_final_steps": 5000,
+    "dense_mesh": "150 x 150 x 50",
+    "dense_from_step": 20001
+  },
+  "loss_weights": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "optimizer": "soap",
+  "steps_requested": 25000,
+  "steps_actual": 22417,
+  "early_stop_patience": 150,
+  "early_stopped": true,
+  "gradient_evaluations": 22417,
+  "train_wall_clock_s": 1603.249,
+  "train_s_per_step": 0.071519,
+  "final_loss": {
+    "total": 0.004443561020137113,
+    "pde": 0.00025704996624999156,
+    "ic": 0.001983635063378555,
+    "inlet": 0.0022028443709352,
+    "outlet": 3.1619573365965416e-08
+  },
+  "best_total_loss": 0.004298586651523028,
+  "eval_every": 1000,
+  "eval_wall_clock_s": 3.675,
+  "best_logged_step": 6000,
+  "best_logged_rel_l2_median": 0.01757793239093664,
+  "best_logged_rel_l2_max": 0.033822808656465905,
+  "soap_lr": 0.003,
+  "soap_betas": [
+    0.95,
+    0.95
+  ],
+  "soap_weight_decay": 0.01,
+  "soap_precond_freq": 100,
+  "test_n_cfl": 40,
+  "test_cfl_range": [
+    0.1224,
+    0.5975999999999999
+  ],
+  "test_min_distance_to_training_cfl": 0.0023648484848484697,
+  "test_times_d": [
+    100.0,
+    300.0,
+    600.0,
+    900.0,
+    1200.0
+  ],
+  "test_n_positions": 101,
+  "rel_l2_median": 0.02176673641544221,
+  "rel_l2_max": 0.03558419896235103,
+  "rel_l2_mean": 0.02263542731746278,
+  "rel_l2_min": 0.014698033580961473,
+  "cfl_at_max": 0.1224,
+  "script_wall_clock_s": 1612.527,
+  "environment": {
+    "device": "cuda:0",
+    "torch": "2.12.0+cu126",
+    "python": "3.14.5",
+    "host": "ites-0008",
+    "cpu_threads": 10,
+    "gpu": "NVIDIA GeForce RTX 3090"
+  }
+}

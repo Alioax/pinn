@@ -1,0 +1,10 @@
+run 20261005_161733
+jobs file: jobs_homog_colloc.txt
+result: all 4 ok
+4/4 script(s) succeeded
+
+  #        status   elapsed  script
+01            ok   0:22:53  code/homogeneous_cfl/parametric_cfl_pinn/pinn1d_cfl_pe_parametric_pinn.py
+02            ok   0:22:14  code/homogeneous_cfl/pino_cfl/pinn1d_cfl_pe_parametric_neural_operator.py
+03            ok   0:20:55  code/homogeneous_cfl/parametric_cfl_pinn/pinn1d_cfl_pe_parametric_pinn.py
+04            ok   0:26:56  code/homogeneous_cfl/pino_cfl/pinn1d_cfl_pe_parametric_neural_operator.py
