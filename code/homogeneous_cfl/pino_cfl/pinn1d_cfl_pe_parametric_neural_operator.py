@@ -217,7 +217,15 @@ def compute_loss():
     return total_loss, metrics
 
 
-obj, train_info = H.train(model, compute_loss, args, device, DTYPE)
+
+
+def predict_fn(x, t, cfl):
+    """C* at (x*, t*) for one CFL value (constant field on the sensors), used by the held-out test."""
+    return model(x, t, torch.full((x.shape[0], sensor_count), cfl, dtype=x.dtype, device=x.device))
+
+
+obj, train_info = H.train(model, compute_loss, args, device, DTYPE, predict=predict_fn)
+eval_history = train_info.pop("eval_history", None)
 
 # =============================================================================
 # Collocation figure
@@ -344,11 +352,7 @@ print("Saved:", conc_path, os.path.join(results_dir, "pino_cfl_collocation_point
 # Held-out test against Ogata-Banks (same protocol for every run) + run_meta.json
 # =============================================================================
 model.eval()
-test_rows, test_summary = H.evaluate(
-    lambda x, t, cfl: model(x, t, torch.full((x.shape[0], sensor_count), cfl, dtype=x.dtype, device=x.device)),
-    device,
-    DTYPE,
-)
+test_rows, test_summary = H.evaluate(predict_fn, device, DTYPE)
 meta = {
     "run_name": args.run_name or "report4_default",
     "model": "PINO",
@@ -372,5 +376,5 @@ meta = {
     "script_wall_clock_s": round(time.perf_counter() - script_t0, 3),
     "environment": H.environment(device),
 }
-H.write_outputs(results_dir, meta, test_rows, obj)
+H.write_outputs(results_dir, meta, test_rows, obj, eval_history)
 H.print_summary(meta["run_name"], test_summary, train_info)

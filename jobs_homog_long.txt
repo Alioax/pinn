@@ -1,0 +1,13 @@
+# jobs_homog_long.txt - Section 3.1: does longer training help? Best recipe, no early stopping.
+#
+# Run on the remote:   git pull   then   .\run.bat jobs_homog_long.txt
+# Then on the laptop:  git pull  and  python code/homogeneous_cfl/summarize_grid.py
+#
+# Same as H09 (PINN) and H10 (PINO): Report 4 networks, 50 CFL samples, SOAP (lr 3e-3, betas 0.95,
+# weight decay 0.01, preconditioner every 100 steps), float64, seed 1234567 - but a fixed 25,000 steps
+# with no early stopping. The held-out test error is logged every 1,000 steps to
+# grid_results/<run>/test_error_history.csv (evaluation time is excluded from the training time).
+# About 25 min per run on the RTX 3090.
+
+code/homogeneous_cfl/parametric_cfl_pinn/pinn1d_cfl_pe_parametric_pinn.py --run-name H13_pinn_n50_soap_long --n-cfl 50 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-epochs 25000 --early-stop-patience 0 --eval-every 1000 --seed 1234567 --plot-dpi 200
+code/homogeneous_cfl/pino_cfl/pinn1d_cfl_pe_parametric_neural_operator.py --run-name H14_pino_n50_soap_long --n-cfl 50 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-epochs 25000 --early-stop-patience 0 --eval-every 1000 --seed 1234567 --plot-dpi 200

@@ -168,6 +168,9 @@ def parse_args(description: str) -> argparse.Namespace:
                    help="stop after N steps without total-loss improvement (0 = off)")
     p.add_argument("--seed", type=int, default=1234567)
     p.add_argument("--plot-dpi", type=int, default=800)
+    p.add_argument("--eval-every", type=int, default=0,
+                   help="also compute the held-out test error every N steps and at the last step "
+                        "(written to test_error_history.csv; excluded from the training time; 0 = off)")
     return p.parse_args()
 
 
@@ -199,10 +202,13 @@ def _sync(device):
         torch.cuda.synchronize(device)
 
 
-def train(model, compute_loss, args, device, dtype):
+def train(model, compute_loss, args, device, dtype, predict=None):
     """compute_loss() -> (total_loss tensor, metrics tuple (total, pde, ic, inlet, outlet)).
+    predict(x, t, cfl) -> C*, used only for the optional test-error log (--eval-every).
 
-    Returns (history, info). The trained model is the final state, as in the heterogeneous runs."""
+    Returns (history, info). The trained model is the final state, as in the heterogeneous runs.
+    With --eval-every, info["eval_history"] holds the test error every N steps; the time spent on
+    these evaluations is measured and removed from the training time."""
     patience = args.early_stop_patience
     stop_rtol = (1e-12 if dtype == torch.float64 else 1e-8) if patience > 0 else 0.0
     history, best, stale, early, grad_evals = [], float("inf"), 0, False, 0
@@ -234,6 +240,24 @@ def train(model, compute_loss, args, device, dtype):
         t_bar.refresh()
         return total_loss
 
+    eval_every = getattr(args, "eval_every", 0) if predict is not None else 0
+    eval_history, eval_s = [], 0.0
+
+    def log_test_error(step_done):
+        nonlocal eval_s
+        _sync(device); te = time.perf_counter()
+        model.eval()
+        rows, summ = evaluate(predict, device, dtype)
+        model.train()
+        h = history[-1]
+        rec = {"step": step_done, "total_loss": h[0], "pde_loss": h[1],
+               "rel_l2_median": summ["rel_l2_median"], "rel_l2_max": summ["rel_l2_max"],
+               "rel_l2_mean": summ["rel_l2_mean"]}
+        for t_d in EVAL_TIMES_D:
+            rec[f"median_t{int(t_d)}d"] = float(np.median([r[f"rel_l2_t{int(t_d)}d"] for r in rows]))
+        eval_history.append(rec)
+        _sync(device); eval_s += time.perf_counter() - te
+
     _sync(device)
     t0 = time.perf_counter()
     for step in t_bar:
@@ -245,6 +269,8 @@ def train(model, compute_loss, args, device, dtype):
             optimizer.step()
         metrics = closure.latest
         history.append(list(metrics))
+        if eval_every > 0 and (step + 1) % eval_every == 0:
+            log_test_error(step + 1)
         if _loss_improved(metrics[0], best, stop_rtol):
             best, stale = metrics[0], 0
         else:
@@ -255,8 +281,10 @@ def train(model, compute_loss, args, device, dtype):
                       f"for {patience} steps (best={best:.6e}).")
                 break
     t_bar.close()
+    if eval_every > 0 and (not eval_history or eval_history[-1]["step"] != len(history)):
+        log_test_error(len(history))
     _sync(device)
-    train_s = time.perf_counter() - t0
+    train_s = time.perf_counter() - t0 - eval_s
 
     info = {
         "optimizer": args.optimizer,
@@ -270,6 +298,11 @@ def train(model, compute_loss, args, device, dtype):
         "final_loss": dict(zip(["total", "pde", "ic", "inlet", "outlet"], history[-1])) if history else None,
         "best_total_loss": best,
     }
+    if eval_every > 0:
+        best_e = min(eval_history, key=lambda r: r["rel_l2_median"])
+        info.update(eval_every=eval_every, eval_wall_clock_s=round(eval_s, 3),
+                    best_logged_step=best_e["step"], best_logged_rel_l2_median=best_e["rel_l2_median"],
+                    best_logged_rel_l2_max=best_e["rel_l2_max"], eval_history=eval_history)
     if args.optimizer == "lbfgs":
         info.update(lbfgs_lr=args.lr_lbfgs, lbfgs_max_iter=args.lbfgs_max_iter,
                     lbfgs_history_size=args.lbfgs_history_size, lbfgs_line_search="strong_wolfe")
@@ -342,13 +375,18 @@ def environment(device) -> dict:
     return env
 
 
-def write_outputs(out_dir, meta, rows, history=None):
+def write_outputs(out_dir, meta, rows, history=None, eval_history=None):
     with open(os.path.join(out_dir, "run_meta.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
     with open(os.path.join(out_dir, "test_errors.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader()
         w.writerows(rows)
+    if eval_history:
+        with open(os.path.join(out_dir, "test_error_history.csv"), "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=list(eval_history[0].keys()))
+            w.writeheader()
+            w.writerows(eval_history)
     if history:
         with open(os.path.join(out_dir, "loss_history.csv"), "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f)

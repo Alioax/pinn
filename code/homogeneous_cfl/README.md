@@ -22,8 +22,12 @@ is in `homog_common.py`; SOAP is `../heterogeneous/utils/soap.py`.
 | `eval_saved_models.py` | E0: test the saved April models, no training |
 | `summarize_grid.py` | collect `grid_results/*/run_meta.json` into `grid_summary.csv` / `.md` |
 | `../../jobs_homog.txt` | E0 + H01-H12 (samples {50, 100} x optimizer {L-BFGS Report 4, L-BFGS paper, SOAP}) |
+| `../../jobs_homog_long.txt` | H13-H14: PINN and PINO, SOAP, 50 samples, 25,000 steps without early stopping, test error logged every 1,000 steps |
 
 Run on the remote with `run.bat jobs_homog.txt`; after `git pull`, run `python code/homogeneous_cfl/summarize_grid.py`.
 Each run writes `grid_results/<run>/`: `run_meta.json` (all settings, wall-clock, steps, device),
 `test_errors.csv` (40 held-out CFL values vs Ogata-Banks at 101 positions x 5 output times),
 `loss_history.csv`, the model and three PNGs.
+
+`--eval-every N` logs the held-out test error every N steps (`test_error_history.csv`); it does not change training
+and its time is excluded from the reported training time.
