@@ -1,0 +1,21 @@
+# jobs_homog_colloc.txt - Section 3.1: where the collocation points go (last homogeneous experiment).
+#
+# Run on the remote:   git pull   then   .\run.bat jobs_homog_colloc.txt
+# Then on the laptop:  git pull
+#
+# Same networks and SOAP settings as H13/H14 (50 CFL samples, lr 3e-3, betas 0.95, weight decay 0.01,
+# preconditioner every 100 steps, float64, seed 1234567), 25,000 steps, held-out test error logged every
+# 1,000 steps. Only the collocation points change:
+#
+#   H15/H16  fixed mesh: 50 uniform x* levels x 50 time levels t*_k = (k/49)^2, both ends included
+#            (uniform in sqrt(t), the scaling of the front width 2 sqrt(D t)): 15 levels in the first 100 d,
+#            spacing 0.5 d growing to 13.5 d, then up to 48.5 d at the end. Inlet/outlet use the same
+#            time levels. No early stopping, as H13/H14. About 25 min per run.
+#   H17/H18  steps 1-20,000: new uniform random 50 x 50 (x*, t*) points per CFL sample at every step
+#            (IC and boundary points too); steps 20,001-25,000: fixed uniform 150 x 150 mesh per CFL
+#            sample, with early stopping (patience 150) in this phase only. Up to about 1 h per run.
+
+code/homogeneous_cfl/parametric_cfl_pinn/pinn1d_cfl_pe_parametric_pinn.py --run-name H15_pinn_n50_soap_sqrt_t --n-cfl 50 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-epochs 25000 --early-stop-patience 0 --t-levels sqrt --eval-every 1000 --seed 1234567 --plot-dpi 200
+code/homogeneous_cfl/pino_cfl/pinn1d_cfl_pe_parametric_neural_operator.py --run-name H16_pino_n50_soap_sqrt_t --n-cfl 50 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-epochs 25000 --early-stop-patience 0 --t-levels sqrt --eval-every 1000 --seed 1234567 --plot-dpi 200
+code/homogeneous_cfl/parametric_cfl_pinn/pinn1d_cfl_pe_parametric_pinn.py --run-name H17_pinn_n50_soap_rand_dense --n-cfl 50 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-epochs 25000 --resample-every 1 --dense-final-steps 5000 --dense-n 150 --early-stop-patience 150 --eval-every 1000 --seed 1234567 --plot-dpi 200
+code/homogeneous_cfl/pino_cfl/pinn1d_cfl_pe_parametric_neural_operator.py --run-name H18_pino_n50_soap_rand_dense --n-cfl 50 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-epochs 25000 --resample-every 1 --dense-final-steps 5000 --dense-n 150 --early-stop-patience 150 --eval-every 1000 --seed 1234567 --plot-dpi 200

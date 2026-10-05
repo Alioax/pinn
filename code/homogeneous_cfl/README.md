@@ -23,6 +23,7 @@ is in `homog_common.py`; SOAP is `../heterogeneous/utils/soap.py`.
 | `summarize_grid.py` | collect `grid_results/*/run_meta.json` into `grid_summary.csv` / `.md` |
 | `../../jobs_homog.txt` | E0 + H01-H12 (samples {50, 100} x optimizer {L-BFGS Report 4, L-BFGS paper, SOAP}) |
 | `../../jobs_homog_long.txt` | H13-H14: PINN and PINO, SOAP, 50 samples, 25,000 steps without early stopping, test error logged every 1,000 steps |
+| `../../jobs_homog_colloc.txt` | H15-H18: as H13-H14 but with the collocation changed: sqrt-spaced time levels (H15-H16); random points every step, then a dense 150 x 150 mesh with early stopping (H17-H18) |
 
 Run on the remote with `run.bat jobs_homog.txt`; after `git pull`, run `python code/homogeneous_cfl/summarize_grid.py`.
 Each run writes `grid_results/<run>/`: `run_meta.json` (all settings, wall-clock, steps, device),
@@ -31,3 +32,8 @@ Each run writes `grid_results/<run>/`: `run_meta.json` (all settings, wall-clock
 
 `--eval-every N` logs the held-out test error every N steps (`test_error_history.csv`); it does not change training
 and its time is excluded from the reported training time.
+
+Collocation flags (defaults keep the fixed uniform Report 4 mesh): `--t-levels sqrt` places the time levels of the
+PDE and boundary meshes at t*_k = (k/(n-1))^2; `--resample-every N` draws new uniform random (x*, t*) points for all
+loss terms every N steps; `--dense-final-steps N --dense-n M` trains the last N steps on a fixed uniform M x M mesh
+per CFL sample, and early stopping then applies only to that phase. The random and dense options need SOAP.

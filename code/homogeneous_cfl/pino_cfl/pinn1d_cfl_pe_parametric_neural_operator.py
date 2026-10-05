@@ -140,7 +140,7 @@ cfl_bc_1d = np.linspace(cfl_min, cfl_max, mesh_bc_ncfl)
 
 
 x_1d = np.linspace(0.0, 1.0, mesh_nx_pde)
-t_1d = np.linspace(0.0, tf, mesh_nt_pde)
+t_1d = H.time_levels(mesh_nt_pde, args.t_levels)   # uniform = Report 4
 icfl_1d = np.arange(mesh_ncfl_pde, dtype=np.int64)
 gx, gt, gcfl = np.meshgrid(x_1d, t_1d, cfl_1d, indexing="ij")
 _, _, gil = np.meshgrid(x_1d, t_1d, icfl_1d, indexing="ij")
@@ -156,7 +156,7 @@ x_star_ic_np = gxi.reshape(-1)
 t_star_ic_np = np.zeros_like(x_star_ic_np)
 cfl_ic_np = gcfli.reshape(-1)
 
-t_bc_1d = np.linspace(0.0, tf, mesh_bc_nt)
+t_bc_1d = H.time_levels(mesh_bc_nt, args.t_levels)
 gtb, gcfb = np.meshgrid(t_bc_1d, cfl_bc_1d, indexing="ij")
 t_star_inlet_np = gtb.reshape(-1)
 cfl_inlet_np = gcfb.reshape(-1)
@@ -184,6 +184,20 @@ train_x_out = torch.tensor(x_star_outlet_np.reshape(-1, 1), dtype=DTYPE, device=
 train_t_out = torch.tensor(t_star_outlet_np.reshape(-1, 1), dtype=DTYPE, device=device)
 train_cfl_out = torch.tensor(cfl_outlet_np.reshape(-1, 1), dtype=DTYPE, device=device)
 branch_out = train_cfl_out.expand(-1, sensor_count)
+
+
+def set_points(points):
+    """Swap the training points (random resampling / dense final mesh); compute_loss reads these globals."""
+    global train_x_pde, train_t_pde, train_cfl_pde, train_x_ic, train_t_ic, train_cfl_ic
+    global train_x_in, train_t_in, train_cfl_in, train_x_out, train_t_out, train_cfl_out
+    (train_x_pde, train_t_pde, train_cfl_pde, train_x_ic, train_t_ic, train_cfl_ic,
+     train_x_in, train_t_in, train_cfl_in, train_x_out, train_t_out, train_cfl_out) = points
+    global branch_pde, branch_ic, branch_in, branch_out
+    branch_pde, branch_ic, branch_in, branch_out = (c.expand(-1, sensor_count) for c in
+                                                    (train_cfl_pde, train_cfl_ic, train_cfl_in, train_cfl_out))
+
+
+schedule = H.CollocationSchedule(args, cfl_1d, mesh_nx_pde, mesh_nt_pde, device, DTYPE, set_points)
 
 # =============================================================================
 # Train
@@ -224,7 +238,7 @@ def predict_fn(x, t, cfl):
     return model(x, t, torch.full((x.shape[0], sensor_count), cfl, dtype=x.dtype, device=x.device))
 
 
-obj, train_info = H.train(model, compute_loss, args, device, DTYPE, predict=predict_fn)
+obj, train_info = H.train(model, compute_loss, args, device, DTYPE, predict=predict_fn, on_step=schedule)
 eval_history = train_info.pop("eval_history", None)
 
 # =============================================================================
@@ -369,7 +383,9 @@ meta = {
     "beta": PE,
     "collocation": {"n_pde": int(x_star_pde_np.size), "n_ic": int(x_star_ic_np.size),
                     "n_inlet": int(x_star_inlet_np.size), "n_outlet": int(x_star_outlet_np.size),
-                    "grid": f"{mesh_nx_pde} x {mesh_nt_pde} x {mesh_ncfl_pde} (x*, t*, CFL), uniform"},
+                    "grid": f"{mesh_nx_pde} x {mesh_nt_pde} x {mesh_ncfl_pde} (x*, t*, CFL), "
+                            + ("uniform" if args.t_levels == "uniform" else "uniform x*, t*_k = (k/(n-1))^2"),
+                    **schedule.describe()},
     "loss_weights": [weight_pde, weight_ic, weight_inlet_bc, weight_outlet_bc],
     **train_info,
     **test_summary,

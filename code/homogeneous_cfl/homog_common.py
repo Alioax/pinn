@@ -168,6 +168,16 @@ def parse_args(description: str) -> argparse.Namespace:
                    help="stop after N steps without total-loss improvement (0 = off)")
     p.add_argument("--seed", type=int, default=1234567)
     p.add_argument("--plot-dpi", type=int, default=800)
+    p.add_argument("--t-levels", choices=["uniform", "sqrt"], default="uniform",
+                   help="time levels of the fixed PDE and boundary meshes: uniform (Report 4) or "
+                        "sqrt, t*_k = (k/(n-1))^2 (dense early, sparse late; see time_levels)")
+    p.add_argument("--resample-every", type=int, default=0,
+                   help="SOAP only: draw new uniform random (x*, t*) points for the PDE, IC and boundary "
+                        "terms every N steps, same counts per CFL sample as the mesh (0 = fixed mesh)")
+    p.add_argument("--dense-final-steps", type=int, default=0,
+                   help="SOAP only: train the last N of --soap-epochs steps on a fixed uniform mesh with "
+                        "--dense-n points per axis; early stopping, if on, applies only in this phase")
+    p.add_argument("--dense-n", type=int, default=150, help="points per axis of the dense final mesh")
     p.add_argument("--eval-every", type=int, default=0,
                    help="also compute the held-out test error every N steps and at the last step "
                         "(written to test_error_history.csv; excluded from the training time; 0 = off)")
@@ -178,6 +188,92 @@ def output_dir(args, default_results_dir: str) -> str:
     out = default_results_dir if args.run_name is None else os.path.join(GRID_DIR, args.run_name)
     os.makedirs(out, exist_ok=True)
     return out
+
+
+# -----------------------------------------------------------------------------
+# Collocation: time levels, random resampling, dense final mesh
+# -----------------------------------------------------------------------------
+def time_levels(n: int, kind: str = "uniform") -> np.ndarray:
+    """n time levels t* in [0, 1], both ends included.
+
+    uniform: np.linspace(0, 1, n), as in Report 4 (24.5 d spacing for n = 50).
+    sqrt:    t*_k = (k / (n - 1))^2, i.e. uniform in sqrt(t*). The front spreads as 2 sqrt(D t), so equal
+             steps in sqrt(t) give each time interval the same growth of the front width: the levels are
+             dense while the front is sharp and sparse once it is wide. For n = 50: 15 levels in the first
+             100 d (spacing 0.5 d growing to 13.5 d), then 13.5 d growing to 48.5 d at the end."""
+    if kind == "uniform":
+        return np.linspace(0.0, 1.0, n)
+    if kind == "sqrt":
+        return (np.arange(n, dtype=np.float64) / (n - 1)) ** 2
+    raise ValueError(kind)
+
+
+class CollocationSchedule:
+    """Called by train() before every step; swaps the training points through set_points(points), where
+    points = (x_pde, t_pde, cfl_pde, x_ic, t_ic, cfl_ic, x_in, t_in, cfl_in, x_out, t_out, cfl_out),
+    all (n, 1) tensors (x_pde, t_pde with requires_grad). Without --resample-every / --dense-final-steps
+    it does nothing and the script's fixed mesh is used throughout."""
+
+    def __init__(self, args, cfl_1d, n_x, n_t, device, dtype, set_points):
+        self.resample = getattr(args, "resample_every", 0)
+        self.dense = getattr(args, "dense_final_steps", 0)
+        if (self.resample or self.dense) and args.optimizer != "soap":
+            raise SystemExit("--resample-every / --dense-final-steps need --optimizer soap "
+                             "(L-BFGS assumes a fixed objective)")
+        self.n_steps = args.soap_epochs if args.optimizer == "soap" else args.epochs
+        if self.dense >= self.n_steps:
+            raise SystemExit("--dense-final-steps must be smaller than --soap-epochs")
+        self.dense_start = self.n_steps - self.dense if self.dense else self.n_steps
+        self.dense_n = getattr(args, "dense_n", 150)
+        self.cfl = torch.tensor(np.asarray(cfl_1d), dtype=dtype, device=device)
+        self.n_x, self.n_t, self.device, self.dtype = n_x, n_t, device, dtype
+        self.set_points = set_points
+        self.gen = torch.Generator(device=device)
+        self.gen.manual_seed(int(args.seed) + 1)       # separate stream: network init is unchanged
+        self.n_draws = 0
+
+    def _col(self, a, grad=False):
+        return a.reshape(-1, 1).to(self.dtype).requires_grad_(grad)
+
+    def _random(self):
+        nc, n_pde = self.cfl.numel(), self.n_x * self.n_t
+        r = lambda n: torch.rand(n, generator=self.gen, dtype=self.dtype, device=self.device)
+        x, t = r(nc * n_pde), r(nc * n_pde)
+        c_pde = self.cfl.repeat_interleave(n_pde)
+        x_ic, c_ic = r(nc * self.n_x), self.cfl.repeat_interleave(self.n_x)
+        t_bc, c_bc = r(nc * self.n_t), self.cfl.repeat_interleave(self.n_t)
+        z = torch.zeros_like
+        return (self._col(x, True), self._col(t, True), self._col(c_pde),
+                self._col(x_ic), self._col(z(x_ic)), self._col(c_ic),
+                self._col(z(t_bc)), self._col(t_bc), self._col(c_bc),
+                self._col(z(t_bc) + 1.0), self._col(t_bc.clone()), self._col(c_bc.clone()))
+
+    def _mesh(self, n):
+        """Uniform n x n mesh per CFL sample, ends included, same layout as the scripts' mesh."""
+        g = torch.linspace(0.0, 1.0, n, dtype=self.dtype, device=self.device)
+        gx, gt, gc = torch.meshgrid(g, g, self.cfl, indexing="ij")
+        gxi, gci = torch.meshgrid(g, self.cfl, indexing="ij")
+        gtb, gcb = torch.meshgrid(g, self.cfl, indexing="ij")
+        z = torch.zeros_like
+        return (self._col(gx, True), self._col(gt, True), self._col(gc),
+                self._col(gxi), self._col(z(gxi)), self._col(gci),
+                self._col(z(gtb)), self._col(gtb), self._col(gcb),
+                self._col(z(gtb) + 1.0), self._col(gtb.clone()), self._col(gcb.clone()))
+
+    def __call__(self, step):
+        if self.dense and step == self.dense_start:
+            self.set_points(self._mesh(self.dense_n))
+            print(f"\nStep {step + 1}: dense final mesh {self.dense_n} x {self.dense_n} x {self.cfl.numel()}")
+        elif self.resample and step < self.dense_start and step % self.resample == 0:
+            self.set_points(self._random())
+            self.n_draws += 1
+
+    def describe(self):
+        d = {"resample_every": self.resample, "random_draws": self.n_draws}
+        if self.dense:
+            d.update(dense_final_steps=self.dense, dense_mesh=f"{self.dense_n} x {self.dense_n} x {self.cfl.numel()}",
+                     dense_from_step=self.dense_start + 1)
+        return d
 
 
 # -----------------------------------------------------------------------------
@@ -202,13 +298,15 @@ def _sync(device):
         torch.cuda.synchronize(device)
 
 
-def train(model, compute_loss, args, device, dtype, predict=None):
+def train(model, compute_loss, args, device, dtype, predict=None, on_step=None):
     """compute_loss() -> (total_loss tensor, metrics tuple (total, pde, ic, inlet, outlet)).
     predict(x, t, cfl) -> C*, used only for the optional test-error log (--eval-every).
 
     Returns (history, info). The trained model is the final state, as in the heterogeneous runs.
     With --eval-every, info["eval_history"] holds the test error every N steps; the time spent on
-    these evaluations is measured and removed from the training time."""
+    these evaluations is measured and removed from the training time.
+    on_step(step) is called before every step (CollocationSchedule). With --dense-final-steps, early
+    stopping and the best-loss record start when the dense mesh does."""
     patience = args.early_stop_patience
     stop_rtol = (1e-12 if dtype == torch.float64 else 1e-8) if patience > 0 else 0.0
     history, best, stale, early, grad_evals = [], float("inf"), 0, False, 0
@@ -224,6 +322,8 @@ def train(model, compute_loss, args, device, dtype, predict=None):
                                  precondition_frequency=args.soap_precond_freq)
         n_steps = args.soap_epochs
     print(optimizer)
+    dense = getattr(args, "dense_final_steps", 0)
+    es_from = n_steps - dense if dense else 0
     if patience > 0:
         print(f"Early stopping: patience={patience} steps (no total-loss improvement, rtol={stop_rtol:g})")
 
@@ -261,6 +361,10 @@ def train(model, compute_loss, args, device, dtype, predict=None):
     _sync(device)
     t0 = time.perf_counter()
     for step in t_bar:
+        if on_step is not None:
+            on_step(step)
+        if es_from and step == es_from:
+            best, stale = float("inf"), 0
         model.train()
         if args.optimizer == "lbfgs":
             optimizer.step(closure)
@@ -275,7 +379,7 @@ def train(model, compute_loss, args, device, dtype, predict=None):
             best, stale = metrics[0], 0
         else:
             stale += 1
-            if patience > 0 and stale >= patience:
+            if patience > 0 and step >= es_from and stale >= patience:
                 early = True
                 print(f"\nEarly stopping at step {step + 1}/{n_steps}: total loss unchanged "
                       f"for {patience} steps (best={best:.6e}).")
