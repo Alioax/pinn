@@ -1,0 +1,96 @@
+{
+  "run_name": "H19_pinn_n50_soap_long_nocorner",
+  "model": "PARA-PINN",
+  "script": "parametric_cfl_pinn\\pinn1d_cfl_pe_parametric_pinn.py",
+  "finished": "2026-10-06 09:52:44",
+  "architecture": [
+    3,
+    16,
+    16,
+    16,
+    16,
+    1
+  ],
+  "activation": "tanh, sigmoid output",
+  "n_params": 897,
+  "dtype": "torch.float64",
+  "seed": 1234567,
+  "n_cfl_samples": 50,
+  "cfl_range": [
+    0.12,
+    0.6
+  ],
+  "beta": 0.010367999999999999,
+  "collocation": {
+    "n_pde": 125000,
+    "n_ic": 2450,
+    "n_inlet": 2500,
+    "n_outlet": 2500,
+    "grid": "50 x 50 x 50 (x*, t*, CFL), uniform",
+    "ic_corner": "removed",
+    "resample_every": 0,
+    "random_draws": 0
+  },
+  "loss_weights": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "optimizer": "soap",
+  "steps_requested": 25000,
+  "steps_actual": 25000,
+  "early_stop_patience": 0,
+  "early_stopped": false,
+  "gradient_evaluations": 25000,
+  "train_wall_clock_s": 1464.152,
+  "train_s_per_step": 0.058566,
+  "final_loss": {
+    "total": 5.856584215582742e-06,
+    "pde": 5.37996222209379e-06,
+    "ic": 3.570380947176862e-07,
+    "inlet": 1.0028310058813912e-07,
+    "outlet": 1.9300798183126595e-08
+  },
+  "best_total_loss": 2.5967554445443415e-06,
+  "eval_every": 1000,
+  "eval_wall_clock_s": 3.745,
+  "best_logged_step": 1000,
+  "best_logged_rel_l2_median": 0.019866619834904606,
+  "best_logged_rel_l2_max": 0.028771199670776525,
+  "soap_lr": 0.003,
+  "soap_betas": [
+    0.95,
+    0.95
+  ],
+  "soap_weight_decay": 0.01,
+  "soap_precond_freq": 100,
+  "test_n_cfl": 40,
+  "test_cfl_range": [
+    0.1224,
+    0.5975999999999999
+  ],
+  "test_min_distance_to_training_cfl": 0.0023648484848484697,
+  "test_times_d": [
+    100.0,
+    300.0,
+    600.0,
+    900.0,
+    1200.0
+  ],
+  "test_n_positions": 101,
+  "rel_l2_median": 0.03944291619489203,
+  "rel_l2_max": 0.04902812511997598,
+  "rel_l2_mean": 0.03971954339868049,
+  "rel_l2_min": 0.03496785108938229,
+  "cfl_at_max": 0.1224,
+  "script_wall_clock_s": 1473.834,
+  "environment": {
+    "device": "cuda:0",
+    "torch": "2.12.0+cu126",
+    "python": "3.14.5",
+    "host": "ites-0008",
+    "cpu_threads": 10,
+    "gpu": "NVIDIA GeForce RTX 3090"
+  }
+}
