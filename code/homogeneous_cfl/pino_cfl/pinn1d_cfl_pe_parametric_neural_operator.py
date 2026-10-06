@@ -151,6 +151,8 @@ ilog_pde_flat = gil.reshape(-1)
 pde_colors = [f"C{int(i) % n_cycle_colors}" for i in ilog_pde_flat]
 
 x_ic_1d = np.linspace(0.0, 1.0, mesh_ic_nx)
+if args.ic_skip_corner:
+    x_ic_1d = x_ic_1d[1:]   # (0, 0) left to the inlet set (C* = 1); the IC no longer conflicts with it
 gxi, gcfli = np.meshgrid(x_ic_1d, cfl_ic_1d, indexing="ij")
 x_star_ic_np = gxi.reshape(-1)
 t_star_ic_np = np.zeros_like(x_star_ic_np)

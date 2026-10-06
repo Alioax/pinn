@@ -171,6 +171,9 @@ def parse_args(description: str) -> argparse.Namespace:
     p.add_argument("--t-levels", choices=["uniform", "sqrt"], default="uniform",
                    help="time levels of the fixed PDE and boundary meshes: uniform (Report 4) or "
                         "sqrt, t*_k = (k/(n-1))^2 (dense early, sparse late; see time_levels)")
+    p.add_argument("--ic-skip-corner", action="store_true",
+                   help="drop the point (x*=0, t*=0) from the initial-condition set; it stays in the PDE and inlet "
+                        "sets, so the inlet value C*=1 holds there and the two conditions no longer conflict")
     p.add_argument("--resample-every", type=int, default=0,
                    help="SOAP only: draw new uniform random (x*, t*) points for the PDE, IC and boundary "
                         "terms every N steps, same counts per CFL sample as the mesh (0 = fixed mesh)")
@@ -225,6 +228,7 @@ class CollocationSchedule:
             raise SystemExit("--dense-final-steps must be smaller than --soap-epochs")
         self.dense_start = self.n_steps - self.dense if self.dense else self.n_steps
         self.dense_n = getattr(args, "dense_n", 150)
+        self.skip_corner = bool(getattr(args, "ic_skip_corner", False))
         self.cfl = torch.tensor(np.asarray(cfl_1d), dtype=dtype, device=device)
         self.n_x, self.n_t, self.device, self.dtype = n_x, n_t, device, dtype
         self.set_points = set_points
@@ -252,7 +256,7 @@ class CollocationSchedule:
         """Uniform n x n mesh per CFL sample, ends included, same layout as the scripts' mesh."""
         g = torch.linspace(0.0, 1.0, n, dtype=self.dtype, device=self.device)
         gx, gt, gc = torch.meshgrid(g, g, self.cfl, indexing="ij")
-        gxi, gci = torch.meshgrid(g, self.cfl, indexing="ij")
+        gxi, gci = torch.meshgrid(g[1:] if self.skip_corner else g, self.cfl, indexing="ij")
         gtb, gcb = torch.meshgrid(g, self.cfl, indexing="ij")
         z = torch.zeros_like
         return (self._col(gx, True), self._col(gt, True), self._col(gc),
@@ -269,7 +273,8 @@ class CollocationSchedule:
             self.n_draws += 1
 
     def describe(self):
-        d = {"resample_every": self.resample, "random_draws": self.n_draws}
+        d = {"ic_corner": "removed" if self.skip_corner else "kept",
+             "resample_every": self.resample, "random_draws": self.n_draws}
         if self.dense:
             d.update(dense_final_steps=self.dense, dense_mesh=f"{self.dense_n} x {self.dense_n} x {self.cfl.numel()}",
                      dense_from_step=self.dense_start + 1)

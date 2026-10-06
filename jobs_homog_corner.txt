@@ -1,0 +1,13 @@
+# jobs_homog_corner.txt - does the initial/inlet conflict at the corner drive the PINN drift?
+#
+# Run on the remote:   git pull   then   .\run.bat jobs_homog_corner.txt
+# Then on the laptop:  git pull
+#
+# Identical to H13 (PINN) and H14 (PINO): 50 CFL samples, fixed uniform 50 x 50 mesh, SOAP (lr 3e-3, betas 0.95,
+# weight decay 0.01, preconditioner every 100 steps), float64, seed 1234567, 25,000 steps without early stopping,
+# held-out test error logged every 1,000 steps. One change: the point (x*=0, t*=0) is removed from the
+# initial-condition set (--ic-skip-corner). It stays in the PDE and inlet sets, so C* = 1 there and the initial
+# and inlet conditions no longer disagree. About 25 min per run on the RTX 3090.
+
+code/homogeneous_cfl/parametric_cfl_pinn/pinn1d_cfl_pe_parametric_pinn.py --run-name H19_pinn_n50_soap_long_nocorner --n-cfl 50 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-epochs 25000 --early-stop-patience 0 --ic-skip-corner --eval-every 1000 --seed 1234567 --plot-dpi 200
+code/homogeneous_cfl/pino_cfl/pinn1d_cfl_pe_parametric_neural_operator.py --run-name H20_pino_n50_soap_long_nocorner --n-cfl 50 --optimizer soap --soap-lr 3e-3 --soap-betas 0.95,0.95 --soap-weight-decay 0.01 --soap-precond-freq 100 --soap-epochs 25000 --early-stop-patience 0 --ic-skip-corner --eval-every 1000 --seed 1234567 --plot-dpi 200
